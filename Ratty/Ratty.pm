@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.10 2004-11-26 11:27:09 francis Exp $
+# $Id: Ratty.pm,v 1.11 2005-01-11 23:30:38 chris Exp $
 #
 
 package Ratty;
@@ -98,12 +98,12 @@ sub test ($$) {
         # No rule hits, carry on.
         $result = undef;
     }
-    ++$self->{numsincelastcommit};
-    if ($self->{numsincelastcommit} > 50 || $self->{lastcommit} < time() - 10) {
+#    ++$self->{numsincelastcommit};
+#    if ($self->{numsincelastcommit} > 50 || $self->{lastcommit} < time() - 10) {
         dbh()->commit();
-        $self->{numsincelastcommit} = 0;
-        $self->{lastcommit} = time();
-    }
+#        $self->{numsincelastcommit} = 0;
+#        $self->{lastcommit} = time();
+#    }
     # XXX should check for updates properly, with a trigger which updates a
     # counter whenever the conditions or rule tables are modified.
     if ($self->{lastrebuild} < time() - 60) {
