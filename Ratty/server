@@ -11,24 +11,26 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.7 2005-01-13 14:06:28 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.8 2005-01-31 20:11:46 chris Exp $';
 
-use FCGI;
-use Ratty;
-use RABX;
-
-use mySociety::Config;
+# Do this first of all, because Ratty.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../conf/general');
+}
 
 require 5.8.0;
 
-mySociety::Config::set_file('../conf/general');
+use FCGI;
+use RABX;
 
+use mySociety::Config;
 use mySociety::WatchUpdate;
-my $W = new mySociety::WatchUpdate();
+
+use Ratty;
 
 my $req = FCGI::Request();
-use Data::Dumper;
-
+my $W = new mySociety::WatchUpdate();
 my $R = new Ratty();
 
 while ($req->Accept() >= 0) {
@@ -57,6 +59,3 @@ while ($req->Accept() >= 0) {
         );
     last if ($W->changed());
 }
-
-Ratty::dbh()->commit();
-Ratty::dbh()->disconnect();

@@ -7,24 +7,28 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.6 2005-01-19 11:53:20 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.7 2005-01-31 20:14:45 chris Exp $';
 
 use strict;
 require 5.8.0;
 
+# Do this first of all, because MaPit.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../conf/general');
+}
+
 use FCGI;
-use mySociety::MaPit;   # client interface
-use mySociety::VotingArea;
-use MaPit;
 use RABX;
 
-use mySociety::Config;
-mySociety::Config::set_file('../conf/general');
-
+use mySociety::MaPit;   # client interface
+use mySociety::VotingArea;
 use mySociety::WatchUpdate;
-my $W = new mySociety::WatchUpdate();
+
+use MaPit;
 
 my $req = FCGI::Request();
+my $W = new mySociety::WatchUpdate();
 
 while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
@@ -52,7 +56,3 @@ while ($req->Accept() >= 0) {
         );
     $W->exit_if_changed();
 }
-
-
-
-

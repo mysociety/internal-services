@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.25 2005-01-24 10:55:10 chris Exp $
+# $Id: Ratty.pm,v 1.26 2005-01-31 20:11:46 chris Exp $
 #
 
 package Ratty::Error;
@@ -25,7 +25,15 @@ use Error qw(:try);
 use Net::Netmask;
 use Time::HiRes;
 
-use Data::Dumper;
+use mySociety::DBHandle qw(dbh);
+
+mySociety::DBHandle::configure(
+        Name => mySociety::Config::get('RATTY_DB_NAME'),
+        User => mySociety::Config::get('RATTY_DB_USER'),
+        Password => mySociety::Config::get('RATTY_DB_PASS'),
+        Host => mySociety::Config::get('RATTY_DB_HOST', undef),
+        Port => mySociety::Config::get('RATTY_DB_PORT', undef)
+    );
 
 =head1 NAME
 
@@ -51,18 +59,6 @@ Implementation of rate-limiting.
 =over 4
 
 =cut
-
-my $dbh;
-sub dbh () {
-    $dbh = undef if (defined($dbh) && defined($dbh->err()));
-    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('RATTY_DB_NAME'),
-                        mySociety::Config::get('RATTY_DB_USER'),
-                        mySociety::Config::get('RATTY_DB_PASS'),
-                        { RaiseError => 1, AutoCommit => 0 });
-
-#    DBI->trace(1);
-    return $dbh;
-}
 
 sub get_conditions ($) {
     my ($rule) = @_;
@@ -132,7 +128,7 @@ sub test ($$) {
     #   - efficient
     #   - concurrent
     #   - correct
-    $dbh->commit();
+    dbh()->commit();
 
     return $result;
 }
@@ -156,7 +152,7 @@ sub compile_rules () {
     my @code = (
         'sub ($$$$) {',
             'my ($scope, $V, $data, $seen_fields) = @_;',
-            'my $dbh = Ratty::dbh();',
+            'my $dbh = dbh();',
 
             # Update the available fields table if there are fields we
             # haven't seen before.
@@ -363,6 +359,13 @@ sub compile_rules () {
                 return &$subr($scope, $vals, $D, $S);
             }
         );
+}
+
+# DESTROY
+# Destructor (effectively). Commit any hanging database transactions.
+sub DESTROY ($) {
+    my ($self) = @_;
+    dbh()->commit();
 }
 
 =item admin_available_fields SCOPE

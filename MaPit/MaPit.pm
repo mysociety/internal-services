@@ -6,21 +6,30 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.11 2005-01-19 17:02:00 francis Exp $
+# $Id: MaPit.pm,v 1.12 2005-01-31 20:14:45 chris Exp $
 #
 
 package MaPit;
 
 use strict;
 
-use mySociety::MaPit;
-use mySociety::Util;
-use mySociety::VotingArea;
-use mySociety::Config;
-
 use DBI;
 use DBD::Pg;
 use Data::Dumper;
+
+use mySociety::Config;
+use mySociety::DBHandle qw(dbh);
+use mySociety::MaPit;
+use mySociety::Util;
+use mySociety::VotingArea;
+
+mySociety::DBHandle::configure(
+        Name => mySociety::Config::get('MAPIT_DB_NAME'),
+        User => mySociety::Config::get('MAPIT_DB_USER'),
+        Password => mySociety::Config::get('MAPIT_DB_PASS'),
+        Host => mySociety::Config::get('MAPIT_DB_HOST', undef),
+        Port => mySociety::Config::get('MAPIT_DB_PORT', undef)
+    );
 
 =head1 NAME
 
@@ -35,14 +44,6 @@ Implementation of MaPit
 =over 4
 
 =cut
-sub dbh () {
-    our $dbh;
-    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('MAPIT_DB_NAME'),
-                        mySociety::Config::get('MAPIT_DB_USER'),
-                        mySociety::Config::get('MAPIT_DB_PASS'),
-                        { RaiseError => 1, AutoCommit => 0 });
-    return $dbh;
-}
 
 # Special cases to represent parliaments, assemblies themselves.
 use constant DUMMY_ID => 1000000;
