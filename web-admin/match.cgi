@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.13 2005-02-02 11:04:42 francis Exp $
+# $Id: match.cgi,v 1.14 2005-02-02 16:04:13 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.13 2005-02-02 11:04:42 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.14 2005-02-02 16:04:13 francis Exp $';
 
 use strict;
 
@@ -49,7 +49,7 @@ sub html_head($$) {
 input { font-size: 9pt; margin: 0px; padding: 0px  }
 table { margin: 0px; padding: 0px }
 tr { margin: 0px; padding: 0px }
-td { margin: 0px; padding: 0px }
+td { margin: 0px; padding: 0px; padding-right: 2pt; }
 //--></style>
 </head>
 <body>
@@ -124,11 +124,18 @@ sub do_summary ($) {
         $area_id_data->{$a->[0]}->{name} cmp $area_id_data->{$b->[0]}->{name} 
         } 
         @$status_data;
+    my $status_data_subset;
+    do {
+        my $status = $_;
+        my @subset = grep { $_->[1] eq $status} @$status_data;
+        $status_data_subset->{$status} = \@subset;
+    } for @$status_titles_order;
 
     # Headings linking in
-    print join($q->br(), map { 
-            $q->a( { href => "#$_" }, $status_titles->{$_} ) }
-            grep { my $status = $_; grep { $_->[1] eq $status} @$status_data; } 
+    print $q->table(map { $q->Tr({}, $q->td([
+            scalar(@{$status_data_subset->{$_}}),
+            $q->a( { href => "#$_" }, $status_titles->{$_} ) ])) }
+            grep { @{$status_data_subset->{$_}} } 
             @$status_titles_order);
 
     # Table of editors
@@ -141,7 +148,7 @@ sub do_summary ($) {
     # For each status type...
     foreach my $status (@$status_titles_order)  {
         # ... find everything of that type
-        my @subset = grep { $_->[1] eq $status} @$status_data;
+        my @subset = @{$status_data_subset->{$status}};
         next if scalar(@subset) == 0;
         # ... draw a heading
         print $q->h2(
