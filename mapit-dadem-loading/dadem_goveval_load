@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.3 2004-12-07 23:51:26 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.4 2004-12-08 08:50:50 francis Exp $';
 
 use strict;
 
@@ -28,6 +28,7 @@ use DBD::SQLite;
 use Text::CSV_XS;
 use Data::Dumper;
 use Common;
+use mySociety::Parties;
 #DBI->trace(1);
 
 my $kind = shift(@ARGV);
@@ -114,6 +115,9 @@ while (my $line = <STDIN>) {
     die "unmatched GovEval name '$finalcons', not in database" unless (exists($name_to_id{$finalcons}));
     my $area_id = $name_to_id{$finalcons};
     my $area_type = $name_to_type{$finalcons};
+
+    $finalparty = $mySociety::Parties::canonical{$finalparty};
+    die "party not known for '$line'" if (!defined($finalparty));
 
 #    print "insert into representative (area_id, area_type, name,
 #        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)",
