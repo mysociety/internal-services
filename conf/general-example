@@ -1,0 +1,24 @@
+<?php
+/*
+ * config-example
+ *
+ * Configuration parameters, in PHP syntax. File is also read in by
+ * a Perl script, so keep things simple -- in particular, at the moment,
+ * mySociety::Config only understands define('...', '...').  So no
+ * commenting out variables, or putting them in if statements.
+ *
+ * Copy this file to one called config in the same directory.  Or
+ * have multiple config files and use a symlink to change between them.
+ * 
+ * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+ * Email: francis@mysociety.org; WWW: http://www.mysociety.org
+ *
+ * $Id: general-example,v 1.1 2004-11-10 12:37:19 francis Exp $
+ * 
+ */
+
+// Databases of actual data for DaDem and MaPit
+define('OPTION_DADEM_SQLITE_DB', '/home/francis/toobig/geodata-mysociety/dadem.sqlite');
+define('OPTION_MAPIT_SQLITE_DB', '/home/francis/toobig/geodata-mysociety/mapit.sqlite');
+
+?>
