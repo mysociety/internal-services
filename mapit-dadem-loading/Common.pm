@@ -6,12 +6,14 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.3 2004-12-01 02:11:57 francis Exp $
+# $Id: Common.pm,v 1.4 2004-12-01 17:15:09 francis Exp $
 #
 
 package Common;
 
 use strict;
+
+use String::Ediff;
 
 @Common::ISA = qw(Exporter);
 @Common::EXPORT = qw(
@@ -21,6 +23,8 @@ use strict;
         &get_area_id
         &get_postcode_id
         &trim_spaces
+        &move_compass_to_start
+        &placename_match_metric
     );
 
 # current_generation DBH
@@ -105,6 +109,73 @@ sub trim_spaces ($) {
     $_[0] =~ s/\s+$//;
     $_[0] =~ s/^\s+//;
     return $_[0];
+}
+
+# move_compass_to_start STRING
+# Move compass directions (North, South, East, West) to start of string
+# and to have that order.  Requires a lowercase string, and ignores
+# spaces.
+sub move_compass_to_start {
+    my ($match) = @_;
+
+    # Move compass points to start
+    my $compass = "";
+    foreach my $dir ("north", "south", "east", "west") {
+        while ($match =~ m/($dir)/) {
+            $match =~ s/^(.*)($dir)(.*)$/$1$3/;
+            $compass .= "$dir";
+        }
+    }
+    return $compass . $match;
+}
+
+# Generate metric as to number of common characters between two strings
+# 
+sub placename_match_metric {
+    my ($match1, $match2) = @_;
+
+    # First remove non-alphabetic chars
+    $match1 =~ s/[^[:alpha:]]//g;
+    $match2 =~ s/[^[:alpha:]]//g;
+    # Lower case only
+    $match1 = lc($match1);
+    $match2 = lc($match2);
+
+    # Move compass points to start
+    $match1 = move_compass_to_start($match1);
+    $match2 = move_compass_to_start($match2);
+
+    # Then find common substrings
+    my $ixes = String::Ediff::ediff($match1, $match2);
+    #print " ediff " . $g->{name} . ", " . $d->{name} . "\n";
+    #print "  matching $match1, $match2\n";
+    my $common_len = 0;
+    if ($ixes ne "") {
+        my @ix = split(" ", $ixes);
+        # Add up length of each common substring
+        for (my $i = 0; $i < scalar(@ix); $i+=8) {
+            my $common = $ix[$i + 1] - $ix[$i];
+            my $common2 = $ix[$i + 5] - $ix[$i + 4];
+            die if $common != $common2;
+
+            die if $ix[$i + 2] != 0;
+            die if $ix[$i + 3] != 0;
+
+            die if $ix[$i + 6] != 0;
+            die if $ix[$i + 7] != 0;
+
+            $common_len += $common;
+        }
+    }
+    # e.g. "Kew" matching "Kew Ward" was too short for ediff
+    # to catch, but exact substring matching will find it
+    if ($common_len == 0 and index($match1, $match2) >= 0) {
+        $common_len = length($match2);
+    }
+    if ($common_len == 0 and index($match2, $match1) >= 0) {
+        $common_len = length($match1);
+    }
+    return $common_len;
 }
 
 1;
