@@ -8,4 +8,4 @@ create table representative (
     email text,
     fax text
 );
-
+create index representative_area_id_idx on representative(area_id);
