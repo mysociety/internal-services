@@ -1,0 +1,139 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# test.pl
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+use strict;
+use LWP::Simple;
+use Data::Dumper;
+
+use mySociety::CouncilMatch;
+use Common;
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+
+my $samplecouncils = [
+
+# WCCWCCC
+{id=>2287, url=>"http://www.teignbridge.gov.uk/councillors/index.htm"},
+
+# CWCWCW
+# Surname first
+#{id=>2243, url=>"http://www.warwickshire.gov.uk/corporate%5Ccommitte.nsf/WCalphaWCC?OpenView&expandview&Count=150"},
+
+# CWCWCW
+# Surname first
+#{id=>2504, url=>"http://www.westminster.gov.uk/councilgovernmentanddemocracy/councils/contactsconsultationandfeedback/councillors/"},
+
+# WCCWCCC 
+# Middle initials
+#{id=>2626, url=>"http://www.broadland.gov.uk/broadland/members.nsf/CouncillorsByWard?openform&Start=1&Count=1000&ExpandView"},
+
+# CWCWCW 
+# Capital surnames
+#{id=>2430, url=>"http://www.southsomerset.gov.uk/portal/page?_pageid=69,84872&_dad=cms&_schema=CMS&3410_COUNCILLORS_89102133.l_model=District%20Councillor"},
+
+# WCCWCCC 
+# Initials
+#{id=>2432, url=>"http://www.staffsmoorlands.gov.uk/whoswho/councillors/councillorsbyward/councillorsbywardlist.htm"},
+
+# CWCWCW
+# Initials
+#{d=>2246, url=>"http://www.worcestershire.gov.uk/home/cs-mas-dsu/cs-mas-councillors/cs-mas-your-councillors.htm"}
+
+# Need subpages
+# WCCWCCC
+#2305 http://www.rother.gov.uk/index.cfm?articleid=187
+];
+
+sub trim($) {
+    s/^\s+//;
+    s/\s+$//;
+    return $_;
+}
+
+sub canonicalise_ward_name ($) {
+    return mySociety::CouncilMatch::canonicalise_council_name($_[0]);
+}
+
+sub check_councillors($) {
+    my ($spec) = @_;
+    print "Council " . $spec->{id} . "\n";
+
+    # Get known data from database
+    my @raw = mySociety::CouncilMatch::get_raw_data($spec->{id}, $d_dbh);
+    my $wardnames = $m_dbh->selectall_hashref(
+            q#select * from area_name, area where area_name.area_id = area.id and
+            parent_area_id = ?#, 'name', {}, $spec->{id});
+    # .. canonicalise names
+    my $wardnamescanon;
+    do { $wardnamescanon->{canonicalise_ward_name($_)} = $wardnames->{$_} } for keys %$wardnames;
+    # Which wards have found matches
+    my $warddone;
+    do { $warddone->{$wardnames->{$_}->{id}} = 0 } for keys %$wardnames;
+    my $wardsbyid;
+    do { $wardsbyid->{$wardnames->{$_}->{id}} = $wardnames->{$_}->{name} } for keys %$wardnames;
+
+    # Get all HTML from councillor list web page, and tidy
+    my $content = get($spec->{url});
+    $content =~ s/\s+/ /gs;
+    $content =~ s/&amp;/&/g;
+
+    # Break it up into parts all within one tag
+    my @lumps = split /<[^>]+>/, $content;
+    @lumps = map { trim($_) } @lumps;
+
+    # Scan for stuff
+    my $lastwardid = -1;
+    foreach my $lump (@lumps) {
+
+        foreach my $rep (@raw) {
+            if ($rep->{rep_name} eq $lump) {
+                $rep->{done} = 1;
+                # check ward right
+                if ($wardnames->{$rep->{ward_name}}->{id} != $lastwardid) {
+                    print STDERR "cllr in wrong ward, ge " . $rep->{ward_name} . " website " . $wardsbyid->{$lastwardid};
+                }
+            }
+        }
+
+        my $canonlump = canonicalise_ward_name($lump);
+        if (exists($wardnamescanon->{$canonlump})) {
+            $lastwardid = $wardnamescanon->{$canonlump}->{id};
+            $warddone->{$lastwardid} = 1;
+            # print "ward $lump $lastwardid\n";
+        }
+
+#        foreach my $wardname (@wards) {
+#            if ($rep->{rep_name} eq $lump) {
+#                print "lump $lump cllr " . $rep->{rep_name} . "\n";
+#            }
+#        }
+
+
+    }
+    
+    # Check all got
+    foreach my $ward (keys %$warddone) {
+        if (!$warddone->{$ward}) {
+            print STDERR "ward not matched " . $wardsbyid->{$ward} . " $ward\n";
+        }
+    }
+    foreach my $rep (@raw) {
+        if (!$rep->{done}) {
+            print STDERR "cllr not matched " . $rep->{rep_name} . "\n";
+        }
+    }
+}
+
+foreach my $spec (@$samplecouncils) {
+    check_councillors($spec);
+}
+
+$m_dbh->disconnect();
+$d_dbh->disconnect();
+

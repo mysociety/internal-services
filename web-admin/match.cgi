@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.2 2005-01-25 17:15:06 francis Exp $
+# $Id: match.cgi,v 1.3 2005-01-26 19:48:52 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.2 2005-01-25 17:15:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.3 2005-01-26 19:48:52 francis Exp $';
 
 use strict;
 
@@ -58,15 +58,16 @@ sub html_tail($) {
 END
 }
 
-# build_url CGI BASE HASH
+# build_url CGI BASE HASH AMPERSAND
 # Makes an escaped URL, whose main part is BASE, and
 # whose parameters are the key value pairs in the hash.
-sub build_url($$$) {
-    my ($q, $base, $hash) = @_;
+# AMPERSAND is optional, set to 1 to use & rather than ;.
+sub build_url($$$;$) {
+    my ($q, $base, $hash, $ampersand) = @_;
     my $url = $base;
     my $first = 1;
     foreach my $k (keys %$hash) {
-        $url .= $first ? '?' : ';';
+        $url .= $first ? '?' : ($ampersand ? '&' : ';');
         $url .= $q->escape($k);
         $url .= "=";
         $url .= $q->escape($hash->{$k});
@@ -136,15 +137,23 @@ sub do_summary ($) {
 sub do_council_info ($) {
     my ($q) = @_;
 
-    my $name = $name_data->{'name'} .  " " . 
+    my $name = $name_data->{'name'} .  " " .
         $mySociety::VotingArea::type_name{$area_data->{'type'}};
 
     print html_head($q, $name . " - Status");
-    print $q->h1($name . " &mdash; Status");
+    print $q->h1($name . " " . $area_id . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
-    print $q->p($q->a({href=> build_url($q, $q->url('relative'=>1), 
-                {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
-            "Edit raw input data"));
+
+    my $iflquery = $name . " councillors ward";
+    print $q->p(
+        $q->a({href => build_url($q, $q->url('relative'=>1), 
+              {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
+              "Edit raw input data"),
+        " | ",
+        $q->a({href => build_url($q, "http://www.google.com/search", 
+                {'q' => $iflquery,'NOTbtnI' => "I'm Feeling Lucky"}, 1)},
+              "IFL $iflquery")
+    );
 
     print $q->h2("Match Details");
     print $q->pre(encode_entities($status_data->{'details'}));
