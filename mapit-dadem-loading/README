@@ -1,0 +1,44 @@
+$Id: README,v 1.1 2005-01-21 19:28:03 francis Exp $
+
+NAMETYPES - Types of voting area names in MaPit.
+dadem-schema.sql, mapit-schema.sql - Database schemas.
+
+Postcode / Boundary Loading
+---------------------------
+
+process_boundary_line - Create postcode to voting area mappings for GB.
+process_codepoint_ni - Create postcode to voting area mappings for NI.
+
+Voting Area Name Matching
+-------------------------
+
+load_goveval_names - Add 'G' name aliases to MaPit.
+load_goveval_ward_names - Tries to match GovEval ward names, not functional yet.
+load_ons_names - Adds 'S' name alises to MaPit.
+load_friendly_names - Deletes all 'F' type names and remakes them from 'O' ones.
+
+Representative Info Loading
+---------------------------
+
+dadem_goveval_load - Load reps into DaDem from CSV file from GovEval.
+dadem_mysociety_load - Quick hack, just loads WSCC at the moment.
+
+Throwaway Scripts
+-----------------
+
+writetothemfympconv.py - Matches FaxYourMP names to DaDem constituencies.
+councils-without-contacts - Scans GovEval data and reports missing info.
+dumppoly - Dump coordinates of first part of a shape file
+
+Shared Code
+-----------
+
+Common.pm - some shared functions
+
+Probably Not Needed?
+--------------------
+
+ni-electoral-areas.csv
+create_new_generation
+
+

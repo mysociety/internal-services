@@ -1,0 +1,153 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# load_raw_wards
+# Load in raw GovEval data, match Council names names to Ordnance Survey ones
+# in the MaPit database, and use appropriate IDs.  Loads the canonical names of
+# councils into MaPit.
+#
+# Parameters:  Pipe the councillors.csv file from GovEval into standard
+# input.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.1 2005-01-21 19:28:03 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+use Text::CSV;
+use Data::Dumper;
+use mySociety::CouncilMatch;
+
+use Common;
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+
+# Delete existing GovEval name data for councils of 'C' type
+$m_dbh->do(
+        q#delete from area_name where area_id in (select area_id from area where
+            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)) 
+            and name_type = ?;#, {}, 'C'
+);
+
+# %parent_to_id
+# Hash of council canonical name to council ID from existing MaPit data.
+my %parent_to_id;
+
+# Cache of area_id->type etc.
+my $area_id_data = $m_dbh->selectall_hashref(
+        q#select * from area
+            where 
+            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
+        'id');
+
+# Cache of name-->id map of all the parent area types (District Council,
+# Unitary Authority etc....)
+my $s = $m_dbh->prepare(
+        q#select distinct on (area_id) area_id, name from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#
+    );
+$s->execute();
+
+while (my ($area_id, $name) = $s->fetchrow_array()) {
+    # Create canonical version of name and also hash it as lookup
+    $_ = mySociety::CouncilMatch::canonicalise_council_name($name);
+    if (exists($parent_to_id{$_})) {
+        die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n";
+    }
+    $parent_to_id{$_} = $area_id;
+
+    # Store in database as 'C' record
+    $m_dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)", {}, $area_id, 'C', $_);
+}
+ 
+# Load the GovEval data.
+my $C = new Text::CSV;
+<STDIN>;    # header line
+
+# $councils
+# Reference to hash of council ID to reference to hash of information about the
+# council, including:
+#   canonname       its canonical name
+#   govevalname     its GovEval name
+my $councils;
+
+while (my $line = <STDIN>) {
+    chomp($line);
+    $C->parse($line);
+    my @line = map { trim_spaces($_) } $C->fields();
+    my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
+
+    die "council not defined for line '$line'\n" unless (defined($council));
+
+    # Special case for areas with elected mayors.
+    next if $vdiv eq "Elected Mayor";
+    
+    $_ = mySociety::CouncilMatch::canonicalise_council_name($council);
+
+    die "no council in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
+
+    my $id = $parent_to_id{$_};
+    
+    $councils->{$id}->{canonname} = $_;
+    $councils->{$id}->{govevalname} = $council;
+    push @{$councils->{$id}->{lines}}, \@line;
+}
+
+# Print out councils in $parent_to_id for which nobody has been added to $councils
+my @ck = keys %$councils;
+my @pk = keys %parent_to_id;
+if ($#ck != $#pk) {
+    print STDERR "Council count mismatch:\n";
+    print STDERR "There are " . scalar(@ck) . " councils in GovEval data\n";
+    print STDERR "There are " . scalar(@pk) . " councils in database\n";
+
+    my %p = %parent_to_id;
+    foreach (keys %$councils) {
+        delete($p{$councils->{$_}->{canonname}});
+    }
+
+    print STDERR "Database councils not matched:\n", join("\n", sort keys %p), "\n";
+}
+foreach my $parent (@pk) {
+    my $id = $parent_to_id{$parent};
+    die "\$parent_to_id{'$parent'} not present" unless (defined($id));
+    if (!exists($councils->{$id})) {
+        print STDERR "Missing $parent id $id from GovEval data\n"; 
+    }
+}
+
+# Load data into raw table in DaDem
+foreach my $id (keys %$councils) {
+    print $councils->{$id}->{canonname} . " " . $area_id_data->{$id}->{type} . "\n";
+
+    # Vague but doomed attempt to delete existing data (doesn't behave as we
+    # would want when ids and names and types change, because we don't yet
+    # know what we want)
+    $d_dbh->do(q#delete from raw_input_data where
+            council_id = ? and council_name = ? and council_type = ?#, {}, 
+            $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type});
+
+    # Load in each line of data
+    my $lines = $councils->{$id}->{lines};
+    foreach my $line (@$lines) {
+        my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
+        $d_dbh->do(q#insert into raw_input_data
+                (ge_id, council_id, council_name, council_type, ward_name, 
+                    rep_name, rep_party, rep_email, rep_fax)
+                values (?, ?, ?, ?, ?, ?, ?, ?,?)#, {}, 
+                $geid, $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type}, $vdiv, 
+                "$first $last", $party, $email, $fax);
+    }
+}
+
+$m_dbh->commit();
+$d_dbh->commit();
+$m_dbh->disconnect();
+$d_dbh->disconnect();
+

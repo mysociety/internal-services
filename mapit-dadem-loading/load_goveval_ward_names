@@ -1,17 +1,12 @@
 #!/usr/bin/perl -w -I../../perllib
 #
-# load_goveval_names
-# Load in GovEval data, match names to Ordnance Survey once in the MaPit
-# database, and add in the GovEval names as alternates.
-#
-# Parameters:  Pipe the councillors.csv file from GovEval into standard
-# input.  Optionally give an area id to process just that council ID.
+# load_goveval_ward_names
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.7 2005-01-21 13:05:45 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.8 2005-01-21 19:28:03 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -30,38 +25,38 @@ my $d_dbh = connect_to_dadem_database();
 
 my $verbosity = 0;
 
+# Cache of area_id->type etc.
+my $area_id_data = $m_dbh->selectall_hashref(
+        q#select area_name.name, area.id from area, area_name
+            where area_name.area_id = area.id and
+            area_name.name_type = 'F' and
+            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
+        'id');
+
 if (defined $runoneid) {
     # Process just one council
-    print "Processing one council $runoneid\n";
+    print "Processing one council " . $area_id_data->{$runoneid}->{name} . " $runoneid\n";
     my $result = mySociety::CouncilMatch::match_council_wards($runoneid, $verbosity, $m_dbh, $d_dbh);
-    if ($result == 1) {
-        print "Success\n";
-    } else {
+    if ($result->{error}) {
         print "Failed\n";
         print $result->{matchesdump};
         print $result->{errors};
+    } else {
+        print "Success\n";
     }
 } else {
-    # Cache of area_id->type etc.
-    my $area_id_data = $m_dbh->selectall_hashref(
-            q#select area_name.name, area.id from area, area_name
-                where area_name.area_id = area.id and
-                area_name.name_type = 'F' and
-                (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
-            'id');
-
     # For each "council" (or similar), get list of "wards" (or similar) and match it up
     # with what is in the database already.
     my $success = 0;
     my $count = 0;
     foreach my $id (keys %$area_id_data) {
         printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id;
-        my $ret = mySociety::CouncilMatch::match_council_wards($id, $verbosity, $m_dbh, $d_dbh);
-        if ($ret == 1) {
+        my $result = mySociety::CouncilMatch::match_council_wards($id, $verbosity, $m_dbh, $d_dbh);
+        if ($result->{error}) {
+            print " FAIL\n";
+        } else {
             $success++;
             print " ok\n";
-        } else {
-            print " FAIL\n";
         }
 
         $count++;
