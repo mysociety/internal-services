@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.17 2004-12-20 22:46:07 francis Exp $
+# $Id: DaDem.pm,v 1.18 2004-12-21 00:11:24 francis Exp $
 #
 
 package DaDem;
@@ -204,7 +204,6 @@ party, email or fax contain the string (case insensitive).
 sub search_representatives ($) {
     my ($query) = @_;
     $query = "%" . lc($query) . "%";
-    warn $query;
 
     # Real data
     my $y = dbh()->selectall_arrayref('select id from representative where 
