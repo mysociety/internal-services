@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.10 2005-01-12 17:38:25 chris Exp $
+-- $Id: schema.sql,v 1.11 2005-01-12 20:00:40 chris Exp $
 --
 
 create table rule (
@@ -41,6 +41,8 @@ create table condition (
         or condition = '>'  -- numerically greater than (apply rule only when
                             -- field is numeric and field > value)
         or condition = '<'  -- numerically less than
+        -- XXX we should also have 'T' for 'loose text match' and 'P' for
+        -- 'field is present'
     ),
     -- should the sense of the check be inverted?
     invert boolean not null default ('f')
