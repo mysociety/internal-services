@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.26 2005-01-31 20:11:46 chris Exp $
+# $Id: Ratty.pm,v 1.27 2005-02-11 17:16:26 chris Exp $
 #
 
 package Ratty::Error;
@@ -279,7 +279,13 @@ sub compile_rules () {
         }
 
         # Construct statement to retrieve number of hits from database.
-        my $expr = '$num = Ratty::dbh()->selectrow_array(q#select count(hit) from rule_hit where rule_id = ? and hit >= ?';
+        my $expr;
+        if (@dconds) {
+            $expr = '$num = Ratty::dbh()->selectrow_array(q#select count(distinct dhash)'
+        } else {
+            $expr = '$num = Ratty::dbh()->selectrow_array(q#select count(hit)';
+        }
+        $expr .= ' from rule_hit where rule_id = ? and hit >= ?';
         $expr .= ' and shash = ?' if (@sconds);
         $expr .= ' and dhash <> ?' if (@dconds);
         $expr .= sprintf('#, {}, %d, time() - $interval', $ruleid);
