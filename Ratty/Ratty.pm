@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.24 2005-01-17 20:37:17 chris Exp $
+# $Id: Ratty.pm,v 1.25 2005-01-24 10:55:10 chris Exp $
 #
 
 package Ratty::Error;
@@ -232,10 +232,9 @@ sub compile_rules () {
             } elsif ($condition eq 'T') {
                 # Loose text match. Do this like in FYR::SubstringHash -- see
                 # canonicalise() above -- and then use a regex match.
-                my $re = eval(sprintf(q#qr'\Q%s\E'i#, canonicalise($value)));
-                push(@data, $re);
+                push(@data, $value);
                 my $vi = $#data;
-                push(@code, sprintf('        Ratty::canonicalise($V->{$data->[%d]}->[0]) %s $data->[%d]', $fi, $invert ? '!~' : '=~', $vi));
+                push(@code, sprintf('        index($V->{$data->[%d]}->[0], $data->[%d]) %s -1', $fi, $vi, $invert ? '==' : '!='));
             } elsif ($condition eq 'I') {
                 # Matches IP net/mask.
                 my $ipnet = new2 Net::Netmask($value);
