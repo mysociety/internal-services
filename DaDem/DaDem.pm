@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.33 2005-02-15 11:12:16 francis Exp $
+# $Id: DaDem.pm,v 1.34 2005-02-15 15:26:05 francis Exp $
 #
 
 package DaDem;
@@ -222,18 +222,26 @@ sub get_representatives ($) {
     }
 
     # Real data
-    my $y = dbh()->selectall_arrayref('select id from representative where area_id = ?', {}, $id);
+    my $y = dbh()->selectall_arrayref(q#
+            select id,
+                coalesce(representative_edited.deleted, false) as deleted
+            from representative left join representative_edited on representative.id = representative_edited.representative_id
+            where (order_id is null or order_id = (select max(order_id) from representative_edited where representative_id = representative.id)) and area_id = ?
+        #, {}, $id);
+
     if (!$y) {
         throw RABX::Error("Area $id not found", mySociety::DaDem::UNKNOWN_AREA);
     } else {
-        return [ map { $_->[0] } @$y ];
+        return [ map { $_->[0] } grep { !($_->[1]) } @$y ];
     }
 }
 
 =item search_representatives QUERY
 
-Given search string, returns list of the representatives whose names,
-party, email or fax contain the string (case insensitive).
+Given search string, returns list of the representatives whose names, party,
+email or fax contain the string (case insensitive).  Returns the id even if the
+string only appeared in the history of edited representatives, or in deleted
+representatives.
 
 =cut
 sub search_representatives ($) {
@@ -260,7 +268,13 @@ sub search_representatives ($) {
         throw RABX::Error("Area containing '$query' not found", mySociety::DaDem::UNKNOWN_AREA);
     } 
 
-    return [ map { $_->[0] } (@$y, @$z) ];
+    # Merge into one list
+    my $ids;
+    map { $ids->{$_->[0]} = 1 } @$y;
+    map { $ids->{$_->[0]} = 1 } @$z;
+    my @ids = keys %$ids;
+
+    return \@ids;
 }
 
 =item get_user_corrections
@@ -297,14 +311,17 @@ sub get_bad_contacts () {
             select id,
                 coalesce(representative_edited.email, representative.email) as email,
                 coalesce(representative_edited.fax, representative.fax) as fax,
-                coalesce(representative_edited.method, representative.method) as method
+                coalesce(representative_edited.method, representative.method) as method,
+                coalesce(representative_edited.deleted, false) as deleted
             from representative left join representative_edited on representative.id = representative_edited.representative_id
             where order_id is null or order_id = (select max(order_id) from representative_edited where representative_id = representative.id);
         #);
 
     $s->execute();
     my @bad;
-    while (my ($id, $email, $fax, $method) = $s->fetchrow_array()) {
+    while (my ($id, $email, $fax, $method, $deleted) = $s->fetchrow_array()) {
+        next if $deleted eq 't';
+    
         my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
         my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
 
@@ -365,17 +382,18 @@ sub get_representative_info ($) {
     }
 
     # Real data case
-    if (my ($area_id, $area_type, $name, $party, $method, $email, $fax) = dbh()->selectrow_array('select area_id, area_type, name, party, method, email, fax from representative where id = ?', {}, $id)) {
+    if (my ($area_id, $area_type, $name, $party, $method, $email, $fax, $deleted) = dbh()->selectrow_array('select area_id, area_type, name, party, method, email, fax, false from representative where id = ?', {}, $id)) {
         my $edited = 0;
 
         # Override with any edits
         if (my ($edited_name, $edited_party, $edited_method,
-        $edited_email, $edited_fax) = dbh()->selectrow_array('select name, party, method, email, fax from representative_edited where representative_id = ? order by order_id desc limit 1', {}, $id)) {
+        $edited_email, $edited_fax, $edited_deleted) = dbh()->selectrow_array('select name, party, method, email, fax, deleted from representative_edited where representative_id = ? order by order_id desc limit 1', {}, $id)) {
             $name = $edited_name if (defined $edited_name);
             $party = $edited_party if (defined $edited_party);
             $method = $edited_method if (defined $edited_method);
             $email = $edited_email if (defined $edited_email);
             $fax = $edited_fax if (defined $edited_fax);
+            $deleted = $edited_deleted if (defined $edited_deleted);
             $edited = 1;
         }
 
@@ -388,6 +406,7 @@ sub get_representative_info ($) {
                 email => $email,
                 fax => $fax,
                 edited => $edited,
+                deleted => $deleted,
             };
     } else {
         throw RABX::Error("Representative $id not found", mySociety::DaDem::REP_NOT_FOUND);
@@ -491,6 +510,7 @@ sub get_representative_history ($) {
         $hash_ref->{'note'} = "Original data";
         $hash_ref->{'editor'} = 'import';
         $hash_ref->{'whenedited'} = 0;
+        $hash_ref->{'deleted'} = 0;
         push @ret, $hash_ref;
     }
 
@@ -501,13 +521,27 @@ sub get_representative_history ($) {
 
 Alters data for a representative, updating the override table
 representative_edited. DETAILS is a hash from name, party, method, email and
-fax to their new values. Not every value has to be present. EDITOR is the name
-of the person who edited the data. NOTE is any explanation of why / where from.
+fax to their new values, or not defined to delete the representative. Not every
+value has to be present.  Any modification counts as an undeletion.  EDITOR is
+the name of the person who edited the data.  NOTE is any explanation of why /
+where from.
 
 =cut
 sub admin_edit_representative ($$$$) {
     my ($id, $newdata, $editor, $note) = @_;
 
+    # Deletion
+    if (!defined($newdata)) {
+        dbh()->do('insert into representative_edited 
+            (representative_id, name, party, method, email, fax, deleted, editor, whenedited, note)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', {}, 
+            $id, undef, undef, undef,
+            undef, undef, 't', $editor, time(), $note);
+        dbh()->commit();
+        return; 
+    }
+
+    # Modification
     if (my ($name, $party, $method, $email, $fax, $area_type) = dbh()->selectrow_array('select name, party, method, email, fax, area_type from representative where id = ?', {}, $id)) {
         # Check they are not editing council types (those are handled by raw_input_edited)
         if (grep { $_ eq $area_type} @{$mySociety::VotingArea::council_child_types} ) {
@@ -530,11 +564,11 @@ sub admin_edit_representative ($$$$) {
         # Insert new data
         dbh()->do('insert into representative_edited 
             (representative_id, 
-            name, party, method, email, fax, 
+            name, party, method, email, fax, deleted,
             editor, whenedited, note)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)', {}, 
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', {}, 
             $id, $newdata->{'name'}, $newdata->{'party'}, $newdata->{'method'},
-            $newdata->{'email'}, $newdata->{'fax'}, $editor, time(), $note);
+            $newdata->{'email'}, $newdata->{'fax'}, 'f', $editor, time(), $note);
         dbh()->commit();
     } else {
         throw RABX::Error("Representative $id not found, so can't be edited", mySociety::DaDem::REP_NOT_FOUND);

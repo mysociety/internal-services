@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.27 2005-02-15 11:12:20 francis Exp $
+-- $Id: dadem-schema.sql,v 1.28 2005-02-15 15:26:08 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -34,6 +34,9 @@ create unique index representative_import_key_idx on representative(import_key);
 create table representative_edited (
     order_id serial not null primary key,
     representative_id integer references representative(id),
+
+    -- if representative is no longer in office
+    deleted boolean default(false),
 
     name text,
     party text,
