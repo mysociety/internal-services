@@ -4,14 +4,15 @@
 # Load in GovEval data, match names to Ordnance Survey once in the MaPit
 # database, and add in the GovEval names as alternates.
 #
-# Parameters:  Pipe the councillors.csv file from GovEval into standard
-# input.
+# Parameters:  Give the name of the Postgres database as the first
+# parameter.  Pipe the councillors.csv file from GovEval into standard
+# input.  Optionally give an area id to process just that council ID.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.5 2004-12-03 03:38:22 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.6 2004-12-03 05:43:58 francis Exp $';
 
 use strict;
 
@@ -21,7 +22,10 @@ use Text::CSV;
 use Data::Dumper;
 use Common;
 
-my $dbname = "mapit";
+die "argument is Postgres database name" unless (@ARGV > 0);
+my $dbname = shift(@ARGV);
+my $runoneid = shift(@ARGV);
+
 my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
 my $generation = $dbh->selectrow_array('select id from new_generation');
 die "no new generation available" if (!defined($generation));
@@ -31,6 +35,10 @@ my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];
 
 my $verbosity = 0;
 
+# Convert the name of a council into a "canonical" version of the name.
+# That is, one with all the parts which often vary between spellings
+# reduced to the simplest form.  e.g. Removing the word "Council" and
+# punctuation.
 sub canonicalise_council_name {
     $_ = shift;
 
@@ -126,6 +134,7 @@ while (my $line = <STDIN>) {
     }
 }
 
+# Print out councils in $parent_to_id for which nobody has been added to $councils
 my @ck = keys %$councils;
 my @pk = keys %parent_to_id;
 if ($#ck != $#pk) {
@@ -133,8 +142,6 @@ if ($#ck != $#pk) {
     print STDERR "There are " . scalar(@ck) . " councils in GovEval data\n";
     print STDERR "There are " . scalar(@pk) . " councils in database\n";
 }
-
-# Print out councils in $parent_to_id for which nobody has been added to $councils
 foreach my $parent (@pk) {
     my $id = $parent_to_id{$parent};
     if (!exists($councils->{$id})) {
@@ -142,16 +149,30 @@ foreach my $parent (@pk) {
     }
 }
 
+# Special debugging case
+if (defined $runoneid) {
+    my $council = $councils->{$runoneid}->{govevalname};
+    match_council_wards($council, $runoneid);
+    exit;
+}
+
 # For each "council" (or similar), get list of "wards" (or similar) and match it up
 # with what is in the database already.
+my $success = 0;
+my $count = 0;
 foreach my $id (keys %$councils) {
     my $council = $councils->{$id}->{govevalname};
-    match_council_wards($council, $id);
+    my $ret = match_council_wards($council, $id);
+    $success++ if $ret;
+    $count++;
 }
+print "Success for $success/$count councils\n";
+print "Failed for " . ($count-$success) . " councils\n";
 
 sub match_council_wards {
     my ($council, $id) = @_;
     print "Council: $council Area: $id\n" if $verbosity > 0;
+    my $error = 0;
 
     # Set of wards GovEval have
     my $wards_goveval = $councils->{$id}->{wards};
@@ -166,9 +187,27 @@ sub match_council_wards {
     }
     
     my $dump_wards = sub {
-        print STDERR " ---- ";
-        print STDERR "GovEval wards: " . join(", ", sort map { $_->{name} } @$wards_goveval) . " ";
-        print STDERR " ++++ Database wards: " . join(", ", sort map { $_->{name} } @$wards_database). " ";
+        print STDERR "\t ==== Possible matches (GovEval => Database):\n";
+        foreach my $g (@$wards_goveval) {
+            if (exists($g->{matches})) {
+                foreach my $d (@{$g->{matches}}) {
+                    print STDERR "\t" . $g->{name} . " => " .  $d->{id} . " " .  $d->{name} . "\n";
+                    $d->{referred} = 1;
+                }
+            }
+        }
+        print STDERR "\t ---- Other Database wards: \n";
+        foreach my $d (@$wards_database) {
+            if (!exists($d->{referred})) {
+                print STDERR "\t" . $d->{id} . " " . $d->{name} . "\n";
+            }
+        }
+        print STDERR "\t ---- Other GovEval wards: \n";
+        foreach my $g (@$wards_goveval) {
+            if (!exists($g->{matches})) {
+                print STDERR "\t" . $g->{name} . "\n";
+            }
+        }
         print STDERR "\n";
     };
 
@@ -195,24 +234,23 @@ sub match_council_wards {
 
         # Longest len
         if ($longest_len < 3) {
-            print STDERR "${council}: Couldn't find match in database for GovEval ward " .  $g->{name} . " (longest common substring < 3)";
-            &$dump_wards();
-            return;
-        }
-
-        # Record the best ones
-        $g->{matches} = $longest_matches;
-        #print Dumper($longest_matches);
-        # If exactly one match, use it for definite
-        if ($#$longest_matches == 0) {
-            push @{$longest_matches->[0]->{used}}, $g;
-            $g->{id} = $longest_matches->[0]->{id};
-            print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n" if $verbosity > 0;
+            print STDERR "${id} ${council}: Couldn't find match in database for GovEval ward " .  $g->{name} . " (longest common substring < 3)\n";
+            $error = 1;
         } else {
-            foreach my $longest_match (@{$longest_matches}) {
-                print "Ambiguous are: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} .  "\n" if $verbosity > 0;
-            }
+            # Record the best ones
+            $g->{matches} = $longest_matches;
+            #print Dumper($longest_matches);
+            # If exactly one match, use it for definite
+            if ($#$longest_matches == 0) {
+                push @{$longest_matches->[0]->{used}}, $g;
+                $g->{id} = $longest_matches->[0]->{id};
+                print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n" if $verbosity > 0;
+            } else {
+                foreach my $longest_match (@{$longest_matches}) {
+                    print "Ambiguous are: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} .  "\n" if $verbosity > 0;
+                }
 
+            }
         }
     }
 
@@ -225,40 +263,44 @@ sub match_council_wards {
     # Hence this second pass.
     foreach my $g (@$wards_goveval) {
         next if (exists($g->{id}));
+        next if (!exists($g->{matches}));
 
         # Find matches which haven't been used elsewhere
         my @left = grep { !exists($_->{used}) } @{$g->{matches}};
         my $count = scalar(@left);
        
-        # If there are none, that's no good
         if ($count == 0) {
-            print STDERR "${council}: Couldn't find match in database for GovEval ward " . $g->{name} . " (still ambiguous)";
-            &$dump_wards();
-            return;
+            # If there are none, that's no good
+            print STDERR "${id} ${council}: Couldn't find match in database for GovEval ward " . $g->{name} . " (had ambiguous matches, but all been taken by others)\n";
+            $error = 1;
+        } elsif ($count > 1) {
+            # If there is more than one
+            print STDERR "${id} ${council}: Only ambiguous matches found for GovEval ward " .  $g->{name} .  ", matches are " . join(", ", map { $_->{name} } @left) . "\n";
+            $error = 1;
+        } else {
+            my $longest_match = $left[0];
+            push @{$longest_match->{used}}, $g;
+            $g->{id} = $longest_match->{id};
+            $g->{matches} = \@left;
+            print "Resolved is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n" if $verbosity > 0;
         }
-        # If there is more than one
-        if ($count > 1) {
-            print STDERR "${council}: Only ambiguous matches found for GovEval ward " .  $g->{name} . 
-                ", matches are " . join(", ", map { $_->{name} } @left);
-            &$dump_wards();
-            return;
-        }
-        
-        my $longest_match = $left[0];
-        push @{$longest_match->{used}}, $g;
-        $g->{id} = $longest_match->{id};
-        print "Resolved is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n" if $verbosity > 0;
     }
     
 
     # Check we used every single ward (rather than used same twice)
     foreach my $d (@$wards_database) {
         if (!exists($d->{used})) {
-            print STDERR "${council}: Ward in database, not in GovEval data: " . $d->{name} . " id " . $d->{id};
-            &$dump_wards();
-            return;
+            print STDERR "${id} ${council}: Ward in database, not in GovEval data: " . $d->{name} . " id " . $d->{id} . "\n";
+            $error = 1;
+        } else {
+            delete $d->{used};
         }
-        delete $d->{used};
+    }
+
+    # Give up
+    if ($error) {
+        &$dump_wards();
+        return 0;
     }
 
     # Clean up looped references
@@ -280,6 +322,8 @@ sub match_council_wards {
 #    print Dumper($wards_goveval);
 #    print Dumper($wards_database);
     print "--------------------------------------------------\n" if $verbosity > 0;
+
+    return 1;
 }
 
 $dbh->disconnect();
