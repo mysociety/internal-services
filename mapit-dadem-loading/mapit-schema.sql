@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.5 2004-11-29 16:10:46 chris Exp $
+-- $Id: mapit-schema.sql,v 1.6 2004-11-29 18:05:01 chris Exp $
 --
 
 -- generations, for currency of data
@@ -25,7 +25,7 @@ create table area (
     id serial not null primary key,
     parent_area_id integer references area(id),
     unit_id integer,        -- ESRI shapefile unit ID
-    ons_code varchar(6),    -- six-digit ward code
+    ons_code varchar(7),    -- 6+-digit ward code
     geom_hash char(40),     -- SHA1 hash of geometry (see process_boundary_line)
     type char(3) not null,  -- 'CTY' or whatever
     -- Country in which this area lies.
