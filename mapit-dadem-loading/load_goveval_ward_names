@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../perllib
 #
 # load_goveval_names
 # Load in GovEval data, match names to Ordnance Survey once in the MaPit
@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.4 2004-12-07 16:33:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.5 2004-12-15 15:35:05 francis Exp $';
 
 use strict;
 
@@ -101,7 +101,7 @@ while (my ($area_id, $name) = $s->fetchrow_array()) {
         die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n";
     }
     $parent_to_id{$_} = $area_id;
-printf "%38s %30s %d\n", $name, $_, $area_id;
+#printf "%38s %30s %d\n", $name, $_, $area_id;
 }
  
 # Load the GovEval data.
@@ -140,6 +140,7 @@ while (my $line = <STDIN>) {
         push @{$councils->{$id}->{wards}}, { name => $vdiv };
         $councils->{$id}->{gotwards}->{$vdiv} = 1;
     }
+    $councils->{$id}->{lines} .= $line . "\n";
 }
 
 # Print out councils in $parent_to_id for which nobody has been added to $councils
@@ -166,6 +167,20 @@ foreach my $parent (@pk) {
         print STDERR "Missing $parent id $id from GovEval data\n"; 
     }
 }
+
+# tmp
+print "------------------------------\n";
+foreach my $id (2463, 2464, 2465, 2466, 2467, 2468, 2469) {
+    print $councils->{$id}->{lines};
+#    my $council = $councils->{$id}->{govevalname};
+#    print "$council\n";
+#    my $wards_goveval = $councils->{$id}->{wards};
+#    foreach my $g (@$wards_goveval) {
+#        print $g->{line} . "\n";
+#    }
+}
+print "------------------------------\n";
+die;
 
 # Special debugging case
 if (defined $runoneid) {
