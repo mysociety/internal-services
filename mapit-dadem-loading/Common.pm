@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.6 2004-12-02 18:47:02 chris Exp $
+# $Id: Common.pm,v 1.7 2004-12-02 18:55:27 chris Exp $
 #
 
 package Common;
@@ -25,6 +25,7 @@ use Text::CSV_XS;
         &new_generation
         &make_new_generation_active
         &get_area_id
+        &country
         &get_postcode_id
         &trim_spaces
         &chomp2
@@ -102,6 +103,18 @@ sub get_area_id ($$$$$$$) {
     $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'O', ?)#, {}, $id, $name);
 
     return $id;
+}
+
+# country DBH ID [COUNTRY]
+# Get/set country for area ID.
+sub country ($$;$) {
+    my ($dbh, $id, $country) = @_;
+    if (defined($country)) {
+        die "attempt to set country of area $id to '$country'" unless ($country =~ m#^[ENSW]$#);
+        $dbh->do('update area set country = ? where id = ?', {}, $country, $id);
+    } else {
+        return scalar($dbh->selectrow_array('select country from area where id = ?', {}, $id));
+    }
 }
 
 # get_postcode_id DBH POSTCODE EASTING NORTHING
