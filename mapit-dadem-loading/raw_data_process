@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w -I../../perllib
 #
-# load_goveval_ward_names
+# raw_data_process
 #
-# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
-# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.11 2005-01-28 12:07:21 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.1 2005-02-01 13:23:07 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -22,6 +22,7 @@ use Common;
 my $runoneid = shift(@ARGV);
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
+mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
 my $verbosity = 0;
 
@@ -58,12 +59,12 @@ if (defined $runoneid) {
             die "none for $specialcouncil" if (!exists($wardnamescanon->{$canon}));
             my $londonid = $wardnamescanon->{$canon}->{id};
             print "\"$specialcouncil\", $londonid\n";
-            my $result = mySociety::CouncilMatch::match_council_wards($londonid, $verbosity, $m_dbh, $d_dbh);
+            my $result = mySociety::CouncilMatch::process_ge_data($londonid, $verbosity);
         }
     } else {
         # Process just one council
         print "Processing one council " . $area_id_data->{$runoneid}->{name} . " $runoneid\n";
-        my $result = mySociety::CouncilMatch::match_council_wards($runoneid, $verbosity, $m_dbh, $d_dbh);
+        my $result = mySociety::CouncilMatch::process_ge_data($runoneid, $verbosity);
         if ($result->{error}) {
             print "Failed\n";
             print $result->{matchesdump};
@@ -79,7 +80,7 @@ if (defined $runoneid) {
     my $count = 0;
     foreach my $id (keys %$area_id_data) {
         printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id;
-        my $result = mySociety::CouncilMatch::match_council_wards($id, $verbosity, $m_dbh, $d_dbh);
+        my $result = mySociety::CouncilMatch::process_ge_data($id, $verbosity);
         if ($result->{error}) {
             print " FAIL\n";
         } else {

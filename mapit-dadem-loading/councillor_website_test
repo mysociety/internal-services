@@ -51,6 +51,9 @@ my $samplecouncils = [
 
 ### VIRGIN ###
 
+# UMS
+#{id=>2507, url=>"http://www.upmystreet.com/inf/rep/det/lgc_councillors.php3?l1=n5+1py"}
+
 # CWCWCW
 # Recursive map
 {id=>2494, url=>"http://www.bexley.gov.uk/about/ward_and_map.html"},
@@ -104,6 +107,9 @@ sub canonicalise_person_name ($) {
     return $_;
 }
 
+print canonicalise_person_name("Joga Singh Minhas");
+exit;
+
 # canonicalise_ward_name WARD
 # Returns Ward name with extra suffixes (e.g. Ward) removed, and in lowercase.
 sub canonicalise_ward_name ($) {
@@ -143,7 +149,7 @@ sub check_councillors($) {
     my @urls;
     my $p = HTML::TokeParser->new(\$mainpage);
     # include also clickable maps "area"
-    while (my $token = $p->get_tag("area", "a")) {
+    while (my $token = $p->get_tag("area")) { #, "a")) {
         my $url = $token->[1]{href};
         next if !$url;
         next if $url =~ m/^\#/;
@@ -173,7 +179,7 @@ sub check_councillors($) {
         my $lastcllrkey = undef;
         foreach my $lump (@lumps) {
             my $canon_lump = canonicalise_person_name($lump);
-            #print "lump $canon_lump\n";
+            print "lump $canon_lump\n";
 
             my $matches = 0;
             foreach my $rep (@raw) {

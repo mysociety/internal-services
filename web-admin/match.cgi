@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.7 2005-01-28 13:25:45 francis Exp $
+# $Id: match.cgi,v 1.8 2005-02-01 13:23:07 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.7 2005-01-28 13:25:45 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.8 2005-02-01 13:23:07 francis Exp $';
 
 use strict;
 
@@ -26,14 +26,15 @@ use Error qw(:try);
 use Data::Dumper;
 
 use Common;
-my $m_dbh = connect_to_mapit_database();
-my $d_dbh = connect_to_dadem_database();
-my ($area_id, $name_data, $area_data, $status_data);
-
 use mySociety::CouncilMatch;
 use mySociety::WatchUpdate;
 use mySociety::VotingArea;
 my $W = new mySociety::WatchUpdate();
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
+my ($area_id, $name_data, $area_data, $status_data);
 
 sub html_head($$) {
     my ($q, $title) = @_;
@@ -85,8 +86,11 @@ sub build_url($$$;$) {
 my $status_titles = {
     'wards-match' => 'Wards matched OK',
     'wards-mismatch' => 'Ward matching failed',
+    'url-found' => 'Councillor list URL known',
+    'url-missing' => 'Councillor list URL needed',
 };
-
+my $status_titles_order =  
+    ['wards-mismatch', 'wards-match', 'url-missing', 'url-found'];
 
 # do_summary CGI
 # Displays page with summary of matching status of all councils.
@@ -114,12 +118,14 @@ sub do_summary ($) {
     # Headings linking in
     print join($q->br(), map { 
             $q->a( { href => "#$_" }, $status_titles->{$_} ) }
-            keys %$status_titles);
+            grep { my $status = $_; grep { $_->[1] eq $status} @$status_data; } 
+            @$status_titles_order);
 
     # For each status type...
-    foreach my $status (keys %$status_titles)  {
+    foreach my $status (@$status_titles_order)  {
         # ... find everything of that type
         my @subset = grep { $_->[1] eq $status} @$status_data;
+        next if scalar(@subset) == 0;
         # ... draw a heading
         print $q->h2(
             $q->a({ name => "$status" }, 
@@ -157,6 +163,7 @@ sub do_council_info ($) {
 
     print $q->h2("Councillor (GE Data)");
 
+    # Google links
     print $q->p(
         $q->a({href => build_url($q, $q->url('relative'=>1), 
               {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
@@ -169,10 +176,36 @@ sub do_council_info ($) {
             $q->a({href => build_url($q, "http://www.google.com/search", 
                     {'q' => "$name $_",'btnI' => "I'm Feeling Lucky"}, 1)},
                   "IFL"),
-            ")" ) } ("$name", "$name councillors ward")
+            ")" ) } ("$name", "$name councillors ward", $name_data->{'name'} . " councillors")
     );
 
-    my @reps = mySociety::CouncilMatch::get_raw_data($area_id, $d_dbh);
+    # URL for list of councillors on council website
+    if ($q->param('posted_councillors_url') and $q->param) {
+        $d_dbh->do(q#delete
+            from raw_council_extradata where council_id = ?#, {}, $area_id);
+        $d_dbh->do(q#insert
+            into raw_council_extradata (council_id, councillors_url) values (?,?)#, 
+            {}, $area_id, $q->param('councillors_url'));
+        $d_dbh->commit();
+        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
+    }
+    
+    my $ret = $d_dbh->selectrow_arrayref(q#select council_id, councillors_url from 
+        raw_council_extradata where council_id = ?#, {}, $area_id);
+    $q->param('councillors_url', $ret->[1]) if defined ($ret);
+    print $q->start_form(-method => 'POST');
+    print $q->p(
+            $q->a({href=>$q->param('councillors_url')}, "Councillors page:"),
+            $q->textfield(-name => "councillors_url", -size => 100),
+            $q->hidden('page', 'councilinfo'),
+            $q->hidden('area_id'),
+            $q->hidden('posted_councillors_url', 'true'),
+            $q->submit('Save')
+            );
+    print $q->end_form();
+
+    # Show GE list of councillors
+    my @reps = mySociety::CouncilMatch::get_raw_data($area_id);
     @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
     my $prevward = "";
     my $wards_counter; do { $wards_counter->{$_->{ward_name}} =1 } for @reps;
@@ -195,6 +228,7 @@ sub do_council_info ($) {
     }
     print $q->end_td(), $q->end_Tr(), $q->end_table();
  
+    # Details about matches made
     print $q->h2("Match Details");
     print $q->pre(encode_entities($status_data->{'details'}));
 
@@ -238,10 +272,10 @@ sub do_council_edit ($) {
         # Make alteration
         mySociety::CouncilMatch::edit_raw_data($area_id, 
                 $name_data->{'name'}, $area_data->{'type'}, $area_data->{'ons_code'},
-                $d_dbh, \@newdata, $q->remote_user() || "*unknown*");
+                \@newdata, $q->remote_user() || "*unknown*");
 
         # Regenerate stuff
-        my $result = mySociety::CouncilMatch::match_council_wards($area_id, 0, $m_dbh, $d_dbh);
+        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
 
         # Redirect if it's Save and Done
         if ($q->param('Save and Done')) {
@@ -251,8 +285,9 @@ sub do_council_edit ($) {
     } 
     
     # Fetch data from database
-    my @reps = mySociety::CouncilMatch::get_raw_data($area_id, $d_dbh);
-    @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
+    my @reps = mySociety::CouncilMatch::get_raw_data($area_id);
+    my $sort_by = $q->param("sort_by") || "ward_name";
+    @reps = sort { $a->{$sort_by} cmp $b->{$sort_by}  } @reps;
     my $c = 1;
     foreach my $rep (@reps) {
         foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
@@ -277,8 +312,18 @@ sub do_council_edit ($) {
     print $q->submit('Cancel');
 
     print $q->start_table();
-    print $q->Tr({}, $q->th({}, [
-        'Ward (erase to del rep)', 'First', 'Last', 'Party', 'Email', 'Fax'                
+    print $q->Tr({}, $q->th({}, [map 
+        { $_->[1] eq $sort_by ? $_->[0] :
+                    $q->a({href=>build_url($q, $q->url('relative'=>1), 
+                      {'area_id' => $area_id, 'page' => 'counciledit',
+                      'r' => $q->param('r'), 'sort_by' => $_->[1]})}, $_->[0]) 
+        } 
+        (['Ward (erase to del rep)', 'ward_name'],
+        ['First', 'rep_first'],
+        ['Last', 'rep_last'],
+        ['Party', 'rep_party'],
+        ['Email', 'rep_email'],
+        ['Fax', 'rep_fax'])
     ]));
 
     my $printrow = sub {
@@ -325,6 +370,7 @@ try {
         #print Dumper($q->Vars);
 
         my $page = $q->param('page');
+        $page = "" if !$page;
 
         $area_id = $q->param('area_id');
         if ($area_id) {
