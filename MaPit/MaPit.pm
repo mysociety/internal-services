@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.7 2004-12-20 22:46:07 francis Exp $
+# $Id: MaPit.pm,v 1.8 2004-12-30 19:46:21 francis Exp $
 #
 
 package MaPit;
@@ -50,60 +50,60 @@ use constant DUMMY_ID => 1000000;
 my %special_cases = (
         # Enclosing areas.
         mySociety::VotingArea::WMP_AREA_ID => {
-            type => mySociety::VotingArea::WMP,
+            type => 'WMP',
             name => 'House of Commons'
         },
         
         mySociety::VotingArea::EUP_AREA_ID => {
-            type => mySociety::VotingArea::EUP,
+            type => 'EUP',
             name => 'European Parliament'
         },
 
         mySociety::VotingArea::LAE_AREA_ID => {
-            type => mySociety::VotingArea::LAE,
+            type => 'LAE',
             name => 'London Assembly'
         },
 
         # Test data
         1000001 => {
-            type => mySociety::VotingArea::CTY,
+            type => 'CTY',
             name => 'Everyone\'s County Council'
         },
         1000002 => {
-            type => mySociety::VotingArea::CED,
+            type => 'CED',
             name => 'Chest Westerton ED'
         },
         1000003 => {
-            type => mySociety::VotingArea::DIS,
+            type => 'DIS',
             name => 'Our District Council'
         },
         1000004 => {
-            type => mySociety::VotingArea::DIW,
+            type => 'DIW',
             name => 'Chest Westerton Ward'
         },
         1000005 => {
-            type => mySociety::VotingArea::WMP,
+            type => 'WMP',
             name => 'House of Commons'
         },
         1000006 => {
-            type => mySociety::VotingArea::WMC,
+            type => 'WMC',
             name => 'Your and My Society'
         },
         1000007 => {
-            type => mySociety::VotingArea::EUP,
+            type => 'EUP',
             name => 'European Parliament'
         },
         1000008 => {
-            type => mySociety::VotingArea::EUR,
+            type => 'EUR',
             name => 'Windward Euro Region'
         }
     );
 
 # Map area type to ID of "fictional" (i.e., not in DB) enclosing area.
 my %enclosing_areas = (
-        mySociety::VotingArea::LAC => mySociety::VotingArea::LAE_AREA_ID,
-        mySociety::VotingArea::WMC => mySociety::VotingArea::WMP_AREA_ID,
-        mySociety::VotingArea::EUR => mySociety::VotingArea::EUP_AREA_ID
+        'LAC' => mySociety::VotingArea::LAE_AREA_ID,
+        'WMC' => mySociety::VotingArea::WMP_AREA_ID,
+        'EUR' => mySociety::VotingArea::EUP_AREA_ID
     );
 
 =item get_generation
@@ -143,7 +143,7 @@ sub get_voting_areas ($) {
 
         # Also add pseudo-areas.
         $ret = {
-                ( map { $mySociety::VotingArea::type_to_id{$_->[0]} => $_->[1] } @{
+                ( map { $_->[0] => $_->[1] } @{
                         dbh()->selectall_arrayref('
                         select type, id from postcode_area, area 
                             where postcode_area.area_id = area.id 
@@ -189,7 +189,7 @@ sub get_voting_area_info ($) {
         $ret = {
                 name => $name,
                 parent_area_id => $parent_area_id,
-                type => $mySociety::VotingArea::type_to_id{$type}
+                type => $type
             };
     }
 

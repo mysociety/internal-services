@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.18 2004-12-21 00:11:24 francis Exp $
+# $Id: DaDem.pm,v 1.19 2004-12-30 19:46:20 francis Exp $
 #
 
 package DaDem;
@@ -45,15 +45,15 @@ sub dbh () {
 # Dummy data, for test purposes.
 my %dummy_representatives = (
         2000001 => {
-            type => mySociety::VotingArea::CED,
+            'type' => 'CED',
             'voting_area' => 1000002,
-            name => 'Jim Tackson',
-            method => 'email',
-            email => 'jim.tackson@dummy.mysociety.org'
+            'name' => 'Jim Tackson',
+            'method' => 'email',
+            'email' => 'jim.tackson@dummy.mysociety.org'
         },
 
         2000002 => {
-            'type' => mySociety::VotingArea::DIW,
+            'type' => 'DIW',
             'voting_area' => 1000004,
             'name' => 'Mefan Stagdalinski',
             'method' => 'email',
@@ -61,7 +61,7 @@ my %dummy_representatives = (
         },
         
         2000003 => {
-            'type' => mySociety::VotingArea::DIW,
+            'type' => 'DIW',
             'voting_area' => 1000004,
             'name' => 'Manno Itchell',
             'method' => 'email',
@@ -69,7 +69,7 @@ my %dummy_representatives = (
         },
         
         2000004 => {
-            'type' => mySociety::VotingArea::DIW,
+            'type' => 'DIW',
             'voting_area' => 1000004,
             'name' => 'Gil Phyford',
             'method' => 'email',
@@ -77,7 +77,7 @@ my %dummy_representatives = (
         },
         
         2000005 => {
-            'type' => mySociety::VotingArea::WMC,
+            'type' => 'WMC',
             'voting_area' => 1000006,
             'name' => 'Andrea Bryant',
             'method' => 'email',
@@ -85,7 +85,7 @@ my %dummy_representatives = (
         },
         
         2000006 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Lis Chrightfoot',
             'method' => 'email',
@@ -93,7 +93,7 @@ my %dummy_representatives = (
         },
         
         2000007 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Crames Jonin',
             'method' => 'fax',
@@ -101,7 +101,7 @@ my %dummy_representatives = (
         },
         
         2000008 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Lom Toosemore',
             'method' => 'email',
@@ -109,7 +109,7 @@ my %dummy_representatives = (
         },
         
         2000009 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Brike Macken',
             'method' => 'email',
@@ -117,7 +117,7 @@ my %dummy_representatives = (
         },
         
         2000010 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Yowena Roung',
             'method' => 'email',
@@ -125,7 +125,7 @@ my %dummy_representatives = (
         },
         
         2000011 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Ancis Frirving',
             'method' => 'email',
@@ -133,7 +133,7 @@ my %dummy_representatives = (
         },
         
         2000012 => {
-            'type' => mySociety::VotingArea::EUR,
+            'type' => 'EUR',
             'voting_area' => 1000008,
             'name' => 'Stom Teinberg',
             'method' => 'fax',
@@ -142,19 +142,19 @@ my %dummy_representatives = (
 
         # Users with bouncing email/unsendable faxes
         2000013 => {
-            type => mySociety::VotingArea::EUR,
-            voting_area => 1000008,
-            name => 'Johnny No-Email',
-            method => 'email',
-            email => 'thisaddressbounces@flourish.org'
+            'type' => 'EUR',
+            'voting_area' => 1000008,
+            'name' => 'Johnny No-Email',
+            'method' => 'email',
+            'email' => 'thisaddressbounces@flourish.org'
         },
 
         2000014 => {
-            type => mySociety::VotingArea::EUR,
-            voting_area => 1000008,
-            name => 'Freddy No-Fax',
-            method => 'fax',
-            fax => '1471'
+            'type' => 'EUR',
+            'voting_area' => 1000008,
+            'name' => 'Freddy No-Fax',
+            'method' => 'fax',
+            'fax' => '1471'
         }
 
 #            'name' => 'Tu Stily',
@@ -281,7 +281,7 @@ sub get_representative_info ($) {
 
         return {
                 voting_area => $area_id,
-                type => $mySociety::VotingArea::type_to_id{$area_type},
+                type => $area_type,
                 name => $name,
                 party => $party,
                 method => $method,
