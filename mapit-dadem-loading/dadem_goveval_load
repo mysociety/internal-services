@@ -1,0 +1,90 @@
+#!/usr/bin/perl -w
+#
+# dadem_goveval_load
+# Takes CSV files containing contact details for representatives
+# from GovEval, and loads them into DaDem.  Requires that GovEval
+# names are already in the area_name table in MaPit.
+#
+# Parameters: 
+# $1 - MaPit database
+# $2 - DaDem database
+# $3 ... - Types data is for (e.g. EUR)
+# stdin - pipe in the GovEval CSV file
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.1 2004-12-07 00:14:43 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::SQLite;
+use Text::CSV;
+use Data::Dumper;
+use Common;
+#DBI->trace(1);
+
+die "arguments are Postgres mapit then dadem" unless (@ARGV > 0);
+my $mapit_dbname = shift(@ARGV);
+my $dadem_dbname = shift(@ARGV);
+my $types = \@ARGV;
+die "specify some voting area types" if scalar(@$types < 1);
+
+my $m_dbh = connect_to_mapit_database($mapit_dbname);
+my $d_dbh = connect_to_dadem_database($dadem_dbname);
+
+$d_dbh->do(q#delete from representative where 
+            (# . join(' or ', map { "area_type = '$_'" } @$types) . q#)#);
+
+# %name_to_id
+# Cache of name-->id map of all the areas
+my %name_to_id;
+my %name_to_type;
+my $s = $m_dbh->prepare(
+        q#select area_id, name, type from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
+    );
+$s->execute();
+while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
+    print "$area_id $name $type\n";
+    die "duplicate name" if exists($name_to_id{$name});
+    $name_to_id{$name} = $area_id;
+    $name_to_type{$name} = $type;
+}
+
+# Read CSV file, load into dadem
+my $C = new Text::CSV;
+<STDIN>;    # header line
+while (my $line = <STDIN>) {
+    chomp($line);
+    $C->parse($line);
+    my ($first, $last, $cons, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+
+    die "first name not defined for line '$line'\n" unless (defined($first));
+    die "last name not defined for line '$line'\n" unless (defined($last));
+    die "cons not defined for line '$line'\n" unless (defined($cons));
+    die "party name not defined for line '$line'\n" unless (defined($party));
+    die "email name not defined for line '$line'\n" unless (defined($email));
+    die "fax name not defined for line '$line'\n" unless (defined($fax));
+
+    die "unmatched GovEval name'$_', not in database" unless (exists($name_to_id{$cons}));
+    my $area_id = $name_to_id{$cons};
+    my $area_type = $name_to_type{$cons};
+
+    print "insert into representative (area_id, area_type, name,
+        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)",
+        $area_id, $area_type, "$first $last", $party, 0, $email, $fax;
+    print "\n";
+    
+    $d_dbh->do("insert into representative (area_id, area_type, name,
+        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)", {}, 
+        $area_id, $area_type, "$first $last", $party, 0, $email, $fax);
+}
+ 
+$m_dbh->disconnect();
+$d_dbh->commit();
+$d_dbh->disconnect();
+

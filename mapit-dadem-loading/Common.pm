@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.9 2004-12-03 21:04:33 chris Exp $
+# $Id: Common.pm,v 1.10 2004-12-07 00:14:43 francis Exp $
 #
 
 package Common;
@@ -20,7 +20,8 @@ use Text::CSV_XS;
 
 @Common::ISA = qw(Exporter);
 @Common::EXPORT = qw(
-        &connect_to_database
+        &connect_to_mapit_database
+        &connect_to_dadem_database
         &current_generation
         &new_generation
         &make_new_generation_active
@@ -38,12 +39,20 @@ use Text::CSV_XS;
 # Databasey stuff.
 #
 
-# connect_to_database NAME
+# connect_to_mapit_database NAME
 # Connect to the MaPit database of the given NAME.
-sub connect_to_database ($) {
+sub connect_to_mapit_database ($) {
     my ($dbname) = @_;
     return DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
 }
+
+# connect_to_dadem_database NAME
+# Connect to the DaDem database of the given NAME.
+sub connect_to_dadem_database ($) {
+    my ($dbname) = @_;
+    return DBI->connect("dbi:Pg:dbname=$dbname", 'dadem', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+}
+
 
 # current_generation DBH
 # Return the current generation ID.

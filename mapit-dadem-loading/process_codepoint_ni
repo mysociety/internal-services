@@ -18,7 +18,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.4 2004-12-02 21:29:09 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.5 2004-12-07 00:14:43 francis Exp $';
 
 use strict;
 
@@ -36,7 +36,7 @@ my $c = new Text::CSV_XS({ binary => 1 });
 die "arguments are Postgres database name, ONS codes CSV file, and CodePoint CSV file" unless (@ARGV == 3);
 
 my ($dbname, $onscodesfile, $codepointfile) = @ARGV;
-my $dbh = connect_to_database($dbname);
+my $dbh = connect_to_mapit_database($dbname);
 
 # Special case: create a Euro-region.
 my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'F', 'EUR', undef, undef, undef);

@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_euroregion_names,v 1.1 2004-12-06 16:38:32 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_euroregion_names,v 1.2 2004-12-07 00:14:43 francis Exp $';
 
 use strict;
 
@@ -26,7 +26,7 @@ die "argument is Postgres database name" unless (@ARGV > 0);
 my $dbname = shift(@ARGV);
 my $runoneid = shift(@ARGV);
 
-my $dbh = connect_to_database($dbname);
+my $dbh = connect_to_mapit_database($dbname);
 # DBI->trace(2);
 my $types = [qw(EUR)];
 
