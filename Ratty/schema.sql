@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.5 2004-11-18 18:43:48 chris Exp $
+-- $Id: schema.sql,v 1.6 2005-01-07 18:18:19 chris Exp $
 --
 
 create table rule (
@@ -33,8 +33,10 @@ create table condition (
 
 -- How does the single/distinct stuff work?  When a hit happens for a 
 -- rule which has single or disinct conditions, the following happens:
--- 1. Take all of the fields which are matched as single and checksum.
--- 2. Take all of the fields which are matched as distinct and checksum them
+-- 1. Take all of the fields which are matched as single and checksum; call
+--    this "shash".
+-- 2. Take all of the fields which are matched as distinct and checksum them;
+--    call this "dhash".
 -- 3. Save both in rule_hit
 -- 4. Now the test for whether the rate limit has triggered is based
 --    on the number of hits where the shash is the same and the dhash is
