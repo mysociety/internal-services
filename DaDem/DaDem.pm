@@ -6,18 +6,28 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.23 2005-01-31 19:12:15 chris Exp $
+# $Id: DaDem.pm,v 1.24 2005-01-31 19:58:57 chris Exp $
 #
 
 package DaDem;
 
 use strict;
-use mySociety::DaDem;
-use mySociety::VotingArea;
-use mySociety::Config;
 
 use DBI;
 use DBD::Pg;
+
+use mySociety::DaDem;
+use mySociety::DBHandle qw(dbh);
+use mySociety::VotingArea;
+use mySociety::Config;
+
+mySociety::DBHandle::configure(
+        Name => mySociety::Config::get('DADEM_DB_NAME'),
+        User => mySociety::Config::get('DADEM_DB_USER'),
+        Password => mySociety::Config::get('DADEM_DB_PASS'),
+        Host => mySociety::Config::get('DADEM_DB_HOST', undef),
+        Port => mySociety::Config::get('DADEM_DB_PORT', undef)
+    );
 
 =head1 NAME
 
@@ -32,15 +42,6 @@ Implementation of DaDem.
 =over 4
 
 =cut
-sub dbh () {
-    our $dbh;
-    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('DADEM_DB_NAME'),
-                        mySociety::Config::get('DADEM_DB_USER'),
-                        mySociety::Config::get('DADEM_DB_PASS'),
-                        { RaiseError => 1, AutoCommit => 0 });
-
-    return $dbh;
-}
 
 # Dummy data, for test purposes.
 my %dummy_representatives = (

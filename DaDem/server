@@ -12,25 +12,29 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.6 2004-12-20 22:46:07 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.7 2005-01-31 19:58:57 chris Exp $';
 
 use strict;
 require 5.8.0;
 
+# Do this first of all, because DaDem.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../conf/general');
+}
+
 use FCGI;
-use mySociety::DaDem;   # client interface
-use mySociety::VotingArea;
-use DaDem;
 use RABX;
 
-use mySociety::Config;
-mySociety::Config::set_file('../conf/general');
-
+use mySociety::DaDem;   # client interface
+use mySociety::VotingArea;
 use mySociety::WatchUpdate;
+
+use DaDem;              # implementation
+
 my $W = new mySociety::WatchUpdate();
 
 my $req = FCGI::Request();
-use Data::Dumper;
 
 while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
