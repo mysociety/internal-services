@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.21 2005-02-09 16:48:31 francis Exp $
+# $Id: match.cgi,v 1.22 2005-02-10 09:13:33 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.21 2005-02-09 16:48:31 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.22 2005-02-10 09:13:33 francis Exp $';
 
 use strict;
 
@@ -457,7 +457,7 @@ sub do_council_edit ($) {
     print $q->submit('Save');
     print "&nbsp;";
     print $q->submit('Cancel');
-            print "doing $c";
+
     print $q->end_form();
 
     print html_tail($q);
