@@ -1,0 +1,59 @@
+#!/usr/bin/perl -w
+#
+# dumppoly:
+# Dump coordinates for first part of first shape in a file.
+#
+# Copyright (c) 2004 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: dumppoly,v 1.1 2004-11-25 16:28:09 chris Exp $';
+
+use strict;
+
+use Geo::ShapeFile;
+
+foreach (@ARGV) {
+    my $sh = new Geo::ShapeFile($_);
+    if (!$sh) {
+        warn "$_: $!\n";
+        next;
+    }
+#    print STDERR "$_: largest shape number = ", $sh->shapes(), "\n";
+    for (my $i = 1; $i <= $sh->shapes(); ++$i) {
+        print STDERR ".";
+        my $S = $sh->get_shp_record($i);
+#        next unless ($S->num_parts() > 1);
+
+#print "type = ", $S->type($S->shape_type()), "\n";
+=pod
+        for (my $j = 1; $j <= $S->num_parts(); ++$j) {
+#print "  part $j ", ref($S->get_part($j)), "\n";
+#print "  part $j type = ", Geo::ShapeFile::type($S->get_part($j)->shape_type()), "\n";
+            my @p = $S->get_part($j);
+
+            for (my $k = 0; $k < @p; ++$k) {
+                printf("%f %f %f %f\n",
+                    $p[$k]->X(), $p[$k]->Y(),
+                    $p[($k + 1) % @p]->X(), $p[($k + 1) % @p]->Y());
+            }
+
+            print "\n\n\n";
+        }
+=cut
+#        my $D = $sh->get_dbf_record($i);
+#        print "$i:\n";
+#        foreach (keys %$D) {
+#            print "  '$_' -> '$D->{$_}'\n";
+#        }
+=pod
+        print "$i: number of parts: ", $S->num_parts(), "\n";
+=cut
+#        print $S->dump(), "\n\n";
+#        print join("\n", map { sprintf('%f %f', $_->X(), $_->Y()) } $S->get_part(1)), "\n";
+        print join("\n", map { sprintf('%f %f', @$_) } $S->get_part(1)), "\n";
+
+        print "\n\n\n\n";
+    }
+}
+
