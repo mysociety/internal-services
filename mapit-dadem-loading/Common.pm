@@ -6,26 +6,43 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.5 2004-12-02 16:36:33 chris Exp $
+# $Id: Common.pm,v 1.6 2004-12-02 18:47:02 chris Exp $
 #
 
 package Common;
 
 use strict;
 
+use DBI;
+use IO::File;
 use String::Ediff;
+use Text::CSV_XS;
 
 @Common::ISA = qw(Exporter);
 @Common::EXPORT = qw(
+        &connect_to_database
         &current_generation
         &new_generation
         &make_new_generation_active
         &get_area_id
         &get_postcode_id
         &trim_spaces
+        &chomp2
+        &read_csv_file
         &move_compass_to_start
         &placename_match_metric
     );
+
+#
+# Databasey stuff.
+#
+
+# connect_to_database NAME
+# Connect to the MaPit database of the given NAME.
+sub connect_to_database ($) {
+    my ($dbname) = @_;
+    return DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+}
 
 # current_generation DBH
 # Return the current generation ID.
@@ -54,10 +71,10 @@ sub make_new_generation_active ($) {
     $dbh->do(q#update generation set active = 't' where id = (select new_generation.id from new_generation)#);
 }
 
-# get_area_id DBH NAME TYPE ONSCODE UNITID GEOMHASH
+# get_area_id DBH NAME NAMETYPE TYPE ONSCODE UNITID GEOMHASH
 # Form area ID from name and other information.
-sub get_area_id ($$$$$$) {
-    my ($dbh, $name, $type, $onscode, $unitid, $geomhash) = @_;
+sub get_area_id ($$$$$$$) {
+    my ($dbh, $name, $nametype, $type, $onscode, $unitid, $geomhash) = @_;
     my $id;
     my $gen = new_generation($dbh);
     
@@ -68,7 +85,7 @@ sub get_area_id ($$$$$$) {
     }
     
     if (defined($id)) {
-        my $n = $dbh->selectrow_array('select name from area_name where area_id = ?', {}, $id);
+        my $n = $dbh->selectrow_array('select name from area_name where area_id = ? and name_type = ?', {}, $id, $nametype);
         if (defined($n) and $n eq $name) {
             # This is the same area.
             $dbh->do('update area set generation_high = ? where area.id = ?', {}, $gen, $id);
@@ -104,6 +121,45 @@ sub get_postcode_id ($$$$) {
     return $id;
 }
 
+# read_csv_file FILE [SKIP]
+# Return a list (or, in scalar context, a reference to a list) of rows from the
+# named CSV FILE. Dies on error. If specified, don't store the first SKIP
+# lines.
+sub read_csv_file ($;$) {
+    my ($f, $skip) = @_;
+    $skip ||= 0;
+    my $C = new Text::CSV_XS({ binary => 1 });
+    my $h = new IO::File($f, O_RDONLY) or die "$f: $!";
+    my @res = ( );
+    my $n = 0;
+    while (defined($_ = $h->getline())) {
+        chomp2($_);
+        $C->parse($_) or die "$f: unable to parse '$_'";
+        ++$n;
+        next if ($n <= $skip);
+        push(@res, [ $C->fields() ]);
+    }
+    die "$f: $!" if ($h->error());
+    $h->close();
+    if (wantarray()) {
+        return @res;
+    } else {
+        return \@res;
+    }
+}
+
+#
+# String utilities.
+#
+
+# chomp2 STRING
+# Remove either DOS- or UNIX-style line endings from STRING.
+sub chomp2 ($) {
+    $_[0] =~ s#\r\n$##s;
+    $_[0] =~ s#\n$##s;
+    return $_[0];
+}
+
 # trim_spaces STRING
 # Remove leading and trailing white space from string.
 # Can pass by reference or, pass by value and return
@@ -131,9 +187,11 @@ sub move_compass_to_start {
     return $compass . $match;
 }
 
-# Generate metric as to number of common characters between two strings
-# 
-sub placename_match_metric {
+# placename_match_metric A B
+# Return the number of common characters between the strings A and B, once they
+# have been stripped of non-alphabetic characters and had any compass
+# directions shifted to the beginning of the strings.
+sub placename_match_metric ($$) {
     my ($match1, $match2) = @_;
 
     # First remove non-alphabetic chars
