@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.3 2005-01-26 19:48:52 francis Exp $
+# $Id: match.cgi,v 1.4 2005-01-27 09:39:06 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.3 2005-01-26 19:48:52 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.4 2005-01-27 09:39:06 francis Exp $';
 
 use strict;
 
@@ -125,7 +125,7 @@ sub do_summary ($) {
                                   href => build_url($q, $q->url('relative'=>1), 
                                   {'area_id' => $_->[0], 'page' => 'councilinfo'}) 
                               }, encode_entities($area_id_data->{$_->[0]}->{name}))
-                        .  " " . $_->[1] 
+                        .  " " . $_->[0] . " " . $_->[1]
                     } @subset);
     }
 
@@ -144,15 +144,20 @@ sub do_council_info ($) {
     print $q->h1($name . " " . $area_id . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
 
-    my $iflquery = $name . " councillors ward";
+    my $googlequery = $name . " councillors ward";
     print $q->p(
         $q->a({href => build_url($q, $q->url('relative'=>1), 
               {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
               "Edit raw input data"),
         " | ",
         $q->a({href => build_url($q, "http://www.google.com/search", 
-                {'q' => $iflquery,'NOTbtnI' => "I'm Feeling Lucky"}, 1)},
-              "IFL $iflquery")
+                {'q' => $googlequery}, 1)},
+              "Google '$googlequery'"),
+        " (",
+        $q->a({href => build_url($q, "http://www.google.com/search", 
+                {'q' => $googlequery,'btnI' => "I'm Feeling Lucky"}, 1)},
+              "I'm Feeling Lucky"),
+        ")"
     );
 
     print $q->h2("Match Details");
@@ -177,7 +182,7 @@ sub do_council_edit ($) {
         my $c = 1;
         while ($q->param("key$c")) {
             my $rep;
-            foreach my $fieldname qw(key ward_name rep_name rep_party rep_email rep_fax) {
+            foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
                 $rep->{$fieldname}= $q->param($fieldname . $c);
             }
             push @newdata, $rep;
@@ -204,7 +209,7 @@ sub do_council_edit ($) {
     @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
     my $c = 1;
     foreach my $rep (@reps) {
-        foreach my $fieldname qw(key ward_name rep_name rep_party rep_email rep_fax) {
+        foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
             $q->param($fieldname . $c, $rep->{$fieldname});
         }
         $c++;
@@ -227,7 +232,7 @@ sub do_council_edit ($) {
 
     print $q->start_table();
     print $q->Tr({}, $q->th({}, [
-        'Ward', 'Name', 'Party', 'Email', 'Fax'                
+        'Ward', 'First', 'Last', 'Party', 'Email', 'Fax'                
     ]));
 
     $c = 1;
@@ -235,7 +240,8 @@ sub do_council_edit ($) {
         print $q->hidden(-name => "key$c", -size => 30);
         print $q->Tr({}, $q->td([ 
             $q->textfield(-name => "ward_name$c", -size => 30),
-            $q->textfield(-name => "rep_name$c", -size => 20),
+            $q->textfield(-name => "rep_first$c", -size => 15),
+            $q->textfield(-name => "rep_last$c", -size => 15),
             $q->textfield(-name => "rep_party$c", -size => 10),
             $q->textfield(-name => "rep_email$c", -size => 20),
             $q->textfield(-name => "rep_fax$c", -size => 15)

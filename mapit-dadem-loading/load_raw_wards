@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.1 2005-01-21 19:28:03 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.2 2005-01-27 09:39:05 francis Exp $';
 
 use strict;
 
@@ -124,14 +124,14 @@ foreach my $parent (@pk) {
 
 # Load data into raw table in DaDem
 foreach my $id (keys %$councils) {
-    print $councils->{$id}->{canonname} . " " . $area_id_data->{$id}->{type} . "\n";
+    # print $councils->{$id}->{canonname} . " " . $area_id_data->{$id}->{type} . "\n";
 
     # Vague but doomed attempt to delete existing data (doesn't behave as we
     # would want when ids and names and types change, because we don't yet
     # know what we want)
-    $d_dbh->do(q#delete from raw_input_data where
-            council_id = ? and council_name = ? and council_type = ?#, {}, 
-            $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type});
+    #$d_dbh->do(q#delete from raw_input_data where
+    #        council_id = ? and council_name = ? and council_type = ?#, {}, 
+    #        $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type});
 
     # Load in each line of data
     my $lines = $councils->{$id}->{lines};
@@ -139,10 +139,10 @@ foreach my $id (keys %$councils) {
         my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
         $d_dbh->do(q#insert into raw_input_data
                 (ge_id, council_id, council_name, council_type, ward_name, 
-                    rep_name, rep_party, rep_email, rep_fax)
-                values (?, ?, ?, ?, ?, ?, ?, ?,?)#, {}, 
+                    rep_first, rep_last, rep_party, rep_email, rep_fax)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
                 $geid, $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type}, $vdiv, 
-                "$first $last", $party, $email, $fax);
+                $first, $last, $party, $email, $fax);
     }
 }
 

@@ -92,7 +92,7 @@ sub check_councillors($) {
     foreach my $lump (@lumps) {
 
         foreach my $rep (@raw) {
-            if ($rep->{rep_name} eq $lump) {
+            if ($rep->{rep_first} . " " . $rep->{rep_last} eq $lump) {
                 $rep->{done} = 1;
                 # check ward right
                 if ($wardnames->{$rep->{ward_name}}->{id} != $lastwardid) {
@@ -107,14 +107,6 @@ sub check_councillors($) {
             $warddone->{$lastwardid} = 1;
             # print "ward $lump $lastwardid\n";
         }
-
-#        foreach my $wardname (@wards) {
-#            if ($rep->{rep_name} eq $lump) {
-#                print "lump $lump cllr " . $rep->{rep_name} . "\n";
-#            }
-#        }
-
-
     }
     
     # Check all got
@@ -125,7 +117,7 @@ sub check_councillors($) {
     }
     foreach my $rep (@raw) {
         if (!$rep->{done}) {
-            print STDERR "cllr not matched " . $rep->{rep_name} . "\n";
+            print STDERR "cllr not matched " . $rep->{rep_first} . " " . $rep->{rep_last} . "\n";
         }
     }
 }

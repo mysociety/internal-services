@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.14 2005-01-25 17:15:04 francis Exp $
+-- $Id: dadem-schema.sql,v 1.15 2005-01-27 09:39:05 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -103,7 +103,8 @@ create table raw_input_data (
 
     ward_name text,
 
-    rep_name text,
+    rep_first text,
+    rep_last text,
     rep_party text,
     rep_email text,
     rep_fax text
@@ -133,7 +134,8 @@ create table raw_input_data_edited (
 
     -- modified values, all must be there
     ward_name text not null,
-    rep_name text not null,
+    rep_first text not null,
+    rep_last text not null,
     rep_party text not null,
     rep_email text not null,
     rep_fax text not null,
