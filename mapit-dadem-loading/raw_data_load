@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.3 2005-02-07 13:46:10 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.4 2005-02-07 14:44:03 francis Exp $';
 
 use strict;
 
@@ -144,6 +144,11 @@ foreach my $id (keys %$councils) {
     my $lines = $councils->{$id}->{lines};
     foreach my $line (@$lines) {
         my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
+
+        # Fax and email data isn't good enough to load yet
+        $fax = "";
+        $email = "";
+
         $d_dbh->do(q#insert into raw_input_data
                 (ge_id, council_id, council_name, council_type, council_ons_code, ward_name, 
                     rep_first, rep_last, rep_party, rep_email, rep_fax)
