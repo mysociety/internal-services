@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.16 2005-02-10 20:34:30 chris Exp $
+# $Id: MaPit.pm,v 1.17 2005-02-10 23:18:21 chris Exp $
 #
 
 package MaPit;
@@ -250,21 +250,38 @@ sub get_voting_area_info ($) {
     return $ret;
 }
 
+=item get_voting_areas_info ARY
+
+=cut
+sub get_voting_areas_info ($) {
+    my ($ary) = @_;
+    return { (map { $_ => get_voting_area_info($_) } @$ary) };
+}
+
 =item get_example_postcode ID
 
 Given an area ID, returns one postcode that maps to it.
 
 =cut
+sub get_example_postcode ($);
 sub get_example_postcode ($) {
     my ($area_id) = @_;
-
+warn "gep --> $area_id\n";
     # Have to catch special cases here.
     if (exists($special_cases{$area_id})) {
         if ($area_id >= DUMMY_ID) {
             return "ZZ9 9ZZ";
         } else {
-            # Pick first non-special-case child area and call recursively.
-            return get_example_postcode((grep { !exists($special_cases{$_}) } @{get_voting_area_children($area_id)})[0]);
+            # These aren't in the database. First try finding a child area:
+            my $child = (grep { !exists($special_cases{$_}) || $area_id >= DUMMY_ID } @{get_voting_area_children($area_id)})[0];
+            if (defined($child)) {
+                # Get a postcode in the child.
+                return get_example_postcode($child);
+            } else {
+                # Area has no children. That means it must be LAE.
+warn "area $area_id has no children...\n";
+                return get_example_postcode(mySociety::VotingArea::LAS_AREA_ID);
+            }
         }
     }
     
@@ -276,20 +293,19 @@ sub get_example_postcode ($) {
     return $pc;
 }
 
-=item get_voting_areas_info ARY
-
-=cut
-sub get_voting_areas_info ($) {
-    my ($ary) = @_;
-    return { (map { $_ => get_voting_area_info($_) } @$ary) };
-}
-
 =item get_voting_area_children ID
 
 =cut
 sub get_voting_area_children ($) {
     my ($id) = @_;
-    return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
+    # This is horrid, because some parent_area_ids are fixed up in MaPit, not
+    # the database.
+    my $type = get_voting_area_info($id)->{type};
+    if ($type eq 'LAS') {
+        return [@{dbh()->selectcol_arrayref("select id from area where type = 'LAC'")}, mySociety::VotingArea::LAS_AREA_ID];
+    } else {
+        return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
+    }
 }
 
 =item get_location POSTCODE
