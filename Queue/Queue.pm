@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Queue.pm,v 1.1 2005-02-16 23:43:58 chris Exp $
+# $Id: Queue.pm,v 1.2 2005-02-23 08:47:26 francis Exp $
 #
 
 package Queue::Error;
@@ -123,7 +123,8 @@ sub task_set_event_handlers ($$) {
     throw Queue::Error("each element in EVENTS must be a reference to a hash")
         if (grep { ref($_) ne 'HASH' } @$handlers);
 
-    my %uu = grep { exists($_->{url}) ? ($_->{url} => 1) : () } @$handlers;
+    my %uu;
+    do { if (exists($_->{url})) { $uu{url} = 1 } } for @$handlers;
     my $url;
     ($url) = keys(%uu) if (1 == keys(%uu));
 
@@ -276,14 +277,13 @@ sub handle_event ($) {
     }
 
     my $h = dbh()->selectrow_hashref('select * from event_handler where id = ?', {}, $id);
-    throw Queue::Error("no event handler '$id'");
-        if (!exists($h->{id}));
+    throw Queue::Error("no event handler '$id'") if (!exists($h->{id}));
 
     push(@funcargs, @{unserialise($h->{arguments})})
         if (defined($h->{arguments}));
     
     # If this is a labelled event, we need to pick up any extra arguments.
-    if (defined($ev->{label})) {
+    if (defined($h->{label})) {
         my $ev = dbh()->selectrow_hashref('select * from event where task_id = ? and label = ?', {}, $h->{task_id}, $h->{label});
         throw Queue::Error("no event '$ev->{label}' pending on task '$ev->{task_id}'")
             if (!exists($ev->{task_id}));
@@ -293,7 +293,7 @@ sub handle_event ($) {
 
     $rabx->url($h->{url});
     try {
-        my $result = $rabx->call($ev->{functionname}, @funcargs);
+        my $result = $rabx->call($h->{functionname}, @funcargs);
         process_function_result($h->{task_id}, $result);
     } catch RABX::Error with {
         my $E = shift;
