@@ -1,0 +1,37 @@
+$Id: NAMETYPES,v 1.1 2004-12-02 17:02:42 chris Exp $
+
+Several types of name may be defined for each area. Each type of name is
+identified by a one-letter code:
+
+O   Ordnance Survey (OS) Name
+
+    These are the names which are used for areas in Boundary Line; for
+    instance, "Lincoln Moorland ED" or "Welwyn Hatfield Co Const". These exist
+    only for areas in Great Britain which are recorded by Ordnance Survey, so
+    there are no names of this type for areas in Northern Ireland or for
+    synthetic areas which we construct, for instance WMP or LAE.
+
+S   Office of National Statistics (ONS) Name
+
+    These are the names used in the SNAC ("Standard Names and Codes" product)
+    and so in, e.g., statistical data derived from census returns; for
+    instance, "Welwyn Hatfield" or "Grange Villa and West Pelton". ONS compiles
+    statistics over wards and parliamentary constituencies, so those are the
+    only areas which have a name of this type (excluding Northern Ireland
+    Assembly electoral areas, which are coterminous with parliamentary
+    constituencies and are named as such).
+
+G   GovEval Name
+
+    These are the names which are used in GovEval's database; for instance,
+    "Welwyn Hatfield", "Grange Villa & West Pelton" or "Lincoln Moorland".
+    These don't bear a simple relationship with any of the official naming
+    schemes but must be matched up with them on an ad-hoc basis.
+
+F   Friendly Name
+
+    These are the names which we present to the user. The intention is that
+    these resemble the ONS names; that is, they are written in full like the
+    ONS or OS names, but unlike the OS names do not include the area type
+    in addition to the name.
+
