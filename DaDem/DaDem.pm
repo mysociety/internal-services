@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.3 2004-11-19 12:25:44 francis Exp $
+# $Id: DaDem.pm,v 1.4 2004-12-07 00:16:10 francis Exp $
 #
 
 package DaDem;
@@ -17,7 +17,7 @@ use mySociety::VotingArea;
 use mySociety::Config;
 
 use DBI;
-use DBD::SQLite;
+use DBD::Pg;
 
 =head1 NAME
 
@@ -34,8 +34,11 @@ Implementation of DaDem.
 =cut
 sub dbh () {
     our $dbh;
-    $dbh ||= DBI->connect('dbi:SQLite:dbname=' .  mySociety::Config::get('DADEM_SQLITE_DB'), 
-            '', '', { RaiseError => 1, AutoCommit => 0 });
+    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('DADEM_DB_NAME'),
+                        mySociety::Config::get('DADEM_DB_USER'),
+                        mySociety::Config::get('DADEM_DB_PASS'),
+                        { RaiseError => 1, AutoCommit => 0 });
+
     return $dbh;
 }
 
