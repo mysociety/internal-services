@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.38 2005-02-21 12:13:38 chris Exp $
+# $Id: DaDem.pm,v 1.39 2005-02-23 12:40:40 chris Exp $
 #
 
 package DaDem;
@@ -633,7 +633,7 @@ sub admin_mark_failing_contact ($$$$) {
     # Lock row, get the current details of the representative, compare them to
     # those we've been passed, then update.
     my $i = dbh()->selectrow_array('select id from representative where id = ? for update', {}, $id);
-    throw RABX::Error("Bad representative ID '$bad'", mySociety::DaDem::REP_NOT_FOUND) if (!defined($i));
+    throw RABX::Error("Bad representative ID '$id'", mySociety::DaDem::REP_NOT_FOUND) if (!defined($i));
 
     my $r = get_representative_info($i);
 
