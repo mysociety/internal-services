@@ -25,7 +25,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.8 2004-12-09 18:39:28 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.9 2005-02-09 12:44:30 chris Exp $';
 
 use strict;
 
@@ -86,7 +86,7 @@ foreach (read_csv_file($nieasfile, 1)) {
     die "no electoral area" unless (defined($ea));
 
     if (!exists($e{$ea})) {
-        country($dbh, $e{$ea} = get_area_id($dbh, $ea, 'F', 'LGE', undef, undef, undef), 'N');
+        country($dbh, $e{$ea} = get_area_id($dbh, $ea, 'L', 'LGE', undef, undef, undef), 'N');
         
     }
     $wardname_to_ea{$d}->{$w} = $e{$ea};
