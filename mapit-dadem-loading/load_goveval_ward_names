@@ -4,15 +4,14 @@
 # Load in GovEval data, match names to Ordnance Survey once in the MaPit
 # database, and add in the GovEval names as alternates.
 #
-# Parameters:  Give the name of the Postgres database as the first
-# parameter.  Pipe the councillors.csv file from GovEval into standard
+# Parameters:  Pipe the councillors.csv file from GovEval into standard
 # input.  Optionally give an area id to process just that council ID.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.3 2004-12-07 00:14:43 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.4 2004-12-07 16:33:20 francis Exp $';
 
 use strict;
 
@@ -23,11 +22,8 @@ use Data::Dumper;
 
 use Common;
 
-die "argument is Postgres database name" unless (@ARGV > 0);
-my $dbname = shift(@ARGV);
 my $runoneid = shift(@ARGV);
-
-my $dbh = connect_to_mapit_database($dbname);
+my $dbh = connect_to_mapit_database();
 
 my $parent_types = [qw(DIS LBO MTD UTA LGD CTY)];
 my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];

@@ -6,12 +6,14 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.10 2004-12-07 00:14:43 francis Exp $
+# $Id: Common.pm,v 1.11 2004-12-07 16:33:20 francis Exp $
 #
 
 package Common;
 
 use strict;
+use mySociety::Config;
+mySociety::Config::set_file("../conf/general");
 
 use DBI;
 use IO::File;
@@ -41,16 +43,23 @@ use Text::CSV_XS;
 
 # connect_to_mapit_database NAME
 # Connect to the MaPit database of the given NAME.
-sub connect_to_mapit_database ($) {
+sub connect_to_mapit_database {
     my ($dbname) = @_;
-    return DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
-}
+    return DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('MAPIT_DB_NAME'),
+                        mySociety::Config::get('MAPIT_DB_USER'),
+                        mySociety::Config::get('MAPIT_DB_PASS'),
+                        { RaiseError => 1, AutoCommit => 0 });
+ }
 
 # connect_to_dadem_database NAME
 # Connect to the DaDem database of the given NAME.
-sub connect_to_dadem_database ($) {
+sub connect_to_dadem_database {
     my ($dbname) = @_;
-    return DBI->connect("dbi:Pg:dbname=$dbname", 'dadem', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+    return DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('DADEM_DB_NAME'),
+                        mySociety::Config::get('DADEM_DB_USER'),
+                        mySociety::Config::get('DADEM_DB_PASS'),
+                        { RaiseError => 1, AutoCommit => 0 });
+
 }
 
 

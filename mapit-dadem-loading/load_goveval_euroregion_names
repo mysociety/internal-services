@@ -1,17 +1,16 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../perllib
 #
 # load_goveval_euroregion_names
 # Load in GovEval MEP data, match names to Ordnance Survey once in the
 # MaPit database, and add in the GovEval names as alternates.
 #
-# Parameters:  Give the name of the Postgres database as the first
-# parameter.  Pipe the mep.csv file from GovEval into standard input.
+# Parameters:  Pipe the mep.csv file from GovEval into standard input.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_euroregion_names,v 1.2 2004-12-07 00:14:43 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_euroregion_names,v 1.3 2004-12-07 16:33:20 francis Exp $';
 
 use strict;
 
@@ -22,11 +21,9 @@ use Data::Dumper;
 
 use Common;
 
-die "argument is Postgres database name" unless (@ARGV > 0);
-my $dbname = shift(@ARGV);
 my $runoneid = shift(@ARGV);
 
-my $dbh = connect_to_mapit_database($dbname);
+my $dbh = connect_to_mapit_database();
 # DBI->trace(2);
 my $types = [qw(EUR)];
 

@@ -3,8 +3,7 @@
 # load_ons_names:
 # Load names for wards etc. from the ONS Standard Names and Codes product.
 #
-# Call with two arguments:
-#   - name of MaPit Postgresql database;
+# Call with one argument:
 #   - name of SNAC Access database (.mdb file)
 #
 # Boundary-Line sometimes uses CAS ward codes and sometimes real ward codes. I
@@ -17,7 +16,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.4 2004-12-07 00:14:43 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.5 2004-12-07 16:33:20 francis Exp $';
 
 use strict;
 
@@ -30,11 +29,10 @@ use Text::CSV_XS;
 
 use Common;
 
-die "arguments are Postgres database name and ONS codes CSV file" unless (@ARGV == 2);
+die "argument is ONS codes CSV file" unless (@ARGV == 1);
+my ($$snacdbfile) = @ARGV;
 
-my ($dbname, $snacdbfile) = @ARGV;
-
-my $dbh = connect_to_mapit_database($dbname);
+my $dbh = connect_to_mapit_database();
 
 my %have_name = ( );
 
