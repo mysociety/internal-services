@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.5 2004-12-20 20:34:16 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.6 2004-12-20 22:46:07 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -36,6 +36,9 @@ while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'DaDem.get_representatives' => sub {
                 return DaDem::get_representatives($_[0]);
+            },
+            'DaDem.search_representatives' => sub {
+                return DaDem::search_representatives($_[0]);
             },
             'DaDem.get_representative_info' => sub {
                 return DaDem::get_representative_info($_[0]);

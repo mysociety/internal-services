@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.6 2004-12-20 18:03:48 francis Exp $
+# $Id: MaPit.pm,v 1.7 2004-12-20 22:46:07 francis Exp $
 #
 
 package MaPit;
@@ -201,6 +201,22 @@ sub get_voting_area_info ($) {
         $ret->{$_} = ${"mySociety::VotingArea::$_"}{$ret->{type}};
     }
     return $ret;
+}
+
+=item get_example_postcode AREA_ID
+
+Given an area, returns one postcode that maps to it.
+
+=cut
+
+sub get_example_postcode ($) {
+    my ($area_id) = @_;
+    my $pc = scalar(dbh()->selectrow_array("select postcode from postcode, postcode_area
+        where postcode.id = postcode_area.postcode_id and area_id = ?
+        limit 1", {}, $area_id));
+    throw RABX::Error("Voting area not found id $area_id") unless defined $pc;
+
+    return $pc;
 }
 
 =item get_voting_areas_info ARY

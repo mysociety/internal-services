@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.16 2004-12-20 20:52:16 francis Exp $
+# $Id: DaDem.pm,v 1.17 2004-12-20 22:46:07 francis Exp $
 #
 
 package DaDem;
@@ -195,6 +195,31 @@ sub get_representatives ($) {
     }
 }
 
+=item search_representatives QUERY
+
+Given search string, returns list of the representatives whose names,
+party, email or fax contain the string (case insensitive).
+
+=cut
+sub search_representatives ($) {
+    my ($query) = @_;
+    $query = "%" . lc($query) . "%";
+    warn $query;
+
+    # Real data
+    my $y = dbh()->selectall_arrayref('select id from representative where 
+        (lower(name) like ?) or
+        (lower(party) like ?) or
+        (lower(email) like ?) or
+        (lower(fax) like ?)', {}, $query, $query, $query, $query);
+
+    if (!$y) {
+        throw RABX::Error("Area containing '$query' not found", mySociety::DaDem::UNKNOWN_AREA);
+    } else {
+        return [ map { $_->[0] } @$y ];
+    }
+}
+
 =item get_representative_info ID
 
 Given the ID of a representative, return a reference to a hash of information
@@ -319,7 +344,7 @@ sub get_representative_history ($) {
     }
     
     # Get original
-    my $sth = dbh()->prepare('select * from representative where id = ?');
+    $sth = dbh()->prepare('select * from representative where id = ?');
     $sth->execute($id);
     while (my $hash_ref = $sth->fetchrow_hashref()) {
         $hash_ref->{'order_id'} = 0;
