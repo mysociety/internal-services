@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.4 2004-12-08 08:50:50 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.5 2004-12-13 12:17:34 francis Exp $';
 
 use strict;
 
@@ -96,7 +96,6 @@ while (my $line = <STDIN>) {
         $finalemail = $email;
         $finalemail = undef if ($email eq "");
         $finalemail = undef if ($email eq "NULL");
-        $finalemail = undef if ($email eq "shame");
         $finalemail = undef if ($email eq "byelection");
         $finalfax = $fax;
         $finalfax = undef if ($fax eq "");
@@ -107,6 +106,12 @@ while (my $line = <STDIN>) {
             $finalmethod = 2; # email
         } else {
             $finalmethod = 1; # fax
+        }
+
+        if ($email eq "shame") {
+            $finalemail = undef;
+            $finalfax = undef;
+            $finalmethod = 3;
         }
     } else {
         die "Missing kind in code";
