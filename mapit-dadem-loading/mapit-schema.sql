@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.13 2005-01-21 13:05:45 francis Exp $
+-- $Id: mapit-schema.sql,v 1.14 2005-02-09 12:26:11 chris Exp $
 --
 
 -- generations, for currency of data
@@ -58,13 +58,16 @@ create index area_geom_hash_idx on area(geom_hash);
 create table area_name (
     area_id integer references area(id),
     -- Which type of name this is.
-    -- 'O'  name used by Ordnance Survey
-    -- 'S'           ... ONS
-    -- 'M'           ... mySociety
-    -- 'G'           ... GovEval
-    -- 'X'           ... FaxYourMP
-    -- 'F'  "friendly" name for our own use
-    name_type char(1) not null check (name_type = 'O' or name_type = 'S' or name_type = 'M' or name_type = 'G' or name_type = 'F' or name_type = 'X' or name_type = 'C'),
+    name_type char(1) not null check (
+            name_type = 'O' or -- name used by Ordnance Survey
+            name_type = 'S' or --          ... ONS
+            name_type = 'M' or --          ... mySociety
+            name_type = 'G' or --          ... GovEval
+            name_type = 'X' or --          ... FaxYourMP
+            name_type = 'L' or --          ... legislation
+            name_type = 'F' or -- "friendly" name for our own use
+            name_type = 'C'    -- "canonical" name for name matching
+        ),
     name text not null,
     primary key (area_id, name_type)
 );
