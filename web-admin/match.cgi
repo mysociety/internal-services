@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.14 2005-02-02 16:04:13 francis Exp $
+# $Id: match.cgi,v 1.15 2005-02-03 11:22:39 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.14 2005-02-02 16:04:13 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.15 2005-02-03 11:22:39 francis Exp $';
 
 use strict;
 
@@ -24,6 +24,7 @@ use CGI::Carp;
 use HTML::Entities;
 use Error qw(:try);
 use Data::Dumper;
+use POSIX;
 
 use Common;
 use mySociety::CouncilMatch;
@@ -259,11 +260,53 @@ sub do_council_info ($) {
         print $rep->{rep_first} . " " . $rep->{rep_last}, $q->br();
     }
     print $q->end_td(), $q->end_Tr(), $q->end_table();
- 
+
     # Details about matches made
     print $q->h2("Match Details");
     print $q->pre(encode_entities($status_data->{'details'}));
 
+    # History
+    print $q->h2("Edit History");
+    my @history;
+    my @cols = qw#editor key alteration ward_name rep_first rep_last rep_party rep_email rep_fax#;
+    my $sth = $d_dbh->prepare(q#select * from raw_input_data where council_id = ?
+            order by ward_name#);
+    $sth->execute($area_id);
+    while (my $row = $sth->fetchrow_hashref()) { 
+        $row->{editor} = "imported";
+        push @history, $row;
+    } 
+    $sth = $d_dbh->prepare(q#select * from raw_input_data_edited where council_id = ? 
+            order by order_id desc#);
+    $sth->execute($area_id);
+    while (my $row = $sth->fetchrow_hashref()) { 
+        push @history, $row;
+    } 
+    print $q->start_table({border=>1});
+    print $q->th({}, ["whenedited", @cols]);
+    my $prevrow;
+    foreach my $row (@history) {
+        my $key = $row->{ge_id} ? 'ge_id'.$row->{ge_id} : 'newrow_id'.$row->{newrow_id};
+        $row->{key} = $key;
+        if ($row->{editor} ne "imported") {
+            print $q->start_Tr();
+            print $q->td(strftime('%Y-%m-%d %H:%M:%S', localtime($row->{whenedited})));
+            foreach my $field (@cols) {
+                if ($field ne "editor" and $field ne "alteration" and
+                    exists($prevrow->{$key}) and ($prevrow->{$key}->{$field} ne $row->{$field})) 
+                {
+                    print $q->td( $q->b($row->{$field} || "&nbsp;"), $q->br(), 
+                        "(was ".encode_entities($prevrow->{$key}->{$field}).")");
+                } else {
+                    print $q->td( encode_entities($row->{$field}) || "&nbsp;");
+                }
+            }
+            print $q->end_Tr();
+        }
+        $prevrow->{$key} = $row;
+    }
+    print $q->end_table();
+ 
     print html_tail($q);
 }
 
