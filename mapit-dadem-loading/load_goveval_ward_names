@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.5 2004-12-15 15:35:05 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.6 2005-01-20 20:40:59 francis Exp $';
 
 use strict;
 
@@ -169,18 +169,18 @@ foreach my $parent (@pk) {
 }
 
 # tmp
-print "------------------------------\n";
-foreach my $id (2463, 2464, 2465, 2466, 2467, 2468, 2469) {
-    print $councils->{$id}->{lines};
+#print "------------------------------\n";
+#foreach my $id (2463, 2464, 2465, 2466, 2467, 2468, 2469) {
+#    print $councils->{$id}->{lines};
 #    my $council = $councils->{$id}->{govevalname};
 #    print "$council\n";
 #    my $wards_goveval = $councils->{$id}->{wards};
 #    foreach my $g (@$wards_goveval) {
 #        print $g->{line} . "\n";
 #    }
-}
-print "------------------------------\n";
-die;
+#}
+#print "------------------------------\n";
+#die;
 
 # Special debugging case
 if (defined $runoneid) {
@@ -231,10 +231,6 @@ sub match_council_wards ($$) {
         printf "%38s %38s\n", $d, $g;
     }
 
-    if (@$wards_goveval != @$wards_database) {
-        die "different numbers of wards";
-    }
-    
     my $dump_wards = sub {
         print STDERR "\t ==== Possible matches (GovEval => Database):\n";
         foreach my $g (@$wards_goveval) {
@@ -260,6 +256,12 @@ sub match_council_wards ($$) {
         print STDERR "\n";
     };
 
+    if (@$wards_goveval != @$wards_database) {
+        print STDERR "different numbers of wards";
+        &$dump_wards();
+        return 0;
+    }
+ 
     # Work out area_id for each GovEval ward
     foreach my $g (@$wards_goveval) {
         # Find the entry in database which best matches each GovEval
