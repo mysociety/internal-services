@@ -1,0 +1,113 @@
+#!/usr/bin/perl -w
+#
+# load_goveval_names
+# Load in GovEval data, match names to Ordnance Survey once in the MaPit
+# database, and add in the GovEval names as alternates.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.1 2004-11-30 09:27:12 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::SQLite;
+use Text::CSV;
+use Data::Dumper;
+
+my $dbh = DBI->connect('dbi:SQLite:dbname=/home/francis/toobig/geodata-mysociety/mapit.sqlite', '', '', { AutoCommit => 0, RaiseError => 1 });
+
+my $parent_types = [qw(DIS LBO MTD UTA LGD CTY)];
+my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];
+
+sub canonicalise_council_name {
+    $_ = shift;
+
+    if (m/^Durham /) {
+        # Durham County and Durham District both have same name (Durham)
+        # so we leave in the type (County/District) as a special case
+        s# City Council# District#;
+        s# County Council# County#;
+    } else {
+        s#\s*\(([A-Z]{2})\)##; # Pendle (BC) => Pendle
+
+        s#^The ##;
+        s# City Council$##;    # OS say "District", GovEval say "City Council", we drop both to match
+        s# County Council$##;  # OS say "District", GovEval say "City Council", we drop both to match
+        s# Borough Council$##; # Stafford Borough Council => Stafford
+        s# Council$##;         # Medway Council => Medway
+        s# City$##;            # Liverpool City => Liverpool
+        s#^City of ##;         # City of Glasgow => Glasgow
+        s#^County of ##;
+        s# District$##;
+        s# County$##;
+        s# City$##;
+
+        s#sh'r$#shire#;       # Renfrewsh'r => Renfrewshire
+        s#W\. Isles#Na H-Eileanan an Iar#;    # Scots Gaelic(?) name for Western Isles
+        s#^Blackburn$#Blackburn with Darwen#;
+
+        s#\bN\.\s#North #g;    # N. Warwickshire => North Warwickshire
+        s#\bS\.\s#South #g;    # S. Oxfordshire => South Oxfordshire
+        s#\bE\.\s#East #g;     # North E. Derbyshire => North East Derbyshire
+        s#\bW\.\s#West #g;     # W. Sussex => West Sussex
+
+        s#&#and#g;
+        s#-# #g;
+    }
+    
+    return $_;
+}
+
+# Cache of name-->id map of all the parent area types (District Council,
+# Unitary Authority etc....)
+my $typeclause= "type = '" . join("' or type = '", @$parent_types) . "'";
+my $s = $dbh->prepare('select area_id, name from area_name, area where
+    area_name.area_id = area.id and (' . $typeclause . ')');
+$s->execute();
+my %parent_to_id;
+while (my ($area_id, $name) = $s->fetchrow_array()) {
+    #print "$area_id $name\n";
+    if (exists($parent_to_id{$name})) {
+        die "Already have id for $name, being " . $parent_to_id{$name} .  "\n";
+    }
+    $parent_to_id{$name} = $area_id;
+
+    # Create canonical version of name and also hash it as lookup
+    $_ = canonicalise_council_name($name);
+    if ($_ ne $name) {
+        if (exists($parent_to_id{$_})) {
+            die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n";
+        }
+        $parent_to_id{$_} = $area_id;
+    }
+}
+ 
+# Parse the GovEval data.
+my $C = new Text::CSV;
+
+<STDIN>;    # header line
+
+while (my $line = <STDIN>) {
+    chomp($line);
+    $C->parse($line);
+    my ($first, $last, $vdiv, $council, $email) = $C->fields();
+
+    if (!defined $council) {
+        warn "council not defined for line $line\n";
+        die;
+    }
+    
+    $_ = canonicalise_council_name($council);
+
+    if (exists($parent_to_id{$_})) {
+        warn "got $council\n";
+    } else {
+        die "not got $council, matching canonical $_\n";
+    }
+#    push(@data, [$C->fields()]);
+}
+
+$dbh->disconnect();
