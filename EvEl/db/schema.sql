@@ -2,10 +2,10 @@
 -- schema.sql:
 -- Schema for the mailing list management component.
 --
--- Copyright (c) 2005 Chris Lightfoot. All rights reserved.
--- Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+-- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+-- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.1 2005-03-17 17:40:56 chris Exp $
+-- $Id: schema.sql,v 1.2 2005-03-17 17:46:31 chris Exp $
 --
 
 -- A message represents a single message which may be sent to one or more
