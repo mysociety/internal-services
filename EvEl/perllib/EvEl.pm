@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.5 2005-03-30 11:37:16 francis Exp $
+# $Id: EvEl.pm,v 1.6 2005-03-30 15:45:01 chris Exp $
 #
 
 package EvEl::Error;
@@ -29,11 +29,12 @@ etc.
 use strict;
 
 use Digest::SHA1;
+use Error qw(:try);
 use Mail::RFC822::Address;
 use Net::SMTP;
 
 use mySociety::DBHandle qw(dbh);
-use mySociety::Util qw(random_bytes);
+use mySociety::Util qw(random_bytes print_log);
 
 BEGIN {
     mySociety::DBHandle::configure(
@@ -99,7 +100,8 @@ sub parse_verp_address ($) {
 # is the command which was being executed. Returns when RESULT is successful
 # or throws a suitable exception on failure.
 sub do_smtp ($$$) {
-    my ($smtp, $result, $what);
+    my ($smtp, $result, $what) = @_;
+    print_log('debug', "SMTP: $what");
     if ($result) {
         $! = undef;
         return;
@@ -110,7 +112,8 @@ sub do_smtp ($$$) {
 }
 
 # run_queue
-# Run the queue of outgoing messages. This function commits its changes.
+# Run the queue of outgoing messages. Returns the number of messages sent. This
+# function commits its changes.
 sub run_queue () {
     use constant send_max_attempts => 10;
     use constant send_retry_interval => 60;
@@ -126,7 +129,8 @@ sub run_queue () {
     $s->execute(send_max_attempts, time(), send_retry_interval);
 
     my $smtp;
-    my $nsent = 0;
+    my $nsent = 0; # Number of messages sent on this SMTP transaction
+    my $nsent_total = 0; # Total number of messages sent
     
     while (my ($msg, $recip) = $s->fetchrow_array()) {
         # Grab a lock.
@@ -141,35 +145,49 @@ sub run_queue () {
                         and (whenlastattempt is null
                             or whenlastattempt < ? - ? * (2 ^ numattempts - 1))
                     for update of message_recipient
-                    ', {}, $msg, $recip);
+                    ', {}, $msg, $recip, time(), send_retry_interval);
         next unless ($d);
+
+        print_log('debug', "considering delivery of message $msg to recipient $recip <$d->{address}>");
 
         # Get a connection to the SMTP server, if needed.
         if (!$smtp || $nsent > 10) {
-            $smtp->quit() if ($smtp);
+            if ($smtp) {
+                print_log('debug', "disconnecting from SMTP server after sending $nsent mails");
+                $smtp->quit();
+            }
             my $smtpserver = mySociety::Config::get('EVEL_MAIL_HOST', 'localhost');
             $smtp = new Net::SMTP(Host => $smtpserver, Timeout => 10) or
                 throw EvEl::Error("unable to connect to $smtpserver: $!");
             $nsent = 0;
+            print_log('debug', "connected to SMTP server $smtpserver"); 
         }
 
         # Split message text into lines.
         my @lines;
         if ($d->{data} =~ m#\r\n#s) {
-            @lines = split(m#\r\n#, $d->{data});
+            print_log('debug', "message has \\r\\n-type line terminators");
+            @lines = split(/\r\n/, $d->{data});
         } else {
-            @lines = split(m#\n#, $d->{data});
+            print_log('debug', "message has \\n-type line terminators");
+            @lines = split(/\n/, $d->{data});
         }
+        print_log('debug', "message is " . scalar(@lines) . " lines long");
 
         # Construct a unique return-path for this address, so that we can do
         # bounce detection. Ignore the VERP/XVERP ESMTP stuff, for the moment.
         my $verp = verp_address($msg, $recip);
+        print_log('debug', "VERP address for this message and recipient: <$verp>");
         try {
             do_smtp($smtp, $smtp->mail($verp), 'MAIL FROM');
             do_smtp($smtp, $smtp->recipient($d->{address}), 'RCPT TO');
-            do_smtp($smtp, $smtp->data(\@lines), 'DATA');
+            do_smtp($smtp, $smtp->data([ map { "$_\n" } @lines ]), 'DATA');
+            ++$nsent;
+            ++$nsent_total;
+            print_log('info', "sent message $msg to recipient $recip <$d->{address}>");
         } catch EvEl::Error with {
             my $E = shift;
+            print_log('error', "error during SMTP dialogue: $E");
             $smtp->quit();
             $smtp = undef;
             # For the moment just treat all errors the same way: abort the
@@ -177,7 +195,7 @@ sub run_queue () {
             dbh()->do('
                     update message_recipient
                     set numattempts = numattempts + 1,
-                        lastattempt = ?
+                        whenlastattempt = ?
                     where message_id = ? and recipient_id = ?', 
                     {}, time(), $msg, $recip);
             dbh()->commit();
@@ -194,6 +212,15 @@ sub run_queue () {
                 {}, time(), time(), $msg, $recip);
         dbh()->commit();
     }
+
+    if ($smtp) {
+        print_log('debug', "disconnecting from SMTP server for last time");
+        $smtp->quit();
+    }
+
+    print_log('debug', "queue run completed");
+
+    return $nsent_total;
 }
 
 # process_bounce RECIPIENT LINES

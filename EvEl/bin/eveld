@@ -1,0 +1,153 @@
+#!/usr/bin/perl -w
+#
+# eveld:
+# Simple queue-running daemon for EvEl.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.1 2005-03-30 15:45:01 chris Exp $';
+
+use strict;
+
+use strict;
+require 5.8.0;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../../perllib";
+
+use Error qw(:try);
+use Getopt::Long;
+use Pod::Usage;
+use POSIX;
+use Sys::Syslog;
+
+use mySociety::Config;
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../../conf/general");
+}
+use mySociety::DBHandle qw(dbh);
+use mySociety::PIDFile;
+use mySociety::Util qw(print_log);
+
+use EvEl;
+
+my $foad;
+
+# run_queue_process
+# Periodic queue-running process.
+sub run_queue_process () {
+    my $niter = 0;
+    while (!$foad && $niter < 1000) {
+        print_log('debug', "running queue");
+        my $N = EvEl::run_queue();
+        sleep(60) if ($N == 0);
+        ++$niter;
+    }
+    print_log('debug', "queue-running process shutting down after $niter iterations");
+}
+
+# Entry point.
+my $numprocesses = mySociety::Config::get('EVEL_DAEMON_SEND_PROCESSES', 1);
+my $pidfilepath = mySociety::Config::get('EVEL_DAEMON_PIDFILE', '/var/run/eveld.pid');
+my $nodetach = 0;
+my $help = 0;
+if (!GetOptions(
+        'processes=i' =>        \$numprocesses,
+        'pidfile=s' =>          \$pidfilepath,
+        'debug' =>              \$nodetach,
+        'help' =>               \$help
+    )) {
+    print_log('err', "bad options; try --help for help");
+    exit(1);
+}
+
+if ($help) {
+    pod2usage(-exitval => 0, -verbose => 1);
+    exit(0);
+}
+
+mySociety::Util::daemon() unless ($nodetach);
+
+my $pidfile;
+try {
+    $pidfile = new mySociety::PIDFile($pidfilepath);
+} catch mySociety::PIDFile::Error with {
+    my $E = shift;
+    print_log('err', $E->text());
+    exit(1);
+};
+
+print_log('info', "starting up");
+
+# Main loop.
+$SIG{TERM} = $SIG{INT} = sub { $foad = POSIX::SIGTERM }; # so children know to exit
+    # catch SIGINT so that we can conveniently be run from the terminal with
+    # --debug, and still shut down cleanly.
+my $termsig = mySociety::Util::manage_child_processes({
+        queue =>      [1, \&run_queue_process]
+    });
+
+undef($pidfile);
+
+if ($termsig == SIGHUP) {
+    print_log('notice', "restarting on signal $termsig");
+    { exec($FindBin::Script, @ARGV); }
+    print_log('err', "exec: $!");
+    exit(1);
+} else {
+    print_log('notice', "shutting down on signal $termsig");
+}
+
+exit(0);
+
+__END__
+
+=head1 NAME
+
+eveld
+
+=head1 SYNOPSIS
+
+eveld --help | [OPTIONS]
+
+=head1 DESCRIPTION
+
+Queue running daemon for EvEl.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help
+
+Display information about using the program.
+
+=item --debug
+
+Don't detach from controlling terminal; log diagnostics to standard error as
+well as the system log.
+
+=item --pidfile PATH
+
+Use PATH as the location of the PID file. By default, uses the value defined in
+the config file, or "/var/run/pbsmsd.pid".
+
+=item --processes NUM
+
+Run NUM email sending child processes. By default, uses the value defined in
+the config file, or 1.
+
+=back
+
+=head1 COPYRIGHT 
+
+Copyright (c) 2005 UK Citizens Online Democracy
+
+=head1 VERSION
+
+$Id: eveld,v 1.1 2005-03-30 15:45:01 chris Exp $
+
