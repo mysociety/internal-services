@@ -1,0 +1,86 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# load_goveval_names
+# Load in GovEval or similar data, match names to Ordnance Survey ones
+# in the MaPit database, and add in the GovEval names as alternates.
+#
+# Parameters: 
+# $1 - kind of data, currently choose from: mep, mp
+# stdin - the CSV file from GovEval or FaxYourMP
+# make sure ../conf/general is configured for mapit db
+#
+# Example usage:
+# cat ../../../goveval/mep-20041001.csv | ./load_goveval_names mep
+# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.1 2004-12-08 09:32:00 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+use Data::Dumper;
+
+use Common;
+
+my $dbh = connect_to_mapit_database();
+# DBI->trace(2);
+
+# Delete existing GovEval name data
+$dbh->do(q#delete from area_name where name_type = 'F'#);
+
+# friendly_constituency_name NAME
+# Convert the NAME of a constituency into a friendly version, which
+# doesn't have any suffix saying what type it is.  Input should
+# be the OS spelling of the name.
+sub friendly_constituency_name ($) {
+    $_ = shift;
+
+    # Specific to Europe regions
+    s#^Greater ##i;
+    s# Euro Region$##;
+    s#N\. Ireland#Northern Ireland#;
+
+    # Specific to Westminster constituencies
+    s# Burgh Const$##;
+    s# Co Const$##;
+    s# Boro Const$##;
+
+    # Specific to wards and councils
+    s#\s*\(([A-Z]{2})\)$##; # Pendle (BC) => Pendle
+    s#\s*([A-Z]{2})$##; # Pendle (BC) => Pendle
+    s#^City and County of the#The#;         # City and County of the City of London => the City of London
+    s# City Council$##;    # OS say "District", GovEval say "City Council", we drop both to match
+    s# County Council$##;  # OS say "District", GovEval say "City Council", we drop both to match
+    s# Borough Council$##; # Stafford Borough Council => Stafford
+    s# Council$##;         # Medway Council => Medway
+    s#^City of ##;         # City of Glasgow => Glasgow
+    s# District$##;
+    s# County$##;
+    s# City$##;
+    s# London Boro$##;
+    s# Ward$##;
+
+    return $_;
+}
+
+# Load all OS names and make friendly
+my $s = $dbh->prepare(
+        q#select area_id, name from area_name, area
+            where area_name.area_id = area.id and name_type = 'O'#);
+$s->execute();
+
+while (my ($area_id, $name) = $s->fetchrow_array()) {
+    # Create canonical version of name and also hash it as lookup
+    $_ = friendly_constituency_name($name);
+    $dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)",
+        {}, $area_id, 'F', $_);
+}
+ 
+$dbh->commit();
+$dbh->disconnect();
+
