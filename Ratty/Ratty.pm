@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.9 2004-11-26 10:15:10 francis Exp $
+# $Id: Ratty.pm,v 1.10 2004-11-26 11:27:09 francis Exp $
 #
 
 package Ratty;
@@ -110,7 +110,6 @@ sub test ($$) {
         $self->{tester} = compile_rules();
         $self->{lastrebuild} = time();
     }
-    warn Dumper($result);
     return $result;
 }
 
