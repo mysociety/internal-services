@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.20 2005-01-13 14:06:28 chris Exp $
+# $Id: Ratty.pm,v 1.21 2005-01-13 14:18:34 chris Exp $
 #
 
 package Ratty::Error;
@@ -53,7 +53,7 @@ Implementation of rate-limiting.
 =cut
 
 my $dbh;
-sub dbh() {
+sub dbh () {
     $dbh = undef if (defined($dbh) && defined($dbh->err()));
     $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('RATTY_DB_NAME'),
                         mySociety::Config::get('RATTY_DB_USER'),
@@ -208,7 +208,7 @@ sub compile_rules () {
                 push (@code, sprintf('        $V->{$data->[%d]}->[0] %s $data->[%d]', $fi, $invert ? 'ne' : 'eq', $vi));
             } elsif ($condition eq 'R') {
                 # Construct a regexp from the value.
-                my $re = eval(sprintf('qr#%s#', $value));
+                my $re = eval(sprintf(q#qr'%s'#, $value)); # NB we MUST use qr'...' as the delimeters, since we must not allow variable interpolation in this string
                 if (defined($re)) {
                     push(@data, $re);
                     my $vi = $#data;
