@@ -1,0 +1,198 @@
+#!/usr/bin/perl -w
+#
+# process_codepoint_ni:
+# Read CodePoint postcodes, coordinates and ONS ward codes, and use them to
+# generate a mapping from postcodes to electoral geography.
+#
+# Call with two files, the first of which maps from ward code to parliamentary
+# constituency and local authority, and the second of which is the relevant
+# CodePoint CSV file.
+#
+# All NI postcodes begin BT, so the appropriate file from the CodePoint
+# distribution is BT.CSV. The mapping from ward codes to constituencies is
+# available in the ONS SNAC ("Standard Names and Codes") product, from
+#   http://www.statistics.gov.uk/geography/snac.asp
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.1 2004-11-22 20:34:26 chris Exp $';
+
+use strict;
+
+use IO::File;
+use Text::CSV_XS;
+
+sub chomp2 {
+    $_ =~ s#\r\n$##s;
+    $_ =~ s#\n$##s;
+}
+
+
+# Text::CSV excludes characters outside the ASCII range from CSV values (bug
+# reported two years ago, never fixed). Text::CSV_XS also has this behaviour
+# by default, but offers options for a slightly less inept behaviour.
+my $c = new Text::CSV_XS({ binary => 1 });
+
+die "arguments are ONS codes CSV file, and CodePoint CSV file" unless (@ARGV == 2);
+
+my ($onscodesfile, $codepointfile) = @ARGV;
+
+my %name;
+my %ward_to_const;
+
+my $f = new IO::File($onscodesfile) or die "$onscodesfile: $!";
+$f->getline();
+while (defined($_ = $f->getline())) {
+    chomp2;
+    $c->parse($_) or die "unable to parse '$_'";
+    # Fields are:
+    #   ONS constituency code
+    #                    name
+    #   ONS ward code
+    #            name
+    #   ONS LA/UA code
+    #             name
+    my ($ccode, $cname, $wcode, $wname, $acode, $aname) = $c->fields();
+
+    die "undefined constituency code in '$_'" if (!defined($ccode));
+    die "undefined ward code in '$_'" if (!defined($wcode));
+    die "undefined LA/UA code in '$_'" if (!defined($acode));
+    
+    $wcode =~ s/ //g;
+
+    $name{$ccode} ||= $cname;
+    $name{$wcode} ||= $wname;
+    $name{$acode} ||= $aname;
+
+    $ward_to_const{$wcode} = $ccode;
+}
+die "$onscodesfile: $!" if ($f->error());
+$f->close();
+
+my %unused = map { $_ => 1 } grep(/^95/, keys %ward_to_const);
+
+my @postcode;
+my @incomplete;
+my %cache;
+
+$f = new IO::File($codepointfile) or die "$codepointfile: $!";
+while (defined($_ = $f->getline())) {
+    chomp2;
+    $c->parse($_) or die "unable to parse '$_'";
+    # Fields:
+    #   0       postcode
+    #   1       accuracy code
+    #   11      easting
+    #   12      northing
+    #   16..18  ward code
+    my @f = $c->fields();
+
+    my $pc = $f[0];
+    $pc =~ s/ //g;
+    my ($E, $N) = @f[10 .. 11];
+    my $ward = join('', @f[15 .. 17]);
+    $ward =~ s/ //g;
+
+    # Our current (20041122) copy of Codepoint miscodes 95X (Ards DC) as 955. I
+    # checked this by comparing plots of postcode locations in the various
+    # wards with the maps prepared by NISRA NINIS at,
+    #   http://www.ninis.nisra.gov.uk/mapxtreme/MapCatalogue.asp
+    # Note that those maps (a) do not work in web browsers other than Microsoft
+    # "Internet Explorer"; (b) are annotated with what appear to be an obsolete
+    # series of ward codes beginning 95BB; these do not appear in the current
+    # ONS indices.
+    $ward =~ s#^955#95X#;
+
+    # Skip postcodes which have no positional information (PQ of 90); these are
+    # mostly PO boxes and things.
+    next if ($f[1] == 90);
+
+    # Some postcodes do not have a full ward code.
+    if (length($ward) != 5) {
+        push(@incomplete, [$pc, $E, $N, $ward]);
+        next;
+    }
+    
+    push(@postcode, [$pc, $E, $N, $ward]);
+    $cache{"$E,$N"} = $ward;
+
+    if (!exists($name{$ward})) {
+        die "no ward for code '$ward'\n";
+    } elsif (!exists($ward_to_const{$ward})) {
+        die "ward '$ward' does not lie in any constituency\n";
+    }
+
+    delete($unused{$ward});
+}
+die "$codepointfile: $!" if ($f->error());
+$f->close();
+
+printf STDERR "got %d good, %d bad PCs\n", scalar(@postcode), scalar(@incomplete);
+printf STDERR "%d NI wards contained no postcodes\n", scalar(keys %unused);
+
+# Now attempt to guess the ward in which postcodes with incomplete ward codes
+# lie.
+
+@postcode = sort { $a->[1] <=> $b->[1] } @postcode;
+
+my $reassigned = 0;
+
+foreach (@incomplete) {
+    my ($pc, $E, $N, $ward) = @$_;
+
+    if (exists($cache{"$E,$N"})) {
+        # Have a postcode for this exact location already.
+        ++$reassigned;
+        next;
+    }
+
+    my $radius = 10;
+    my @nearby; # Nearby postcodes
+    my @possibles;
+
+    while (@nearby == 0) {
+        @nearby = ( );
+
+#        print STDERR "\r$pc  ";
+        
+        my ($il, $ih) = (0, $#postcode);
+        while ($ih > $il + 1) {
+            my $i = int(($il + $ih) / 2);
+            if ($postcode[$i]->[1] < $E - $radius) {
+                $il = $i;
+            } elsif ($postcode[$i]->[1] > $E - $radius) {
+                $ih = $i;
+            } else {
+                $il = $i;
+                last;
+            }
+        }
+
+        while ($il < @postcode && $postcode[$il]->[1] <= $E + $radius) {
+            my ($dE, $dN) = ($E - $postcode[$il]->[1], $N - $postcode[$il]->[2]);
+            if ($postcode[$il]->[3] =~ m#^95# and sqrt($dE**2 + $dN**2) < $radius) {
+                push(@nearby, [@{$postcode[$il]}, sqrt($dE**2 + $dN**2)]);
+            }
+            ++$il;
+        }
+
+        if (@nearby > 0) {
+            my %p = map { $_->[3] => 1 } @nearby;
+            @possibles = sort keys %p;
+            if (@possibles > 1) {
+                print "\r$pc possible wards are: ", join(" ", @possibles), "\n";
+                print "radius = $radius\n";
+                print join("\n", map { sprintf("%s %s %f", $_->[0], $_->[3], $_->[4]) } sort { $a->[4] <=> $b->[4] } @nearby),
+"\n";
+            } else {
+                ++$reassigned;
+            }
+        }
+
+        $radius *= 1.05;
+    }
+}
+
+printf STDERR "reassigned %d postcodes on a nearest-neighbour basis; %d bad remain\n", $reassigned, scalar(@incomplete) - $reassigned;
