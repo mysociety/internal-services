@@ -9,8 +9,10 @@
 use strict;
 use LWP::Simple;
 use Data::Dumper;
+use URI;
 
 use mySociety::CouncilMatch;
+use HTML::TokeParser;
 use Common;
 
 my $m_dbh = connect_to_mapit_database();
@@ -18,36 +20,42 @@ my $d_dbh = connect_to_dadem_database();
 
 my $samplecouncils = [
 
-# WCCWCCC
-{id=>2287, url=>"http://www.teignbridge.gov.uk/councillors/index.htm"},
+### DONE ###
+# CWCWCW
+# Surname first
+# {id=>2504, url=>"http://www.westminster.gov.uk/councilgovernmentanddemocracy/councils/contactsconsultationandfeedback/councillors/"},
+
+### TRIED ###
+# Need subpages -- too hard
+# WCWCCC
+#{id=>2305, url=>"http://www.rother.gov.uk/index.cfm?articleid=187"},
+
+#
+# WCWCCC
+#{id=>2287, url=>"http://www.teignbridge.gov.uk/councillors/index.htm"},
+
+# WCWCCC 
+# Initials
+#{id=>2432, url=>"http://www.staffsmoorlands.gov.uk/whoswho/councillors/councillorsbyward/councillorsbywardlist.htm"},
+
+### VIRGIN ###
+
+# WCWCCC 
+# Middle initials
+{id=>2626, url=>"http://www.broadland.gov.uk/broadland/members.nsf/CouncillorsByWard?openform&Start=1&Count=1000&ExpandView"},
+
+# CWCWCW
+# Initials
+#{id=>2246, url=>"http://www.worcestershire.gov.uk/home/cs-mas-dsu/cs-mas-councillors/cs-mas-your-councillors.htm"}
 
 # CWCWCW
 # Surname first
 #{id=>2243, url=>"http://www.warwickshire.gov.uk/corporate%5Ccommitte.nsf/WCalphaWCC?OpenView&expandview&Count=150"},
 
-# CWCWCW
-# Surname first
-#{id=>2504, url=>"http://www.westminster.gov.uk/councilgovernmentanddemocracy/councils/contactsconsultationandfeedback/councillors/"},
-
-# WCCWCCC 
-# Middle initials
-#{id=>2626, url=>"http://www.broadland.gov.uk/broadland/members.nsf/CouncillorsByWard?openform&Start=1&Count=1000&ExpandView"},
-
 # CWCWCW 
 # Capital surnames
 #{id=>2430, url=>"http://www.southsomerset.gov.uk/portal/page?_pageid=69,84872&_dad=cms&_schema=CMS&3410_COUNCILLORS_89102133.l_model=District%20Councillor"},
 
-# WCCWCCC 
-# Initials
-#{id=>2432, url=>"http://www.staffsmoorlands.gov.uk/whoswho/councillors/councillorsbyward/councillorsbywardlist.htm"},
-
-# CWCWCW
-# Initials
-#{d=>2246, url=>"http://www.worcestershire.gov.uk/home/cs-mas-dsu/cs-mas-councillors/cs-mas-your-councillors.htm"}
-
-# Need subpages
-# WCCWCCC
-#2305 http://www.rother.gov.uk/index.cfm?articleid=187
 ];
 
 sub trim($) {
@@ -72,52 +80,150 @@ sub check_councillors($) {
     # .. canonicalise names
     my $wardnamescanon;
     do { $wardnamescanon->{canonicalise_ward_name($_)} = $wardnames->{$_} } for keys %$wardnames;
-    # Which wards have found matches
-    my $warddone;
-    do { $warddone->{$wardnames->{$_}->{id}} = 0 } for keys %$wardnames;
+    # Various lookup tables
     my $wardsbyid;
     do { $wardsbyid->{$wardnames->{$_}->{id}} = $wardnames->{$_}->{name} } for keys %$wardnames;
+    my $cllrsbykey;
+    do { $cllrsbykey->{$_->{key}} = $_ } for @raw;
+    my $cllrsbywardid;
+    do { push @{$cllrsbywardid->{$wardnames->{$_->{ward_name}}->{id}}}, $_ } for @raw;
 
     # Get all HTML from councillor list web page, and tidy
-    my $content = get($spec->{url});
-    $content =~ s/\s+/ /gs;
-    $content =~ s/&amp;/&/g;
+    print "getting\n";
+    my $mainpage = get($spec->{url});
+    my $content = $mainpage;
 
-    # Break it up into parts all within one tag
+# Recursive look (one deep)
+=comment
+$content = "";
+    my $p = HTML::TokeParser->new(\$mainpage);
+    while (my $token = $p->get_tag("a")) {
+        my $url = $token->[1]{href};
+        if ($url) {
+            if (!URI->new($url)->scheme()) { # only relative ones
+                my $uri = URI->new_abs($url, $spec->{url});
+                $url = $uri->as_string();
+                print $url . "\n";
+                $content .= get($url);
+            }
+        }
+    }
+    print $content;
+=cut
+
+    
+    print "got\n";
+    $content =~ s/\s+/ /gs;   # flush all spacing (including NL CR) to just space
+    $content =~ s/&amp;/&/g;  # make ampersands normal
+    $content =~ s/<!--[^>]*-->//g;  # remove comments
+
+    # Remove, without replacing with spaces, all the tags which are character
+    # spanning.  We do this by removing all those except the most common 
+    # paragraph spanning tags.  This is because sometimes there are errors
+    # where character spanning tags (e.g. a, strong, span...) are used in
+    # the middle of a name.  e.g.
+    #  D A Hal</a></span></span></strong><a href="../cllrhall_da.htm">l</a><br>
+    $content =~ s/<\/?(?!p|br|tr|td|div|table|hr|li|ol|ul|h[1-9])\b[^>]+>//ig;
+
+    # Break it up into parts between tags.  Note the only tags left are
+    # those in the regular expression above at this point.
     my @lumps = split /<[^>]+>/, $content;
     @lumps = map { trim($_) } @lumps;
 
-    # Scan for stuff
-    my $lastwardid = -1;
-    foreach my $lump (@lumps) {
+    my $scan_with_pattern = sub {
+        my ($pattern) = @_;
+        die "scan_with_pattern: invalid pattern $pattern" if ($pattern ne "WCWCCC" && $pattern ne "CWCWCW");
 
-        foreach my $rep (@raw) {
-            if ($rep->{rep_first} . " " . $rep->{rep_last} eq $lump) {
-                $rep->{done} = 1;
-                # check ward right
-                if ($wardnames->{$rep->{ward_name}}->{id} != $lastwardid) {
-                    print STDERR "cllr in wrong ward, ge " . $rep->{ward_name} . " website " . $wardsbyid->{$lastwardid};
+        my $error = "";
+        my $warddone;
+        do { $warddone->{$wardnames->{$_}->{id}} = 0 } for keys %$wardnames;
+    
+        # Scan for stuff
+        my $lastwardid = undef;
+        my $lastcllrkey = undef;
+        foreach my $lump (@lumps) {
+
+            my $matches = 0;
+            foreach my $rep (@raw) {
+                my $initials = mySociety::CouncilMatch::make_into_initials($rep->{rep_first});
+                $initials =~ s/ / \?/; # spaces between initials are optional
+    #            print "$initials " . $rep->{rep_last} . " : $lump\n";
+                # Match representative names various ways
+                if (
+                    $lump =~ m/\b$rep->{rep_first} ?([A-Z] ?)* $rep->{rep_last}\b/i || #First Last#
+                    $lump =~ m/\b$rep->{rep_last}, $rep->{rep_first}\b/i || #First Last#
+                    $lump =~ m/\b$initials ?([A-Z] ?)* $rep->{rep_last}\b/  #F M Last# or #FM Last#
+                ) {
+                    $lastcllrkey = $rep->{key};
+                    $rep->{done} = 1;
+                    $matches ++;
+                    if ($pattern eq "WCWCCC") {
+                        # check ward right
+                        if (!$lastwardid) {
+                            $error .= $spec->{id} . ": councillor " . $rep->{rep_first} . " " . $rep->{rep_last} . " in wrong ward, ge " . $rep->{ward_name} . " none on website\n";
+
+                        } elsif ($wardnames->{$rep->{ward_name}}->{id} != $lastwardid) {
+                            $error .= $spec->{id} . ": councillor " . $rep->{rep_first} . " " . $rep->{rep_last} . " in wrong ward, ge " . $rep->{ward_name} . " website " . $wardsbyid->{$lastwardid} . "\n";
+                        }
+                    }
+                }
+            }
+            if ($matches > 1) {
+                $error .= $spec->{id} . ": $lump matched multiple councillors\n";
+            }
+
+            my $canonlump = canonicalise_ward_name($lump);
+            if (exists($wardnamescanon->{$canonlump})) {
+                $lastwardid = $wardnamescanon->{$canonlump}->{id};
+                $warddone->{$lastwardid} = 1;
+                if ($pattern eq "CWCWCW") {
+                    # check councillor right
+                    if (!$lastcllrkey) {
+                        $error .= $spec->{id} . ": ward $lump without councillor\n";
+                    } elsif (!grep { $_->{key} eq $lastcllrkey } @{$cllrsbywardid->{$lastwardid}}) {
+                        #print Dumper(@{$cllrsbywardid->{$lastwardid}});
+                        #print "lastcllrkey $lastcllrkey\n";
+                        $error .= $spec->{id} . ": councillor " . $cllrsbykey->{$lastcllrkey}->{rep_first} . " " .
+                            $cllrsbykey->{$lastcllrkey}->{rep_last} . " appears in wrong ward, ge " . 
+                            $cllrsbykey->{$lastcllrkey}->{ward_name} . " website $lump\n";
+                    }
                 }
             }
         }
 
-        my $canonlump = canonicalise_ward_name($lump);
-        if (exists($wardnamescanon->{$canonlump})) {
-            $lastwardid = $wardnamescanon->{$canonlump}->{id};
-            $warddone->{$lastwardid} = 1;
-            # print "ward $lump $lastwardid\n";
+        # Check all got
+        foreach my $ward (keys %$warddone) {
+            if (!$warddone->{$ward}) {
+                $error .= $spec->{id} . ": ward not matched " . $wardsbyid->{$ward} . " $ward\n";
+            }
         }
-    }
-    
-    # Check all got
-    foreach my $ward (keys %$warddone) {
-        if (!$warddone->{$ward}) {
-            print STDERR "ward not matched " . $wardsbyid->{$ward} . " $ward\n";
+        foreach my $rep (@raw) {
+            if (!$rep->{done}) {
+                $error .= $spec->{id} . ": councillor not matched ge " . $rep->{rep_first} . " " . $rep->{rep_last} . "\n";
+            } else {
+                delete $rep->{done};
+            }
         }
+
+        return $error;
+    };
+
+    my $error1 = &$scan_with_pattern("WCWCCC");
+    my $error2 = &$scan_with_pattern("CWCWCW");
+   
+    if (!$error1) {
+        print "WCWCCC worked\n";
     }
-    foreach my $rep (@raw) {
-        if (!$rep->{done}) {
-            print STDERR "cllr not matched " . $rep->{rep_first} . " " . $rep->{rep_last} . "\n";
+    if (!$error2) {
+        print "CWCWCW worked\n";
+    }
+    if ($error1 && $error2) {
+        if (($error1 =~ tr/\n/\n/) < ($error2 =~ tr/\n/\n/)) {
+            print "shortest is WCWCCC\n";
+            print $error1;
+        } else {
+            print "shortest is CWCWCW\n";
+            print $error2;
         }
     }
 }

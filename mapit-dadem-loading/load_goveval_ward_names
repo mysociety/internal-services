@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.9 2005-01-27 09:39:05 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.10 2005-01-28 02:33:37 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -34,11 +34,18 @@ my $area_id_data = $m_dbh->selectall_hashref(
         'id');
 
 if (defined $runoneid) {
-    if ($runoneid eq "london") {
+    if ($runoneid eq "london" or $runoneid eq "top") {
         print "Processing London councils\n";
-        my $londoncouncils = [
-           "City of London", "Westminster", "Kensington and Chelsea", "Hammersmith and Fulham", "Wandsworth", "Lambeth", "Southwark", "Tower Hamlets", "Hackney", "Islington", "Camden", "Brent", "Ealing", "Hounslow", "Richmond upon Thames", "Kingston upon Thames", "Merton", "Sutton", "Croydon", "Bromley", "Lewisham", "Greenwich", "Bexley", "Havering", "Barking and Dagenham", "Redbridge", "Newham", "Waltham Forest", "Haringey", "Enfield", "Barnet", "Harrow", "Hillingdon",
-        ];
+        my $specialcouncils;
+        if ($runoneid eq "london") {
+            $specialcouncils = [
+               "City of London", "Westminster", "Kensington and Chelsea", "Hammersmith and Fulham", "Wandsworth", "Lambeth", "Southwark", "Tower Hamlets", "Hackney", "Islington", "Camden", "Brent", "Ealing", "Hounslow", "Richmond upon Thames", "Kingston upon Thames", "Merton", "Sutton", "Croydon", "Bromley", "Lewisham", "Greenwich", "Bexley", "Havering", "Barking and Dagenham", "Redbridge", "Newham", "Waltham Forest", "Haringey", "Enfield", "Barnet", "Harrow", "Hillingdon",
+            ];
+        } else {
+            $specialcouncils = [
+                "Kent", "Hampshire", "Cambridgeshire", "Surrey", "Hertfordshire", "The City of Brighton and Hove", "Camden", "Cambridge", "Birmingham", "Maidstone", "Harrow", "Lewisham", "Essex", "West Sussex", "Staffordshire", "Lambeth", "Glasgow", "Oxfordshire", "Sheffield", "Cheshire",
+            ];
+        }
         my $wardnames = $m_dbh->selectall_hashref(
                 q#select * from area_name, area where area_name.area_id = area.id  
                 and (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#, 
@@ -46,11 +53,11 @@ if (defined $runoneid) {
         my $wardnamescanon;
         do { $wardnamescanon->{mySociety::CouncilMatch::canonicalise_council_name($_)} = $wardnames->{$_} } for keys %$wardnames;
 
-        for my $londoncouncil (@$londoncouncils) {
-            my $canon = mySociety::CouncilMatch::canonicalise_council_name($londoncouncil);
-            die "none for $londoncouncil" if (!exists($wardnamescanon->{$canon}));
+        for my $specialcouncil (@$specialcouncils) {
+            my $canon = mySociety::CouncilMatch::canonicalise_council_name($specialcouncil);
+            die "none for $specialcouncil" if (!exists($wardnamescanon->{$canon}));
             my $londonid = $wardnamescanon->{$canon}->{id};
-            print "\"$londoncouncil\", $londonid\n";
+            print "\"$specialcouncil\", $londonid\n";
             my $result = mySociety::CouncilMatch::match_council_wards($londonid, $verbosity, $m_dbh, $d_dbh);
         }
     } else {
