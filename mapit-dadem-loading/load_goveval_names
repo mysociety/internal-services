@@ -11,13 +11,13 @@
 #
 # Example usage:
 # cat ../../../goveval/mep-20041001.csv | ./load_goveval_names mep
-# cat ../../../goveval/faxyourmp-mp-20041207.csv | ./load_goveval_names mp
+# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.9 2004-12-07 21:59:53 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.10 2004-12-07 23:51:26 francis Exp $';
 
 use strict;
 
@@ -127,7 +127,7 @@ while (my $line = <STDIN>) {
         my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
     } elsif ($kind eq "mp") {
-        my ($name, $constituency, $email, $fax, $phone, $constituencyfax) = map { trim_spaces($_) } $C->fields();
+        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
     } else {
         die "Missing kind in code";

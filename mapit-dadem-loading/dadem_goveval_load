@@ -1,32 +1,46 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../perllib
 #
 # dadem_goveval_load
-# Takes CSV files containing contact details for representatives
-# from GovEval, and loads them into DaDem.  Requires that GovEval
-# names are already in the area_name table in MaPit.
+# Takes CSV files containing contact details for representatives from
+# GovEval or similar, and loads them into DaDem.  Requires that GovEval
+# names are already in the area_name table in MaPit, use
+# load_goveval_name first to do that.
 #
 # Parameters: 
-# $1 ... - Types data is for (e.g. EUR)
-# stdin - pipe in the GovEval CSV file
+# $1 - kind of data, currently choose from: mep, mp
+# stdin - the CSV file from GovEval or FaxYourMP
+# make sure ../conf/general is configured for mapit db
+#
+# Example usage:
+# cat ../../../goveval/mep-20041001.csv | ./dadem_goveval_load mep
+# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./dadem_goveval_load mp
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.2 2004-12-07 16:33:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.3 2004-12-07 23:51:26 francis Exp $';
 
 use strict;
 
 use DBI;
 use DBD::SQLite;
-use Text::CSV;
+use Text::CSV_XS;
 use Data::Dumper;
 use Common;
 #DBI->trace(1);
 
-die "arguments are voting area types" unless (@ARGV > 0);
-my $types = \@ARGV;
-die "specify some voting area types" if scalar(@$types < 1);
+my $kind = shift(@ARGV);
+die "specify what kind of CSV file" if (!defined($kind));
+my $types;
+my $name_type_char;
+if ($kind eq "mep") {
+    $types = [qw(EUR)];
+} elsif ($kind eq "mp") {
+    $types = [qw(WMC)];
+} else {
+    die "Please specify 'mep' or 'mp'";
+}
 
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
@@ -45,39 +59,72 @@ my $s = $m_dbh->prepare(
     );
 $s->execute();
 while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
-    print "$area_id $name $type\n";
-    die "duplicate name" if exists($name_to_id{$name});
+    #print "$area_id $name $type\n";
+    die "duplicate name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
     $name_to_id{$name} = $area_id;
     $name_to_type{$name} = $type;
 }
 
 # Read CSV file, load into dadem
-my $C = new Text::CSV;
+my $C = new Text::CSV_XS({ binary => 1 });
 <STDIN>;    # header line
 while (my $line = <STDIN>) {
     chomp($line);
     $C->parse($line);
-    my ($first, $last, $cons, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+    map { die "Not valid field in $line" if (!defined $_) } $C->fields();
 
-    die "first name not defined for line '$line'\n" unless (defined($first));
-    die "last name not defined for line '$line'\n" unless (defined($last));
-    die "cons not defined for line '$line'\n" unless (defined($cons));
-    die "party name not defined for line '$line'\n" unless (defined($party));
-    die "email name not defined for line '$line'\n" unless (defined($email));
-    die "fax name not defined for line '$line'\n" unless (defined($fax));
+    my ($finalcons, $finalname, $finalparty, $finalmethod, $finalemail, $finalfax);
+    if ($kind eq "mep") {
+        my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
 
-    die "unmatched GovEval name'$_', not in database" unless (exists($name_to_id{$cons}));
-    my $area_id = $name_to_id{$cons};
-    my $area_type = $name_to_type{$cons};
+        $finalcons = $constituency;
+        $finalname = "$first $last";
+        $finalparty = $party;
 
-    print "insert into representative (area_id, area_type, name,
-        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)",
-        $area_id, $area_type, "$first $last", $party, 0, $email, $fax;
-    print "\n";
-    
+        $finalemail = $email;
+        $finalfax = $fax;
+        $finalmethod = 0;
+
+    } elsif ($kind eq "mp") {
+        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $constituency;
+        $finalname = $name;
+        $finalparty = $party;
+
+        $finalemail = $email;
+        $finalemail = undef if ($email eq "");
+        $finalemail = undef if ($email eq "NULL");
+        $finalemail = undef if ($email eq "shame");
+        $finalemail = undef if ($email eq "byelection");
+        $finalfax = $fax;
+        $finalfax = undef if ($fax eq "");
+        $finalfax = undef if ($fax eq "NULL");
+        $finalfax = $constituencyfax if (!defined($finalfax));
+
+        if (defined($finalemail)) {
+            $finalmethod = 2; # email
+        } else {
+            $finalmethod = 1; # fax
+        }
+    } else {
+        die "Missing kind in code";
+    }
+
+    die "unmatched GovEval name '$finalcons', not in database" unless (exists($name_to_id{$finalcons}));
+    my $area_id = $name_to_id{$finalcons};
+    my $area_type = $name_to_type{$finalcons};
+
+#    print "insert into representative (area_id, area_type, name,
+#        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)",
+#        $area_id, " ", $area_type, " ", $finalname, " ", $finalparty, "
+#        ", $finalmethod, " ", $finalemail, " ", $finalfax;
+#    print "\n";
+
     $d_dbh->do("insert into representative (area_id, area_type, name,
-        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)", {}, 
-        $area_id, $area_type, "$first $last", $party, 0, $email, $fax);
+        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)", {},
+        $area_id, $area_type, $finalname, $finalparty, $finalmethod,
+        $finalemail, $finalfax);
 }
  
 $m_dbh->disconnect();

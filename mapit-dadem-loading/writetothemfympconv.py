@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.3
-# $Id: writetothemfympconv.py,v 1.1 2004-12-07 14:22:07 francis Exp $
+# $Id: writetothemfympconv.py,v 1.2 2004-12-07 23:51:26 francis Exp $
 # vim:sw=4:ts=4:et:nowrap
 
 # Quick hack match for loading FaxYourMP data into DaDem.
@@ -20,9 +20,11 @@ date_today = datetime.date.today().isoformat()
 ih = open(input)
 ih.next() # skip first line
 csvreader = csv.reader(ih)
-csvwriter = csv.writer(sys.stdout)
+class excelunix(csv.excel):
+    lineterminator = '\n'
+csvwriter = csv.writer(sys.stdout, excelunix)
 
-print "name, constituency, email, fax, phone, constituencyfax"
+print "name, constituency, email, fax, phone, constituencyfax, party"
 for row in csvreader:
     if row == ["</b>"]:
         break
@@ -47,8 +49,10 @@ for row in csvreader:
     id, name, cons =  memberList.matchfullnamecons(origname, cons, date_today)
     if id == None:
         raise Exception("Failed to match '%s'" % origname)
+    attr = memberList.getmember(id)
+    party = attr['party']
 
-    row = [name, cons, email, fax, phone, constituencyfax]
+    row = [name, cons, email, fax, phone, constituencyfax, party]
     row = [x.encode("latin-1") for x in row];
     csvwriter.writerow(row);
 
