@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.1 2004-11-10 13:08:00 francis Exp $
+-- $Id: schema.sql,v 1.2 2004-11-11 11:23:14 francis Exp $
 --
 
 create table rule (
@@ -13,7 +13,6 @@ create table rule (
     requests integer not null,  -- maximum allowed rate is requests / interval
     interval integer not null,  -- in seconds
     sequence integer not null,  -- place where this rule fits in the order
-    key text,                   -- key usable by other code
     note text                   -- human-readable description
 );
 
@@ -24,17 +23,34 @@ create table condition (
     rule_id integer not null references rule(id),
     field text not null,
     -- conditions:
-    -- 'S'  single
-    -- 'D'  distinct
-    -- 'E'  exact match
-    -- 'R'  regex match
-    -- 'I'  IP address/mask match
+    -- 'S'  single (see below)
+    -- 'D'  distinct (see below)
+    -- 'E'  exact match (apply rule only when field=value)
+    -- 'R'  regex match (apply rule only when field matches perl regexp of value)
+    -- 'I'  IP address/mask match (apply rule only when field matches IP mask: w.x.y.z/a.b.c.d or a.b.c.d or w.x.y.z/nn)
     condition char(1) check (condition = 'S' or condition = 'D' or condition = 'E' or condition = 'R' or condition = 'I'),
     value text
 );
 
+-- How does the single/distinct stuff work?  When a hit happens for a 
+-- rule which has single or disinct conditions, the following happens:
+-- 1. Take all of the fields which are matched as single and checksum.
+-- 2. Take all of the fields which are matched as distinct and checksum them
+-- 3. Save both in rule_hit
+-- 4. Now the test for whether the rate limit has triggered is based
+--    on the number of hits where the shash is the same and the dhash is
+--    different from this hit
+
+-- e.g. Suppose I have a rule limiting to 60 hits / second, by IP
+-- address. If the condition was "single" then it would allow every IP to
+-- have 60 hits per second each. If the condition was "distinct" then only
+-- 60 different IPs would be allowed to access the web page in each
+-- second.
+
 create index condition_rule_id_idx on condition(rule_id);
 
+-- used for counting up requests in the time interval, so it knows when the limit is exceeded.
+-- this table is not modified to set up rules, it is only written to by ratty
 create table rule_hit (
     rule_id integer not null references rule(id),
     hit float8 not null,        -- UNIX timestamp + microseconds
@@ -47,3 +63,6 @@ create index rule_hit_shash_idx on rule_hit(shash);
 create index rule_hit_dhash_idx on rule_hit(dhash);
 
 -- grant all on database ratty to ratty;
+
+
+
