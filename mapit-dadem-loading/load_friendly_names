@@ -1,7 +1,8 @@
 #!/usr/bin/perl -w -I../../perllib
 #
 # load_friendly_names:
-# From the mySociety, Ordnance Survey, or Office of National Statistics names
+# From the mySociety, Ordnance Survey, Office of National Statistics or
+# legislation names
 # for areas in the database, construct "friendly" names suitable for display to
 # users. Mainly this consists of stripping the type suffices (e.g. "Boro Const")
 # from the Ordnance Survey names.
@@ -10,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.8 2005-02-09 17:40:21 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.9 2005-02-09 17:46:44 chris Exp $';
 
 use strict;
 
@@ -21,10 +22,6 @@ use Data::Dumper;
 use Common;
 
 my $dbh = connect_to_mapit_database();
-
-# Nuke any existing friendly names.
-die "What about the Northern Ireland Euro region friendly name, eh?";
-$dbh->do(q#delete from area_name where name_type = 'F'#);
 
 # friendly_from_os NAME
 # Convert the NAME of a constituency into a friendly version, which
@@ -80,7 +77,7 @@ $s->execute();
 
 while (my ($area_id) = $s->fetchrow_array()) {
     my $names = $dbh->selectall_hashref('select name_type, name from area_name where area_id = ?', 'name_type', {}, $area_id);
-    my $friendly = '';
+    my $friendly;
     if (exists($names->{M})) {
         $friendly = $names->{M}->{name};
         # This fixes up the (originally GovEval) names for display
@@ -95,7 +92,8 @@ while (my ($area_id) = $s->fetchrow_array()) {
     } else {
         print STDERR "No name to make friendly for $area_id\n";
     }
-    if ($friendly ne "") {
+    if (defined($friendly)) {
+        $dbh->do(q#delete from area_name where area_id = ? and name_type = 'F'#, {}, $area_id);
         $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
     }
 #    print $area_id, " ", $friendly, "\n";
