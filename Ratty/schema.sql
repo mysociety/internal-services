@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.4 2004-11-16 11:11:17 francis Exp $
+-- $Id: schema.sql,v 1.5 2004-11-18 18:43:48 chris Exp $
 --
 
 create table rule (
@@ -16,8 +16,6 @@ create table rule (
     note text,                  -- human-readable description
     message text                -- message to display to website user who is blocked
 );
-
-create index rule_key_idx on rule(key);
 
 create table condition (
     id serial not null primary key,
