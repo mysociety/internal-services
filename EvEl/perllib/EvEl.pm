@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.7 2005-03-30 18:12:07 francis Exp $
+# $Id: EvEl.pm,v 1.8 2005-03-31 09:56:21 chris Exp $
 #
 
 package EvEl::Error;
@@ -31,8 +31,11 @@ use strict;
 use Digest::SHA1;
 use Error qw(:try);
 use Mail::RFC822::Address;
+use MIME::Entity;
+use MIME::Words;
 use Net::SMTP;
 
+use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
 use mySociety::Util qw(random_bytes print_log);
 
@@ -250,12 +253,57 @@ sub process_bounce ($$) {
     return 1;
 }
 
+# is_valid_address ADDRESS
+# Restricted syntax-check for ADDRESS. We check for what RFC2821 calls a
+# "mailbox", which is "local-part@domain", with the restriction of no
+# address-literal domains (e.g "[127.0.0.1]"). We also don't do bang paths.
+sub is_valid_address ($) {
+    my $addr = shift;
+    our $is_valid_address_re;
+
+    if (!defined($is_valid_address_re)) {
+        # mailbox = local-part "@" domain
+        # local-part = dot-string | quoted-string
+        # dot-string = atom ("." atom)*
+        # atom = atext+
+        # atext = any character other than space, specials or controls
+        # quoted-string = '"' (qtext|quoted-pair)* '"'
+        # qtext = any character other than '"', '\', or CR
+        # quoted-pair = "\" any character
+        # domain = sub-domain ("." sub-domain)* | address-literal
+        # sub-domain = [A-Za-z0-9][A-Za-z0-9-]*
+        # XXX ignore address-literal because nobody uses those...
+
+        my $specials = '()<>@,;:\\\\".\\[\\]';
+        my $controls = '\\000-\\037\\177';
+        my $highbit = '\\200-\\377';
+        my $atext = "[^$specials $controls$highbit]";
+        my $atom = "$atext+";
+        my $dot_string = "$atom(\\s*\\.\\s*$atom)*";
+        my $qtext = "[^\"\\\\\\r\\n$highbit]";
+        my $quoted_pair = '\\.';
+        my $quoted_string = "\"($qtext|$quoted_pair)*\"";
+        my $local_part = "($dot_string|$quoted_string)";
+        my $sub_domain = '[A-Za-z0-9][A-Za-z0-9-]*';
+        my $domain = "$sub_domain(\\s*\\.\\s*$sub_domain)*";
+
+        $is_valid_address_re = "^$local_part\\s*@\\s*$domain\$";
+    }
+ 
+    if ($addr =~ m#$is_valid_address_re#) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 # recipient_id ADDRESS
 # Get/create a recipient ID for ADDRESS, and return it.
 sub recipient_id ($) {
     my $addr = shift;
 
-    # XXX check validity of address
+    throw EvEl::Error("'$addr' is not a valid email-address")
+        if (!is_valid_address($addr));
     
     my $id = dbh()->selectrow_array('
                         select id
@@ -270,11 +318,153 @@ sub recipient_id ($) {
     return $id;
 }
 
+
+# XXX next two functions copied from FYR::Queue...
+
+# format_mimewords STRING
+# Return STRING, formatted for inclusion in an email header.
+sub format_mimewords ($) {
+    my ($text) = @_;
+    my $out = '';
+    foreach my $s (split(/(\s+)/, $text)) {
+        utf8::encode($s); # turn to string of bytes
+        if ($s =~ m#[\x00-\x1f\x80-\xff]#) {
+            $s = MIME::Words::encode_mimeword($s, 'Q', 'utf-8');
+        }
+        utf8::decode($s);
+        $out .= $s;
+    }
+    return $out;
+}
+
+# format_email_address NAME ADDRESS
+# Return a suitably MIME-encoded version of "NAME <ADDRESS>" suitable for use
+# in an email From:/To: header.
+sub format_email_address ($$) {
+    my ($name, $addr) = @_;
+    return sprintf('%s <%s>', format_mimewords($name), $addr);
+}
+
+
 #
 # Interface
 #
-
 =head1 FUNCTIONS
+
+=head2 Formatting mails
+
+=over 4
+
+=item construct_email SPEC
+
+Construct a wire-format (RFC2822) email message according to SPEC, which is an
+associative array containing elements as follows:
+
+=over 4
+
+=item _body_
+
+text of the message to send, as a UTF-8 string with "\n" line-endings;
+
+=item To
+
+contents of the To: header, as a literal UTF-8 string, or an array of addresses
+or [address, name] pairs;
+
+=item From
+
+contents of the From: header, as an email address or an [address, name] pair;
+
+=item Cc
+
+contents of the Cc: header, as for To;
+
+=item Subject
+
+contents of the Subject: header, as a UTF-8 string;
+
+=item Message-ID
+
+contents of the Message-ID: header, as a US-ASCII string.
+
+=item I<any other element>
+
+interpreted as the literal value of a header with the same name.
+
+=back
+
+If no Message-ID is given, one is generated. If no To is given, then the string
+"Undisclosed-Recipients: ;" is used. If no From is given, a generic no-reply
+address is used. It is an error to fail to give a body or Subject.
+
+=cut
+sub construct_email ($) {
+    my $p = shift;
+    foreach (qw(_body_ Subject)) {
+        throw EvEl::Error("missing field '$_' in MESSAGE") if (!exists($p->{$_}));
+    }
+
+    my %hdr;
+
+    # To: and Cc: are address-lists.
+    foreach (qw(To Cc)) {
+        if (ref($p->{$_}) eq '') {
+            # Interpret as a literal string in UTF-8, so all we need to do is
+            # escape it.
+            $hdr{$_} = format_mimewords($p->{$_});
+        } elsif (ref($p->{$_}) eq 'ARRAY') {
+            # Array of addresses or [address, name] pairs.
+            my @a = ( );
+            foreach (@{$p->{$_}}) {
+                if (ref($_) eq '') {
+                    push(@a, $_);
+                } elsif (ref($_) ne 'ARRAY' || @$_ != 2) {
+                    throw EvEl::Error("Element of '$_' field should be string or 2-element array");
+                } else {
+                    push(@a, format_email_address($_->[1], $_->[0]));
+                }
+            }
+            $hdr{$_} = join(', ', @a);
+        } else {
+            throw EvEl::Error("Field '$_' in MESSAGE should be single value or an array");
+        }
+    }
+
+    if (exists($p->{From})) {
+        if (ref($p->{From}) eq '') {
+            $hdr{From} = format_mimewords($p->{From});
+        } elsif (ref($p->{From}) ne 'ARRAY' || @{$p->{From}} != 2) {
+            throw EvEl::Error("'From' field should be string or 2-element array");
+        } else {
+            $hdr{From} = format_email_address($p->{From}->[1], $p->{From}->[0]);
+        }
+    }
+
+    # Some defaults
+    $hdr{To} ||= 'Undisclosed-recipients: ;';
+    $hdr{From} ||= sprintf('%sno-reply@%s',
+                            mySociety::Config::get('EVEL_VERP_PREFIX'),
+                            mySociety::Config::get('EVEL_VERP_DOMAIN')
+                        );
+    $hdr{'Message-ID'} ||= sprintf('<%s%s@%s>',
+                            mySociety::Config::get('EVEL_VERP_PREFIX'),
+                            unpack('h*', random_bytes(5)),
+                            mySociety::Config::get('EVEL_VERP_DOMAIN')
+                        );
+
+    foreach (keys(%$p)) {
+        $hdr{$_} = $p->{$_} if ($_ ne '_data_' && !exists($hdr{$_}));
+    }
+
+    return MIME::Entity->build(
+                    %hdr,
+                    Data => $p->{_body_},
+                    Type => 'text/plain; charset="utf-8"',
+                    Encoding => 'quoted-printable'
+                )->stringify();
+}
+
+=back
 
 =head2 Individual Mails
 
@@ -282,11 +472,21 @@ sub recipient_id ($) {
 
 =item send MESSAGE RECIPIENT ...
 
-MESSAGE is the full text of a message to be sent to the given RECIPIENTS.
+Send a MESSAGE to the given RECIPIENTS.  MESSAGE is either the full text of a
+message (in its RFC2822, on-the-wire format) or an associative array as passed
+to construct_email.
+
 
 =cut
 sub send ($@) {
     my ($data, @recips) = @_;
+
+    if (ref($data) eq 'HASH') {
+        $data = construct_email($data);
+    } elsif (ref($data) ne '') {
+        throw EvEl::Error("MESSAGE should be a string or an associative array");
+    }
+    
     my $msg = dbh()->selectrow_array("select nextval('message_id_seq')");
     my $s = dbh()->prepare('
                     insert into message (id, data, whensubmitted)
