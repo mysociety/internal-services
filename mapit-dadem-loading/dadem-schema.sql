@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.9 2005-01-19 13:20:08 chris Exp $
+-- $Id: dadem-schema.sql,v 1.10 2005-01-19 17:22:26 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -48,6 +48,9 @@ create table representative_edited (
     note text not null
 );
 
+/*
+Disabled until ready
+
 -- data about elected body
 create table electedbody (
     id serial not null primary key,
@@ -80,11 +83,11 @@ create table electedbody_edited (
     representative_contact_method text not null check (representative_contact_method in ('either', 'fax', 'email', 'unknown'),
     representative_contact_email text,
     representative_contact_fax text,
-    representative_contact_address text
+    representative_contact_address text,
     
     editor text not null,
     whenedited integer not null,
     note text not null
 );
 
-
+*/
