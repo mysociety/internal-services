@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.12 2005-02-02 03:22:14 francis Exp $
+# $Id: match.cgi,v 1.13 2005-02-02 11:04:42 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.12 2005-02-02 03:22:14 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.13 2005-02-02 11:04:42 francis Exp $';
 
 use strict;
 
@@ -203,11 +203,11 @@ sub do_council_info ($) {
               "Edit this data"),
         " |",
         map { ( $q->a({href => build_url($q, "http://www.google.com/search", 
-                    {'q' => "$name $_"}, 1)},
+                    {'q' => "$_"}, 1)},
                   "Google" . ($_ eq "" ? " alone" : " '$_'")),
             " (",
             $q->a({href => build_url($q, "http://www.google.com/search", 
-                    {'q' => "$name $_",'btnI' => "I'm Feeling Lucky"}, 1)},
+                    {'q' => "$_",'btnI' => "I'm Feeling Lucky"}, 1)},
                   "IFL"),
             ")" ) } ("$name", "$name councillors ward", $name_data->{'name'} . " councillors")
     );

@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.7 2005-01-06 16:00:01 chris Exp $
+ * $Id: general-example,v 1.8 2005-02-02 11:04:41 francis Exp $
  * 
  */
 
@@ -39,5 +39,6 @@ define('OPTION_RATTY_DB_USER', 'ratty');
 define('OPTION_RATTY_DB_PASS', '');
 
 define('OPTION_TOMS_FAX', 'xxxxxxxx');
+define('OPTION_COUNCILMATCH_PAGECACHE', '/home/mssecure/councilmatch/');
 
 ?>
