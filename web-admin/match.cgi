@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.9 2005-02-01 15:33:32 francis Exp $
+# $Id: match.cgi,v 1.10 2005-02-01 15:47:08 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.9 2005-02-01 15:33:32 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.10 2005-02-01 15:47:08 francis Exp $';
 
 use strict;
 
@@ -124,6 +124,13 @@ sub do_summary ($) {
             $q->a( { href => "#$_" }, $status_titles->{$_} ) }
             grep { my $status = $_; grep { $_->[1] eq $status} @$status_data; } 
             @$status_titles_order);
+
+    # Table of editors
+    print $q->h2("Diligency prize league table");
+    my $edit_activity = $d_dbh->selectall_arrayref("select count(*) as c, editor from raw_input_data_edited group by editor order by c desc");
+    print $q->p(join($q->br(), 
+        map { $_->[0] . " edits by " . $_->[1] } @$edit_activity 
+    ));
 
     # For each status type...
     foreach my $status (@$status_titles_order)  {
