@@ -1,12 +1,14 @@
 #!/usr/bin/perl -w
 #
 # councils-without-contacts:
+# Grind over Goveval's councillors.csv file, accumulating councils for which
+# we are missing certain types of contact information.
 #
-# Copyright (c) 2004 Chris Lightfoot. All rights reserved.
-# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: councils-without-contacts,v 1.1 2004-11-22 13:12:29 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: councils-without-contacts,v 1.2 2004-11-22 20:35:52 chris Exp $';
 
 use strict;
 
