@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.9 2005-01-07 20:20:12 chris Exp $
+# $Id: MaPit.pm,v 1.10 2005-01-19 10:49:05 chris Exp $
 #
 
 package MaPit;
@@ -147,8 +147,8 @@ sub get_voting_areas ($) {
     $pc =~ s/\s+//g;
     $pc = uc($pc);
 
-    # Dummy postcode case
     if ($pc eq 'ZZ99ZZ') {
+        # Dummy postcode case
         $ret = {
                 map { $special_cases{$_}->{type} => $_ } grep { $_ >= DUMMY_ID } keys(%special_cases)
             };
@@ -221,12 +221,11 @@ sub get_voting_area_info ($) {
     return $ret;
 }
 
-=item get_example_postcode AREA_ID
+=item get_example_postcode ID
 
-Given an area, returns one postcode that maps to it.
+Given an area ID, returns one postcode that maps to it.
 
 =cut
-
 sub get_example_postcode ($) {
     my ($area_id) = @_;
     my $pc = scalar(dbh()->selectrow_array("select postcode from postcode, postcode_area
@@ -250,8 +249,39 @@ sub get_voting_areas_info ($) {
 =cut
 sub get_voting_area_children ($) {
     my ($id) = @_;
-    my $row = dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
-    return $row;
+    return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
+}
+
+=item get_location POSTCODE
+
+Return the location of the given POSTCODE, including the grid system to which
+it is registered. The return value is a list of three elements: the coordinate
+system ("G" for OSGB or "I" for the Irish grid) and eastings and northings in
+meters.
+
+=cut
+sub get_location ($) {
+    my ($pc) = @_;
+    
+    my $ret = undef;
+    my $generation = get_generation();
+
+    $pc =~ s/\s+//g;
+    $pc = uc($pc);
+
+    if ($pc eq 'ZZ99ZZ') {
+        # Dummy postcode.
+        return ['G', 0, 0]; # Somewhere off in the Atlantic
+    } else {
+        # Real data
+        throw RABX::Error("Postcode '$pc' is not valid.", mySociety::MaPit::BAD_POSTCODE) unless (mySociety::Util::is_valid_postcode($pc));
+
+        if (my ($coordsyst, $E, $N) = dbh()->selectrow_array('select coordsyst, easting, northing from postcode where postcode = ?', {}, $pc)) {
+            return [$coordsyst, $E, $N];
+        } else {
+            throw RABX::Error("Postcode '$pc' not found.", mySociety::MaPit::POSTCODE_NOT_FOUND);
+        }
+    }
 }
 
 =item admin_get_stats
