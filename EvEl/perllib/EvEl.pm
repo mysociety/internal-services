@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.2 2005-03-23 15:16:18 chris Exp $
+# $Id: EvEl.pm,v 1.3 2005-03-23 17:06:05 chris Exp $
 #
 
 package EvEl::Error;
@@ -95,7 +95,7 @@ sub do_smtp ($$$) {
 }
 
 # run_queue
-# Run the queue of outgoing messages.
+# Run the queue of outgoing messages. This function commits its changes.
 sub run_queue () {
     use constant send_max_attempts => 10;
     use constant send_retry_interval => 60;
@@ -184,12 +184,13 @@ sub run_queue () {
 # process_bounce RECIPIENT LINES
 # Process a received bounce message. RECIPIENT is the address for which it was
 # received, and LINES is a reference to a list of the lines of the message
-# received (with line-endings stripped).
+# received (with line-endings stripped). Returns true if this was a valid
+# bounce message, and false otherwise. This function commits its changes.
 sub process_bounce ($$) {
     my ($addr, $lines) = @_;
     # Try to extract message and recipient IDs. If we fail, ignore this bounce.
     my ($msg, $recip) = parse_verp_address($addr)
-        or return;
+        or return 0;
     my $s = dbh()->prepare('
                     insert into bounce (message_id, recipient_id, whenreceived,
                                             data)
@@ -203,6 +204,8 @@ sub process_bounce ($$) {
     $s->execute();
 
     dbh()->commit();
+
+    return 1;
 }
 
 # recipient_id ADDRESS
