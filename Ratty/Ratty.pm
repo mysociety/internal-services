@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.18 2005-01-13 13:44:45 chris Exp $
+# $Id: Ratty.pm,v 1.19 2005-01-13 13:51:29 chris Exp $
 #
 
 package Ratty::Error;
@@ -168,7 +168,7 @@ sub compile_rules () {
             '       dbh()->do(q#insert into field_description (scope, field, description) values (?, ?, ?)#, {}, $scope, $field, $example)',
             '       ++$f',
             '   }',
-            '   if (!$f) {'
+            '   if (!$f) {',
             '       $seen_fields->{$scope}->{$field} = 1;',
             '   } else {',
             '       ++$af;',
