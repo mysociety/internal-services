@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.6 2004-12-13 12:45:51 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.7 2004-12-13 12:56:11 francis Exp $';
 
 use strict;
 
@@ -100,7 +100,11 @@ while (my $line = <STDIN>) {
         $finalfax = $fax;
         $finalfax = undef if ($fax eq "");
         $finalfax = undef if ($fax eq "NULL");
-        $finalfax = $constituencyfax if (!defined($finalfax));
+        if (!defined($finalfax)) {
+            $finalfax = $constituencyfax;
+            $finalfax = undef if ($constituencyfax eq "");
+            $finalfax = undef if ($constituencyfax eq "NULL");
+        }
 
         if (defined($finalemail)) {
             $finalmethod = "email";
