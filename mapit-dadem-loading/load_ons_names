@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+#
+# load_ons_names:
+# Load names for wards etc. from the ONS Standard Names and Codes product.
+#
+# Call with two arguments:
+#   - name of MaPit Postgresql database;
+#   - CSV file generated from the ward to constituency mapping in SNAC.
+#
+# This proceeds much as in process_codepoint_ni.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.1 2004-12-02 18:47:27 chris Exp $';
+
+use strict;
+
+use DBI;
+use IO::File;
+use Text::CSV_XS;
+
+use Common;
+
+die "arguments are Postgres database name and ONS codes CSV file" unless (@ARGV == 3);
+
+my ($dbname, $onscodesfile) = @ARGV;
+
+my $dbh = connect_to_database($dbname);
+
+my %have_name = ( );
+
+foreach (read_csv_file($onscodesfile, 1)) {
+    while (@$_ > 0) {
+        my $c = shift(@$_);
+        my $n = shift(@$_);
+        next if (exists($have_name{$c}));
+        my $id = $dbh->selectrow_array('select id from area where ons_code = ?', {}, $c);
+        if (!defined($id)) {
+            warn "no area for $c ($n)\n";
+        }
+        $dbh->do(q#delete from area_name where area_id = ? and name_type = 'S'#, {}, $id);
+        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $n);
+        $have_name{$c} = 1;
+    }
+}
+
+$dbh->commit();
