@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.23 2005-02-04 18:56:10 francis Exp $
+-- $Id: dadem-schema.sql,v 1.24 2005-02-07 17:31:07 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -23,7 +23,7 @@ create table representative (
     fax text,
 
     -- such as GovEval id, etc.
-    import_key text,
+    import_key text
 );
 create index representative_area_id_idx on representative(area_id);
 create unique index representative_import_key_idx on representative(import_key);
