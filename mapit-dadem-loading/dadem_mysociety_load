@@ -1,0 +1,207 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# dadem_mysociety_load:
+# Takes CSV files prepared with Ordnance Survey etc. names for electoral areas
+# and loads them into DaDem.
+# Parameters: 
+# $1 - kind of data, currently choose from: mep, mp
+# stdin - the CSV file from GovEval or FaxYourMP
+# make sure ../conf/general is configured for mapit db
+#
+# Example usage:
+# cat ../../../goveval/mep-20041001.csv | ./dadem_goveval_load mep
+# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./dadem_goveval_load mp
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: dadem_mysociety_load,v 1.1 2004-12-14 16:24:44 chris Exp $';
+
+use strict;
+
+use DBI;
+use DBD::SQLite;
+use Text::CSV_XS;
+use Data::Dumper;
+use Common;
+use mySociety::Parties;
+
+my $c = new Text::CSV_XS({ binary => 1 });
+
+my $dbh_m = connect_to_mapit_database();
+my $dbh_d = connect_to_dadem_database();
+
+while (defined($_ = <STDIN>)) {
+    chomp();
+    $c->parse($_);
+    my ($first, $last, $ward, $council, $party, $fax, $email)
+        = map { s#^\s+##; s#\s+$##; $_ }
+            $c->fields();
+    next if ($first eq '' and $last eq '');     # vacant seat
+    my $name = "$first $last";
+    my $finalparty = $mySociety::Parties::canonical{$party};
+    die "unkown party '$party' for $name" unless $finalparty;
+    
+    my $areaid = $dbh_m->selectrow_array('select id from area, area_name where area_name.area_id = area.id and area_name.name = ? and area.parent_area_id = 2244', {}, $ward); # XXX assume value for West Sussex...
+    die "no such ED $ward" unless (defined($areaid));
+    print "$ward -> $areaid\n";
+
+    if ($fax ne '') {
+        $fax =~ s# ##g;
+        $fax =~ s#^0#+44#;
+    }
+
+    my $how;
+    if ($fax ne '' and $email ne '') {
+        $how = 'either';
+    } elsif ($fax ne '') {
+        $how = 'fax';
+    } elsif ($email ne '') {
+        $how = 'email';
+    } else {
+        $how = 'shame';
+    }
+
+    print "$how $email $fax\n";
+
+    $email = undef if ($email eq '');
+    $fax = undef if ($fax eq '');
+
+    $dbh_d->do(q#insert into representative (area_id, area_type, name, party, method, email, fax) values (?, 'CED', ?, ?, ?, ?, ?)#, {}, $areaid, $name, $party, $how, $email, $fax);
+}
+
+$dbh_d->commit();
+$dbh_m->rollback();
+$dbh_d->disconnect();
+$dbh_m->disconnect();
+
+__END__
+#DBI->trace(1);
+
+my $kind = shift(@ARGV);
+die "specify what kind of CSV file" if (!defined($kind));
+my $types;
+my $name_type_char;
+if ($kind eq "mep") {
+    $types = [qw(EUR)];
+} elsif ($kind eq "mp") {
+    $types = [qw(WMC)];
+} else {
+    die "Please specify 'mep' or 'mp'";
+}
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+
+$d_dbh->do(q#delete from representative where 
+            (# . join(' or ', map { "area_type = '$_'" } @$types) . q#)#);
+
+# %name_to_id
+# Cache of name-->id map of all the areas
+my %name_to_id;
+my %name_to_type;
+my $s = $m_dbh->prepare(
+        q#select area_id, name, type from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
+    );
+$s->execute();
+while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
+    #print "$area_id $name $type\n";
+    die "duplicate name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
+    $name_to_id{$name} = $area_id;
+    $name_to_type{$name} = $type;
+}
+
+# Various forms of null
+sub nullify_if_null($) {
+    $_ = shift;
+    return $_ if !defined($_);
+    return undef if ($_ eq "");
+    return undef if ($_ eq "NULL");
+    return undef if ($_ eq "byelection");
+    return $_;
+}
+
+# Read CSV file, load into dadem
+my $C = new Text::CSV_XS({ binary => 1 });
+<STDIN>;    # header line
+while (my $line = <STDIN>) {
+    chomp($line);
+    $C->parse($line);
+    map { die "Not valid field in $line" if (!defined $_) } $C->fields();
+
+    my ($finalcons, $finalname, $finalparty, $finalmethod, $finalemail, $finalfax);
+    if ($kind eq "mep") {
+        my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $constituency;
+        $finalname = "$first $last";
+        $finalparty = $party;
+
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+        if (defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "email";
+        } elsif (!defined($finalemail) and defined($finalfax)) {
+            $finalmethod = "fax";
+        } elsif (!defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "unknown";
+        } else {
+            $finalmethod = "either";
+        }
+
+    } elsif ($kind eq "mp") {
+        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $constituency;
+        $finalname = $name;
+        $finalparty = $party;
+
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+        if (!defined($finalfax)) {
+            $finalfax = nullify_if_null($constituencyfax);
+        }
+
+        if (defined($finalemail)) {
+            $finalmethod = "email";
+        } elsif (defined($finalfax)) {
+            $finalmethod = "fax"; 
+        } else {
+            $finalmethod = "unknown"; 
+        }
+
+        if ($email eq "shame") {
+            $finalemail = undef;
+            $finalfax = undef;
+            $finalmethod = "shame";
+        }
+    } else {
+        die "Missing kind in code";
+    }
+
+    die "unmatched GovEval name '$finalcons', not in database" unless (exists($name_to_id{$finalcons}));
+    my $area_id = $name_to_id{$finalcons};
+    my $area_type = $name_to_type{$finalcons};
+
+    $finalparty = $mySociety::Parties::canonical{$finalparty};
+    die "party not known for '$line'" if (!defined($finalparty));
+
+#    print "insert into representative (area_id, area_type, name,
+#        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)",
+#        $area_id, " ", $area_type, " ", $finalname, " ", $finalparty, "
+#        ", $finalmethod, " ", $finalemail, " ", $finalfax;
+#    print "\n";
+
+    $d_dbh->do("insert into representative (area_id, area_type, name,
+        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)", {},
+        $area_id, $area_type, $finalname, $finalparty, $finalmethod,
+        $finalemail, $finalfax);
+}
+ 
+$m_dbh->disconnect();
+$d_dbh->commit();
+$d_dbh->disconnect();
+
