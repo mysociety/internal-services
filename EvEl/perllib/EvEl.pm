@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.10 2005-04-01 08:51:20 chris Exp $
+# $Id: EvEl.pm,v 1.11 2005-04-01 10:14:05 chris Exp $
 #
 
 package EvEl::Error;
@@ -35,6 +35,7 @@ use MIME::Entity;
 use MIME::Words;
 use Net::SMTP;
 use Text::Wrap ();
+use utf8;
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
@@ -442,7 +443,7 @@ Subject.
 =cut
 sub construct_email ($) {
     my $p = shift;
-    throw EvEl::Error("missing field '$_' in MESSAGE") if (!exists($p->{Subject}));
+    throw EvEl::Error("missing field 'Subject' in MESSAGE") if (!exists($p->{Subject}));
 
     if (!exists($p->{_body_}) && (!exists($p->{_template_}) || !exists($p->{_parameters_}))) {
         throw EvEl::Error("Must specify field '_body_' or both '_template_' and '_parameters_'");
@@ -463,6 +464,7 @@ sub construct_email ($) {
 
     # To: and Cc: are address-lists.
     foreach (qw(To Cc)) {
+        next unless (exists($p->{$_}));
         if (ref($p->{$_}) eq '') {
             # Interpret as a literal string in UTF-8, so all we need to do is
             # escape it.
@@ -487,7 +489,7 @@ sub construct_email ($) {
 
     if (exists($p->{From})) {
         if (ref($p->{From}) eq '') {
-            $hdr{From} = $p->{From};
+            $hdr{From} = $p->{From}; # XXX check syntax?
         } elsif (ref($p->{From}) ne 'ARRAY' || @{$p->{From}} != 2) {
             throw EvEl::Error("'From' field should be string or 2-element array");
         } else {
