@@ -30,7 +30,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.7 2004-11-29 18:58:45 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.8 2004-12-01 01:23:26 chris Exp $';
 
 use strict;
 
@@ -297,7 +297,23 @@ foreach my $dir (@ARGV) {
 
             undef $s;
 
-            if (!exists($unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}})) {
+            # Detached subparts of polygons.
+            my $name = $D->{NAME};
+            $name =~ s#\(DET( NO \d+|)\)##g;
+            $name =~ s#\s+$##;
+
+
+            # Decide whether this is part of an existing shape or a new shape.
+            my $row;
+            if (defined($D->{CODE}) and exists($onscode_to_shape{$D->{CODE}})) {
+                $row = $onscode_to_shape{$D->{CODE}};
+                die "ONS code $D->{CODE} is used for '$name' and '$row->[12]'" if ($name ne $row->[12]);
+            } elsif (exists($unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}})) {
+                $row = $unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}};
+                die "UNIT ID $D->{UNIT_ID} ($D->{AREA_CODE}) is used for '$name' and '$row->[12]'" if ($name ne $row->[12]);
+            }
+
+            if (!defined($row)) {
                 # New shape. Compute various once-only values and save the
                 # thing on an array.
 
@@ -325,15 +341,13 @@ foreach my $dir (@ARGV) {
 
                 # first element is id, which we don't know yet
                 #           0      1                2        3      4      5      6      7    8    9           10         11             12
-                my $row = [ undef, $D->{AREA_CODE}, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $D->{CODE}, $devolved, $D->{UNIT_ID}, $D->{NAME} ];
+                my $row = [ undef, $D->{AREA_CODE}, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $D->{CODE}, $devolved, $D->{UNIT_ID}, $name ];
                 $onscode_to_shape{$D->{CODE}} = $row if (defined($D->{CODE}));
                 $unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}} = $row;
 
                 push(@shapes, $row);
             } else {
                 # Shape already exists. Form the union of its parts and ours.
-                my $row = $unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}};
-                warn "unit id $D->{UNIT_ID} appears as $row->[12] and $D->{NAME}" if ($D->{NAME} ne $row->[12]);
                 push(@{$row->[2]}, @parts);
                 $row->[3] = $minx if ($minx < $row->[3]);
                 $row->[4] = $maxx if ($maxx > $row->[4]);
