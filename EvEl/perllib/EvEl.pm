@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.11 2005-04-01 10:14:05 chris Exp $
+# $Id: EvEl.pm,v 1.12 2005-04-01 10:40:06 francis Exp $
 #
 
 package EvEl::Error;
@@ -35,6 +35,7 @@ use MIME::Entity;
 use MIME::Words;
 use Net::SMTP;
 use Text::Wrap ();
+use Data::Dumper;
 use utf8;
 
 use mySociety::Config;
@@ -461,10 +462,10 @@ sub construct_email ($) {
     }
 
     my %hdr;
-
     # To: and Cc: are address-lists.
     foreach (qw(To Cc)) {
         next unless (exists($p->{$_}));
+
         if (ref($p->{$_}) eq '') {
             # Interpret as a literal string in UTF-8, so all we need to do is
             # escape it.
@@ -527,16 +528,16 @@ sub construct_email ($) {
 
 =over 4
 
-=item send MESSAGE RECIPIENT ...
+=item send MESSAGE RECIPIENTS
 
 Send a MESSAGE to the given RECIPIENTS.  MESSAGE is either the full text of a
 message (in its RFC2822, on-the-wire format) or an associative array as passed
-to construct_email.
-
+to construct_email.  RECIPIENTS is either one email address string, or an 
+array of them for multiple recipients.
 
 =cut
 sub send ($@) {
-    my ($data, @recips) = @_;
+    my ($data, $recips) = @_;
 
     if (ref($data) eq 'HASH') {
         $data = construct_email($data);
@@ -544,6 +545,12 @@ sub send ($@) {
         throw EvEl::Error("MESSAGE should be a string or an associative array");
     }
     
+    if (ref($recips) eq '') {
+        $recips = [$recips];
+    } elsif (ref($recips) ne 'ARRAY') {
+        throw EvEl::Error("RECIPIENTS should be a string or an array");
+    }
+
     my $msg = dbh()->selectrow_array("select nextval('message_id_seq')");
     my $s = dbh()->prepare('
                     insert into message (id, data, whensubmitted)
@@ -553,7 +560,7 @@ sub send ($@) {
     $s->bind_param(3, time());
     $s->execute();
     
-    foreach (@recips) {
+    foreach (@$recips) {
         dbh()->do('
                     insert into message_recipient (message_id, recipient_id)
                     values (?, ?)', {}, $msg, recipient_id($_));

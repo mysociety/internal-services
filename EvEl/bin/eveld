@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.2 2005-03-30 18:12:07 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.3 2005-04-01 10:40:06 francis Exp $';
 
 use strict;
 
@@ -53,13 +53,13 @@ sub run_queue_process () {
 # Entry point.
 my $numprocesses = mySociety::Config::get('EVEL_DAEMON_SEND_PROCESSES', 1);
 my $pidfilepath = mySociety::Config::get('EVEL_DAEMON_PIDFILE', '/var/run/eveld.pid');
-my $nodetach = 0;
+my $debug = 0;
 my $help = 0;
 my $once = 0;
 if (!GetOptions(
         'processes=i' =>        \$numprocesses,
         'pidfile=s' =>          \$pidfilepath,
-        'debug' =>              \$nodetach,
+        'debug' =>              \$debug,
         'once' =>               \$once,
         'help' =>               \$help
     )) {
@@ -73,11 +73,14 @@ if ($help) {
 }
 
 if ($once) {
+    if (!$debug) {
+        mySociety::Util::log_to_stderr(0);
+    }
     my $N = EvEl::run_queue();
     exit(0);
 }
 
-mySociety::Util::daemon() unless ($nodetach);
+mySociety::Util::daemon() unless ($debug);
 
 my $pidfile;
 try {
@@ -156,5 +159,5 @@ Copyright (c) 2005 UK Citizens Online Democracy
 
 =head1 VERSION
 
-$Id: eveld,v 1.2 2005-03-30 18:12:07 francis Exp $
+$Id: eveld,v 1.3 2005-04-01 10:40:06 francis Exp $
 
