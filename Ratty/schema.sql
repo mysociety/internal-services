@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.8 2005-01-12 13:11:31 chris Exp $
+-- $Id: schema.sql,v 1.9 2005-01-12 16:32:56 chris Exp $
 --
 
 create table rule (
@@ -81,16 +81,18 @@ create function rule_modify_notify() returns trigger as '
     end;
 ' language 'plpgsql';
 
-create trigger rule_insert_notify
+-- These should be statement triggers, but those aren't implemented in the
+-- version of Postgres we're using.
+create trigger rule_notify
     after delete or insert or update
     on rule
-    for each statement
+    for each row
     execute procedure rule_modify_notify();
 
-create trigger rule_insert_notify
+create trigger condition_notify
     after delete or insert or update
     on condition
-    for each statement
+    for each row
     execute procedure rule_modify_notify();
 
 

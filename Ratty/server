@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.4 2004-11-15 13:00:27 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.5 2005-01-12 16:32:56 chris Exp $';
 
 use FCGI;
 use Ratty;
@@ -29,6 +29,7 @@ use Data::Dumper;
 my $R = new Ratty();
 
 while ($req->Accept() >= 0) {
+eval {
     RABX::Server::CGI::dispatch(
             'Ratty.test' => sub {
                 $R->test(@_);
@@ -53,6 +54,17 @@ while ($req->Accept() >= 0) {
             }
         );
     last if ($W->changed());
+};
+if ($@) {
+    print <<EOF;
+Content-Type: text/plain
+Status: 500
+
+Something's gone wrong:
+
+$@
+EOF
+}
 }
 
 Ratty::dbh()->commit();

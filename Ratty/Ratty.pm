@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.12 2005-01-12 13:11:31 chris Exp $
+# $Id: Ratty.pm,v 1.13 2005-01-12 16:32:56 chris Exp $
 #
 
 package Ratty;
@@ -122,23 +122,29 @@ sub test ($$) {
 # tests all scopes.
 sub compile_rules () {
     my $generation = dbh()->selectrow_array('select number from generation');
-    my @code = ('sub ($$$$) {',
-                'my ($V, $scope, $data, $seen_fields) = @_;',
-                'my $dbh = Ratty::dbh();',
+    my @code = (
+        'sub ($$$$) {',
+            'my ($V, $scope, $data, $seen_fields) = @_;',
+            'my $dbh = Ratty::dbh();',
 
-                # Update the available fields table if there are fields we
-                # haven't seen before.
-                'while (my ($field, $value) = each(%$V)) {',
-                '   if (!exists($seen_fields->{$scope}) or !exists($seen_fields->{$scope}->{$field})) {',
-                '       $seen_fields->{$scope}->{$field} = 1;'
-                '       if (0 == scalar(dbh()->selectrow_array("select count(*) from available_fields where scope = ? and field = ? for update of available_fields", {}, $scope, $field))) {',
-                '           my $example = $value;'
-                '           $example = substr($value, 0, 16) . "..." if (length($eg) > 16);'
-                '           $dbh->do("insert into available_fields (scope, field, example) values (?, ?, ?)", {}, $scope, $field, $example);',
-                '       }',
-                '   }',
-                '}',
-                'my $result = undef;');
+            # Update the available fields table if there are fields we
+            # haven't seen before.
+            'my $af = 0;',
+            'while (my ($field, $value) = each(%$V)) {',
+            '   if (!exists($seen_fields->{$scope}) or !exists($seen_fields->{$scope}->{$field})) {',
+            '       $seen_fields->{$scope}->{$field} = 1;',
+            '       if (!defined(scalar(dbh()->selectrow_array(q#select example from available_fields where scope = ? and field = ? for update#, {}, $scope, $field)))) {',
+            '           my $example = $value;',
+            '           $example = substr($value, 0, 16) . "..." if (length($example) > 16);',
+            '           $dbh->do("insert into available_fields (scope, field, example) values (?, ?, ?)", {}, $scope, $field, $example);',
+            '           ++$af;',
+            '       }',
+            '   }',
+            '}',
+            'dbh()->commit() if ($af > 0);',
+
+            'my $result = undef;'
+        );
 
     # We stow all literal strings etc. in the array @data, which is then passed
     # to the constructed function. The point of this is to avoid having to
@@ -244,8 +250,10 @@ sub compile_rules () {
                     '}');
     }
 
-    push(@code, 'return $result;',
-                '}');
+    push(@code, 
+                'return $result;',
+            '}'
+        );
 
 
     my $codejoined = join("\n", @code);
@@ -303,7 +311,7 @@ sub admin_update_rule ($$$$) {
     my $result = undef;
     if (exists($rule->{'rule_id'})) {
         $result = dbh()->selectrow_arrayref('select id from rule where id = ? for update', {}, $rule->{'rule_id'});
-        die "mismatch between scope \"$scope\" and rule ID \"$id\""
+        die "mismatch between scope \"$scope\" and rule ID \"$rule->{rule_id}\""
             if (defined($result) and $result->{scope} ne $scope);
     }
 
