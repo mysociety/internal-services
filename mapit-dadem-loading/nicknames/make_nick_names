@@ -13,7 +13,7 @@
 # http://policy.ssa.gov/poms.nsf/lnx/0102528008?opendocument
 # (in the public domain as per http://www.ssa.gov/policy/about/copyright.html)
 
-my $rcsid = ''; $rcsid .= '$Id: make_nick_names,v 1.1 2005-02-01 18:57:48 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: make_nick_names,v 1.2 2005-02-01 23:01:48 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -22,45 +22,18 @@ use HTML::TokeParser;
 use Data::Dumper;
 use mySociety::StringUtils;
 
-my $canon_to_nicks;
-my $nicks_to_canon;
+# Array of arrayref of nicknames in a set.  First in set is key.
+my @nick_sets;
 
 sub add_nicks($$) {
     my ($key, $values) = @_;
     my @values = split /,|\bor\b/, $values; 
     @values = map { mySociety::StringUtils::trim($_) } @values;
     do { die "space in $_" if m/ /; } for @values;
-
-    # See if we already have the value as a canonical name
-    do {
-        my $value = $_;
-        if ($canon_to_nicks->{$value}) {
-            # ... values is already canonical
-            # use it as canonical for this lump, instead of original canon
-            #print "already have nickname $value as canon for nicks\n";
-            #print Dumper($canon_to_nicks->{$value});
-            push @values, $key;
-            $key = $value;
-            last;
-        }
-    } for @values;
-    if ($nicks_to_canon->{$key}) {
-        # ... key is already nickname
-        # use what it canoicalises as as cano for this lump
-        #print "already have canon $key as nickname\n";
-        my $already = $nicks_to_canon->{$key};
-        my @alreadyarr = keys %$already;
-        my $alreadyc = scalar(@alreadyarr);
-        die "can only cope with one in this case atm" if $alreadyc != 1;
-        $key = $alreadyarr[0];
-    }
-    # Add them in
-    do {
-        my $value = $_;
-        next if $key eq $value;
-        $canon_to_nicks->{$key}->{$value} = 1;
-        $nicks_to_canon->{$value}->{$key} = 1;
-    } for @values;
+    my $arr = [];
+    push @$arr, $key;
+    push @$arr, @values;
+    push @nick_sets, $arr;
 }
 
 # SSA
@@ -80,27 +53,17 @@ foreach my $filename (qw(ssa-female.html ssa-male.html)) {
     }
 }
 
-# Run some checks
-foreach my $canon (keys %$canon_to_nicks) {
-    if (exists($nicks_to_canon->{$canon})) {
-        print STDERR "ERROR: canonical $canon also appears as nickname\n";
-    }
-}
-
 # Print it out
-foreach my $nick (keys %$nicks_to_canon) {
-    my @canons = keys %{$nicks_to_canon->{$nick}};
-    # Just munge together when there are multiple canonicals
-    # e.g. JaneJohn (which is alias for Jane, John or Jean)
-    my $canonjoined = join("", @canons);
-    die if $nick =~ m/"/;
-    die if $canonjoined =~ m/"/;
-    print "\"$nick\", \"$canonjoined\"\n";
-    # ... and in case of multiples, output mappings to individual canons also
-    if (scalar(@canons) > 1) {
-        foreach (@canons) {
-            print "\"$_\", \"$canonjoined\"\n";
+print "\"Nickname\", \"Full form\"\n";
+foreach my $set (@nick_sets) {
+    my $key;
+    foreach my $value (@$set) {
+        die if $value =~ m/"/;
+        if (!defined($key)) {
+            $key = $value;
+            next;
         }
+        print "\"$value\",\"$key\"\n";
     }
 }
 
