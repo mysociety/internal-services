@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.22 2005-01-13 14:23:29 chris Exp $
+# $Id: Ratty.pm,v 1.23 2005-01-14 16:12:44 chris Exp $
 #
 
 package Ratty::Error;
@@ -207,12 +207,16 @@ sub compile_rules () {
                 my $vi = $#data;
                 push (@code, sprintf('        $V->{$data->[%d]}->[0] %s $data->[%d]', $fi, $invert ? 'ne' : 'eq', $vi));
             } elsif ($condition eq 'R') {
-                # Construct a regexp from the value.
-                my $re = eval(sprintf(q#qr'%s'#, $value)); # NB we MUST use qr'...' as the delimeters, since we must not allow variable interpolation in this string
+                # Construct a regexp from the value. Note that we MUST use qr'
+                # as the delimiters, since we must not allow variable
+                # interpolation. Otherwise a regex like (say) "@mysociety\.org"
+                # would have the value of @mysociety (presumably empty)
+                # interpolated into it.
+                my $re = eval(sprintf(q#qr'%s'i#, $value));
                 if (defined($re)) {
                     push(@data, $re);
                     my $vi = $#data;
-                    push(@code, sprintf('        $V->{$data->[%d]}->[0] %s m#$data->[%d]#i', $fi, $invert ? '!~' : '=~', $vi));
+                    push(@code, sprintf('        $V->{$data->[%d]}->[0] %s $data->[%d]', $fi, $invert ? '!~' : '=~', $vi));
                 } else {
                     push(@code, '        0');
                 }
