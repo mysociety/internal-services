@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.1 2004-11-10 13:08:00 francis Exp $
+# $Id: MaPit.pm,v 1.2 2004-11-19 12:25:44 francis Exp $
 #
 
 package MaPit;
@@ -20,6 +20,7 @@ use mySociety::Config;
 
 use DBI;
 use DBD::SQLite;
+use Data::Dumper;
 
 =head1 NAME
 
@@ -158,11 +159,12 @@ sub get_voting_area_info ($) {
         $ret = $special_cases{$id};
     } else {
         # Real data
-        my ($type, $name);
-        throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND) unless (($type, $name) = dbh()->selectrow_array('select type, name from area where id = ?', {}, $id));
+        my ($type, $name, $parent_area_id);
+        throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND) unless (($type, $name, $parent_area_id) = dbh()->selectrow_array('select type, name, parent_area_id from area where id = ?', {}, $id));
      
         $ret = {
                 name => $name,
+                parent_area_id => $parent_area_id,
                 type => $mySociety::VotingArea::type_to_id{$type}
             };
     }
@@ -184,5 +186,36 @@ sub get_voting_areas_info ($) {
     my ($ary) = @_;
     return { (map { $_ => get_voting_area_info($_) } @$ary) };
 }
+
+=item get_voting_area_children ID
+
+=cut
+sub get_voting_area_children ($) {
+    my ($id) = @_;
+    my $row = dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
+    return $row;
+}
+
+=item admin_get_stats
+
+=cut
+sub admin_get_stats ($) {
+    () = @_;
+    my %ret;
+
+#    $ret{'postcode_count'} = scalar(dbh()->selectrow_array('select count(*) from postcode', {}));
+    $ret{'postcode_count'} = "skipped";
+    $ret{'area_count'} = scalar(dbh()->selectrow_array('select count(*) from area', {}));
+
+    my $rows = dbh()->selectall_arrayref('select type, count(*) from area group by type', {});
+    foreach (@$rows) {
+        my ($type, $count) = @$_; 
+        $ret{'area_count_'. $type} = $count;
+    }
+
+    return \%ret;
+}
+
+
 
 1;

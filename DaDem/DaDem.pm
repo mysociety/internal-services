@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.2 2004-11-18 23:43:15 francis Exp $
+# $Id: DaDem.pm,v 1.3 2004-11-19 12:25:44 francis Exp $
 #
 
 package DaDem;
@@ -255,6 +255,33 @@ given in ARRAY.
 sub get_representatives_info ($) {
     my ($ary) = @_;
     return { (map { $_ => get_representative_info($_) } @$ary) };
+}
+
+=item admin_get_stats
+
+=cut
+sub admin_get_stats ($) {
+    () = @_;
+    my %ret;
+
+    $ret{'representative_count'} = scalar(dbh()->selectrow_array('select count(*) from representative', {}));
+    my $r = dbh()->selectall_arrayref('select distinct area_id from representative', {});
+    $ret{'area_count'} = $#$r;
+    $ret{'email_present'} = scalar(dbh()->selectrow_array("select
+        count(*) from representative where not(email is null or email='')", {}));
+    $ret{'fax_present'} = scalar(dbh()->selectrow_array("select count(*)
+        from representative where not(fax is null or fax='')", {}));
+    $ret{'either_present'} = scalar(dbh()->selectrow_array("select count(*)
+        from representative where not(fax is null or fax='') or not(email is null or email='')", {}));
+
+#    my $rows = dbh()->selectall_arrayref('select type, count(*) from area group by type', {});
+#    warn Dumper($rows);
+#    foreach (@$rows) {
+#        my ($type, $count) = @$_; 
+#        $ret{'area_count_'. $type} = $count;
+#    }
+
+    return \%ret;
 }
 
 1;
