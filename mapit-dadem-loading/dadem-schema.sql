@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.19 2005-02-01 13:23:07 francis Exp $
+-- $Id: dadem-schema.sql,v 1.20 2005-02-03 13:23:24 chris Exp $
 --
 
 -- data about each democratic reperesentative
@@ -36,7 +36,9 @@ create table representative_edited (
     -- either means "fax or email is good, up to queue to decide"
     -- shame means "refuses to be contacted"
     -- unknown means "we don't have good data"
-    method text check (method in('either','fax','email','shame','unknown')),
+    -- via means "don't contact this representative directly, but obtain
+    -- general contact details for the enclosing area, and use those"
+    method text check (method in('either', 'fax', 'email', 'shame', 'unknown', 'via')),
     email text,
     fax text,
 
