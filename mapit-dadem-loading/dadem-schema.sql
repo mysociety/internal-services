@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.7 2004-12-20 18:03:48 francis Exp $
+-- $Id: dadem-schema.sql,v 1.8 2004-12-20 20:34:17 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -42,6 +42,8 @@ create table representative_edited (
 
     -- name of person who edited it
     editor text not null,
+    -- time of entry in UNIX time
+    whenedited integer not null, 
     -- what the change was for, authors notes
     note text not null
 );

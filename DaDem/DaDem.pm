@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.14 2004-12-20 18:03:48 francis Exp $
+# $Id: DaDem.pm,v 1.15 2004-12-20 20:34:16 francis Exp $
 #
 
 package DaDem;
@@ -301,6 +301,23 @@ sub admin_get_stats () {
     return \%ret;
 }
 
+=item get_representative_history ID
+
+Given the ID of a representative, return an array of hashes
+of information about changes to that representatives contact info.
+
+=cut
+sub get_representative_history ($) {
+    my ($id) = @_;
+    my $sth = dbh()->prepare('select * from representative_edited where representative_id = ? order by order_id desc');
+    $sth->execute($id);
+    my @ret;
+    while (my $hash_ref = $sth->fetchrow_hashref()) {
+        push @ret, $hash_ref;
+    }
+    return \@ret;
+} 
+
 =item admin_edit_representative ID DETAILS EDITOR NOTE
 
 Alters data for a representative, updating the override table
@@ -325,10 +342,10 @@ sub admin_edit_representative ($$$$) {
         dbh()->do('insert into representative_edited 
             (representative_id, 
             name, party, method, email, fax, 
-            editor, note)
-            values (?, ?, ?, ?, ?, ?, ?, ?)', {}, 
+            editor, whenedited, note)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?)', {}, 
             $id, $newdata->{'name'}, $newdata->{'party'}, $newdata->{'method'},
-            $newdata->{'email'}, $newdata->{'fax'}, $editor, $note);
+            $newdata->{'email'}, $newdata->{'fax'}, $editor, time(), $note);
         dbh()->commit();
     } else {
         throw RABX::Error("Representative $id not found, so can't be edited", mySociety::DaDem::REP_NOT_FOUND);
