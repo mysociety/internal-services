@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.3 2005-03-23 17:06:05 chris Exp $
+# $Id: EvEl.pm,v 1.4 2005-03-23 17:31:40 chris Exp $
 #
 
 package EvEl::Error;
@@ -14,6 +14,17 @@ package EvEl::Error;
 @EvEl::Error::ISA = qw(Error::Simple);
 
 package EvEl;
+
+=head1 NAME
+
+EvEl
+
+=head1 DESCRIPTION
+
+Generic email sending and mailing list functionality, with bounce detection
+etc.
+
+=cut
 
 use strict;
 
@@ -38,6 +49,10 @@ BEGIN {
     }
     dbh()->commit();
 }
+
+#
+# Implementation
+#
 
 # secret
 # Return site-wide installation secret.
@@ -228,14 +243,9 @@ sub recipient_id ($) {
     return $id;
 }
 
-=head1 NAME
-
-EvEl
-
-=head1 DESCRIPTION
-
-Generic email sending and mailing list functionality, with bounce detection
-etc.
+#
+# Interface
+#
 
 =head1 FUNCTIONS
 
@@ -245,8 +255,7 @@ etc.
 
 =item send MESSAGE RECIPIENT ...
 
-MESSAGE is the full text of a message to be sent to the given RECIPIENTS. Does
-not commit.
+MESSAGE is the full text of a message to be sent to the given RECIPIENTS.
 
 =cut
 sub send ($@) {
@@ -265,6 +274,8 @@ sub send ($@) {
                     insert into message_recipient (message_id, recipient_id)
                     values (?, ?)', {}, $msg, recipient_id($_));
     }
+
+    dbh()->commit();
 }
 
 =item is_address_bouncing ADDRESS
@@ -335,7 +346,10 @@ sub list_create ($$$$;$$) {
 
     throw EvEl::Error("LOCALPART and DOMAIN must be specified for MODE = '$mode'")
         if ($mode ne 'none' and !defined($localpart) || !defined($domain));
-   
+ 
+    throw EvEl::Error("only MODE = 'none' is currently implemented")
+        unless ($mode eq 'none'); # XXX
+ 
     my $id = dbh()->selectrow_array('
                         select id
                         from mailinglist
@@ -368,6 +382,8 @@ sub list_create ($$$$;$$) {
             $localpart, $domain,
             $mode,
             time());
+
+    dbh()->commit();
 }
 
 =item list_destroy SCOPE TAG
@@ -385,12 +401,15 @@ sub list_destroy ($$) {
     return unless (defined($id));
     dbh()->do('delete from subscriber where mailinglist_id = ?', {}, $id);
     dbh()->do('delete from mailinglist where id = ?', {}, $id);
+
+    dbh()->commit();
 }
 
 =item list_subscribe SCOPE TAG ADDRESS [ISADMIN]
 
 Subscribe ADDRESS to the list identified by SCOPE and TAG. Make the user an
-administrator if ISADMIN is true.
+administrator if ISADMIN is true. If the ADDRESS is already on the list, then
+set their administrator status according to ISADMIN.
 
 =cut
 sub list_subscribe ($$$;$) {
@@ -424,6 +443,8 @@ sub list_subscribe ($$$;$) {
                     values (?, ?, ?, ?)',
                     {}, $id, $recip, $isadmin ? 't' : 'f', time());
     }
+
+    dbh()->commit();
 }
 
 =item list_unsubscribe SCOPE TAG ADDRESS
@@ -449,6 +470,8 @@ sub list_subscribe ($$$;$) {
                 delete from subscriber
                 where mailinglist_id = ? and recipient_id = ?',
                 {}, $id, $recip);
+
+    dbh()->commit();
 }
 
 =item list_attribute
@@ -485,6 +508,8 @@ sub list_send ($$$) {
                     select ? as message_id, recipient_id
                     from mailinglist where id = ?',
                 {}, $msg, $id);
+
+    dbh()->commit();
 }
 
 =item list_members
