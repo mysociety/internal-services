@@ -1,0 +1,136 @@
+#!/usr/bin/perl -w -I../../../perllib
+#
+# makenicknames
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+# Data in this directory is from:
+# http://www.tcarden.com/tree/ensor/nicknamemale.htm
+# (copyright, Trish S. Carden, reproduced with link by her permission)
+# http://policy.ssa.gov/poms.nsf/lnx/0102528007?opendocument
+# http://policy.ssa.gov/poms.nsf/lnx/0102528008?opendocument
+# (in the public domain as per http://www.ssa.gov/policy/about/copyright.html)
+
+my $rcsid = ''; $rcsid .= '$Id: make_nick_names,v 1.1 2005-02-01 18:57:48 francis Exp $';
+
+use strict;
+$| = 1; # flush STDOUT afer each write
+
+use HTML::TokeParser;
+use Data::Dumper;
+use mySociety::StringUtils;
+
+my $canon_to_nicks;
+my $nicks_to_canon;
+
+sub add_nicks($$) {
+    my ($key, $values) = @_;
+    my @values = split /,|\bor\b/, $values; 
+    @values = map { mySociety::StringUtils::trim($_) } @values;
+    do { die "space in $_" if m/ /; } for @values;
+
+    # See if we already have the value as a canonical name
+    do {
+        my $value = $_;
+        if ($canon_to_nicks->{$value}) {
+            # ... values is already canonical
+            # use it as canonical for this lump, instead of original canon
+            #print "already have nickname $value as canon for nicks\n";
+            #print Dumper($canon_to_nicks->{$value});
+            push @values, $key;
+            $key = $value;
+            last;
+        }
+    } for @values;
+    if ($nicks_to_canon->{$key}) {
+        # ... key is already nickname
+        # use what it canoicalises as as cano for this lump
+        #print "already have canon $key as nickname\n";
+        my $already = $nicks_to_canon->{$key};
+        my @alreadyarr = keys %$already;
+        my $alreadyc = scalar(@alreadyarr);
+        die "can only cope with one in this case atm" if $alreadyc != 1;
+        $key = $alreadyarr[0];
+    }
+    # Add them in
+    do {
+        my $value = $_;
+        next if $key eq $value;
+        $canon_to_nicks->{$key}->{$value} = 1;
+        $nicks_to_canon->{$value}->{$key} = 1;
+    } for @values;
+}
+
+# SSA
+foreach my $filename (qw(ssa-female.html ssa-male.html)) {
+    my $p = HTML::TokeParser->new($filename);
+    while (my $row = $p->get_tag("tr")) {
+        $p->get_tag("td", "/tr");
+        my $key = $p->get_trimmed_text();
+        next if !$key;
+        $p->get_tag("td", "/tr");
+        my $values = $p->get_trimmed_text();
+        next if ($key eq "(feminine)");
+        #print "values $values\n";
+        next if ($values =~ m/^See /);
+        die "'See ' in middle $values" if ($values =~ m/\bSee\b/);
+        add_nicks($key, $values);
+    }
+}
+
+# Run some checks
+foreach my $canon (keys %$canon_to_nicks) {
+    if (exists($nicks_to_canon->{$canon})) {
+        print STDERR "ERROR: canonical $canon also appears as nickname\n";
+    }
+}
+
+# Print it out
+foreach my $nick (keys %$nicks_to_canon) {
+    my @canons = keys %{$nicks_to_canon->{$nick}};
+    # Just munge together when there are multiple canonicals
+    # e.g. JaneJohn (which is alias for Jane, John or Jean)
+    my $canonjoined = join("", @canons);
+    die if $nick =~ m/"/;
+    die if $canonjoined =~ m/"/;
+    print "\"$nick\", \"$canonjoined\"\n";
+    # ... and in case of multiples, output mappings to individual canons also
+    if (scalar(@canons) > 1) {
+        foreach (@canons) {
+            print "\"$_\", \"$canonjoined\"\n";
+        }
+    }
+}
+
+# These not used for now unless we need them, was harder to parse
+# than the SSA nicknames file.
+=comment
+# Trish
+foreach my $filename (qw(trish-female.html trish-male.html)) {
+    open TRISH, "<$filename";
+    # ... skip to H1
+    while (<TRISH>) {
+        last if m/<h1>/;
+    }
+    # ... read cnicks
+    while (<TRISH>) {
+        last if m/copyright 1999/;
+        s/<br>//g;
+        s/<p>//g;
+        s/&nbsp;//g;
+        if (m/--/) {
+            my ($key, $values) = m/(.*)--(.*)/;
+            $values =~ s/\bsee .*//;
+            my @keys = split m#/#, $key;
+            foreach $key (@keys) {
+                add_nicks($key, $values);
+            }
+            print "k: $key v: $values\n";
+        } else {
+            die "comma in line without --, '$_'" if m/,/;
+        }
+    }
+}
+=cut
