@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.7 2004-12-02 18:55:27 chris Exp $
+# $Id: Common.pm,v 1.8 2004-12-03 15:10:53 chris Exp $
 #
 
 package Common;
@@ -142,7 +142,13 @@ sub read_csv_file ($;$) {
     my ($f, $skip) = @_;
     $skip ||= 0;
     my $C = new Text::CSV_XS({ binary => 1 });
-    my $h = new IO::File($f, O_RDONLY) or die "$f: $!";
+    my $h;
+    if (UNIVERSAL::isa($f, 'IO::Handle')) {
+        $h = $f;
+        $f = '(handle)';
+    } else {
+        $h = new IO::File($f, O_RDONLY) or die "$f: $!";
+    }
     my @res = ( );
     my $n = 0;
     while (defined($_ = $h->getline())) {
