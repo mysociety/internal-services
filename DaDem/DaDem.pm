@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.37 2005-02-16 16:37:24 chris Exp $
+# $Id: DaDem.pm,v 1.38 2005-02-21 12:13:38 chris Exp $
 #
 
 package DaDem;
@@ -603,9 +603,9 @@ sub admin_edit_representative ($$$$) {
     return $id;
 }
 
-=item admin_done_user_correction CORRECTION_ID
+=item admin_done_user_correction ID
 
-Marks user correction as having been dealt with.
+Marks user correction ID as having been dealt with.
 
 =cut
 sub admin_done_user_correction ($) {
@@ -617,6 +617,40 @@ sub admin_done_user_correction ($) {
     dbh()->commit();
 }
 
+=item admin_mark_failing_contact ID METHOD X EDITOR
+
+Report that a delivery to representative ID by METHOD ('email' or 'fax') to the
+number or address X failed. Marks the representative as having unknown contact
+details if X is still the current contact method for that representative.
+EDITOR is the name of the entity making the correction (e.g. 'fyr-queue').
+
+=cut
+sub admin_mark_failing_contact ($$$$) {
+    my ($id, $method, $x, $editor) = @_;
+    throw RABX::Error("Bad METHOD '$method'") unless (defined($method) and $method =~ m#^(email|fax)$#);
+    throw RABX::Error("EDITOR must be specified") unless (defined($editor));
+
+    # Lock row, get the current details of the representative, compare them to
+    # those we've been passed, then update.
+    my $i = dbh()->selectrow_array('select id from representative where id = ? for update', {}, $id);
+    throw RABX::Error("Bad representative ID '$bad'", mySociety::DaDem::REP_NOT_FOUND) if (!defined($i));
+
+    my $r = get_representative_info($i);
+
+    if (($r->{method} eq $method || $r->{method} eq 'either') and $r->{$method} eq $x) {
+        my $newmethod;
+        if ($r->{method} eq $method) {
+            $newmethod = 'unknown';
+        } elsif ($method eq 'email') {
+            $newmethod = 'fax';
+        } else {
+            $newmethod = 'email';
+        }
+        admin_edit_representative($id, { method => $newmethod }, "Failed delivery with contact '$x'", $editor);
+    }
+
+    dbh()->commit();
+}
 
 
 1;
