@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.4 2005-02-02 11:04:42 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.5 2005-02-02 11:50:58 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -32,7 +32,7 @@ my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
-my $verbosity = 0;
+my $verbosity = 2;
 
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref(
