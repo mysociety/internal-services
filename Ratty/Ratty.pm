@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.5 2004-11-15 13:00:26 francis Exp $
+# $Id: Ratty.pm,v 1.6 2004-11-15 15:38:35 francis Exp $
 #
 
 package Ratty;
@@ -58,7 +58,7 @@ sub dbh() {
 
 sub get_conditions ($) {
     my ($rule) = @_;
-    return dbh()->selectall_arrayref('select id, field, condition, value from condition where rule_id = ? order by id', {}, $rule);
+    return dbh()->selectall_arrayref('select id, field, condition, value from condition where rule_id = ? order by order_id', {}, $rule);
 }
 
 =item new
