@@ -30,7 +30,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.8 2004-12-01 01:23:26 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.9 2004-12-02 16:34:59 chris Exp $';
 
 use strict;
 
@@ -302,15 +302,23 @@ foreach my $dir (@ARGV) {
             $name =~ s#\(DET( NO \d+|)\)##g;
             $name =~ s#\s+$##;
 
-
             # Decide whether this is part of an existing shape or a new shape.
             my $row;
             if (defined($D->{CODE}) and exists($onscode_to_shape{$D->{CODE}})) {
                 $row = $onscode_to_shape{$D->{CODE}};
-                die "ONS code $D->{CODE} is used for '$name' and '$row->[12]'" if ($name ne $row->[12]);
-            } elsif (exists($unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}})) {
+print STDERR "\nsecond shape for ONS code $D->{CODE}; combining\n";
+                if ($name ne $row->[12]) {
+                    print STDERR "\nONS code $D->{CODE} is used for '$name' and '$row->[12]'\n";
+                    $row = undef;
+                }
+            }
+            
+            if (!defined($row) && exists($unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}})) {
                 $row = $unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}};
-                die "UNIT ID $D->{UNIT_ID} ($D->{AREA_CODE}) is used for '$name' and '$row->[12]'" if ($name ne $row->[12]);
+                if ($name ne $row->[12]) {
+                    print STDERR "\nUNIT ID $D->{UNIT_ID} ($D->{AREA_CODE}) is used for '$name' and '$row->[12]'\n";
+                    $row = undef;
+                }
             }
 
             if (!defined($row)) {
