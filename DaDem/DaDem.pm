@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.1 2004-11-10 13:07:59 francis Exp $
+# $Id: DaDem.pm,v 1.2 2004-11-18 23:43:15 francis Exp $
 #
 
 package DaDem;
@@ -133,8 +133,8 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Stom Teinberg',
-            'contact_method' => 'email',
-            'email' => 'mep@tomsteinberg.co.uk'
+            'contact_method' => 'fax',
+            'fax' => 'TOMS_FAX'
         }
 
 #            'name' => 'Tu Stily',
@@ -215,7 +215,9 @@ sub get_representative_info ($) {
     
     # Dummy postcode case
     if (exists($dummy_representatives{$id})) {
-        return $dummy_representatives{$id};
+        my $ret = $dummy_representatives{$id};
+        $ret->{'fax'} = mySociety::Config::get("TOMS_FAX") if (defined($ret->{'fax'}) && $ret->{'fax'} eq 'TOMS_FAX');
+        return $ret;
     }
 
     # Real data case
