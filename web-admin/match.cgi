@@ -8,14 +8,18 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.1 2005-01-21 19:28:14 francis Exp $
+# $Id: match.cgi,v 1.2 2005-01-25 17:15:06 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.1 2005-01-21 19:28:14 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.2 2005-01-25 17:15:06 francis Exp $';
 
 use strict;
 
 use CGI::Fast qw(-no_xhtml);
+#use CGI::Pretty;
+#$CGI::Pretty::AutoloadClass = 'CGI::Fast';
+#@CGI::Pretty::ISA = qw( CGI::Fast );
+
 use CGI::Carp;
 use HTML::Entities;
 use Error qw(:try);
@@ -24,6 +28,7 @@ use Data::Dumper;
 use Common;
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
+my ($area_id, $name_data, $area_data, $status_data);
 
 use mySociety::CouncilMatch;
 use mySociety::WatchUpdate;
@@ -32,16 +37,17 @@ my $W = new mySociety::WatchUpdate();
 
 sub html_head($$) {
     my ($q, $title) = @_;
-    my $ret = <<END;
-Content-Type: text/html; charset=iso-8859-1
-
+    my $ret = $q->header(type=>'text/html', charset=>'iso-8859-1');
+    $ret .= <<END;
 <html>
 <head>
 <title>$title - Council Matcher</title>
 </head>
 <body>
 END
-   return $ret . $q->p("Menu:", $q->a( {href=>$q->url()}, "Status Summary")); 
+   $ret .= $q->p("Menu:", $q->a( {href=>$q->url()}, "Status Summary")); 
+
+   return $ret;
 }
 
 sub html_tail($) {
@@ -98,14 +104,28 @@ sub do_summary ($) {
         { $area_id_data->{$a->[0]}->{name} cmp $area_id_data->{$b->[0]}->{name} } 
         @$status_data;
 
+    # Headings linking in
+    print join($q->br(), map { 
+            $q->a( { href => "#$_" }, $status_titles->{$_} ) }
+            keys %$status_titles);
+
+    # For each status type...
     foreach my $status (keys %$status_titles)  {
+        # ... find everything of that type
         my @subset = grep { $_->[1] eq $status} @$status_data;
-        print $q->h2($status_titles->{$status} . " &mdash; " . scalar(@subset) . " total");
+        # ... draw a heading
+        print $q->h2(
+            $q->a({ name => "$status" }, 
+            $status_titles->{$status} . " &mdash; " . scalar(@subset) . " total"));
+
+        # ... display everything in it
         print join($q->br(), map { 
-            $q->a({href=> build_url($q, $q->url('relative'=>1), 
-                    {'area_id' => $_->[0], 'page' => 'councilinfo'}) }, 
-            $area_id_data->{$_->[0]}->{name}) .
-             " " . $_->[1] } @subset);
+                        $q->a({   
+                                  href => build_url($q, $q->url('relative'=>1), 
+                                  {'area_id' => $_->[0], 'page' => 'councilinfo'}) 
+                              }, encode_entities($area_id_data->{$_->[0]}->{name}))
+                        .  " " . $_->[1] 
+                    } @subset);
     }
 
     print html_tail($q);
@@ -115,16 +135,6 @@ sub do_summary ($) {
 # Display page with information about just one council.
 sub do_council_info ($) {
     my ($q) = @_;
-    my $area_id = $q->param('area_id');
-
-    my $name_data = $m_dbh->selectrow_hashref(
-            q#select name from area_name where 
-                area_id = ? and name_type = 'F'#, {}, $area_id);
-    my $area_data = $m_dbh->selectrow_hashref(
-            q#select * from area where id = ?#, {}, $area_id);
-    my $status_data = $d_dbh->selectrow_hashref(
-            q#select council_id, status, details from raw_process_status
-            where council_id = ?#, {},$area_id);
 
     my $name = $name_data->{'name'} .  " " . 
         $mySociety::VotingArea::type_name{$area_data->{'type'}};
@@ -133,7 +143,7 @@ sub do_council_info ($) {
     print $q->h1($name . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
     print $q->p($q->a({href=> build_url($q, $q->url('relative'=>1), 
-                    {'area_id' => $area_id, 'page' => 'counciledit'}) }, 
+                {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
             "Edit raw input data"));
 
     print $q->h2("Match Details");
@@ -146,59 +156,119 @@ sub do_council_info ($) {
 # Form for editing all councillors in a council.
 sub do_council_edit ($) {
     my ($q) = @_;
-    my $area_id = $q->param('area_id');
 
-    my $name_data = $m_dbh->selectrow_hashref(
-            q#select name from area_name where 
-                area_id = ? and name_type = 'F'#, {}, $area_id);
-    my $area_data = $m_dbh->selectrow_hashref(
-            q#select * from area where id = ?#, {}, $area_id);
+    if ($q->param('posted')) {
+        if ($q->param('Cancel')) {
+            print $q->redirect($q->param('r'));
+            return;
+        }
+        
+        # Construct complete dataset of council
+        my @newdata;
+        my $c = 1;
+        while ($q->param("key$c")) {
+            my $rep;
+            foreach my $fieldname qw(key ward_name rep_name rep_party rep_email rep_fax) {
+                $rep->{$fieldname}= $q->param($fieldname . $c);
+            }
+            push @newdata, $rep;
+            $c++;
+        }
+    
+        # Make alteration
+        mySociety::CouncilMatch::edit_raw_data($area_id, 
+                $name_data->{'name'}, $area_data->{'type'},
+                $d_dbh, \@newdata, $q->remote_user() || "*unknown*");
 
+        # Regenerate stuff
+        my $result = mySociety::CouncilMatch::match_council_wards($area_id, 0, $m_dbh, $d_dbh);
+
+        # Redirect if it's Save and Done
+        if ($q->param('Save and Done')) {
+            print $q->redirect($q->param('r'));
+            return;
+        }
+    } 
+    
+    # Fetch data from database
+    my @reps = mySociety::CouncilMatch::get_raw_data($area_id, $d_dbh);
+    @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
+    my $c = 1;
+    foreach my $rep (@reps) {
+        foreach my $fieldname qw(key ward_name rep_name rep_party rep_email rep_fax) {
+            $q->param($fieldname . $c, $rep->{$fieldname});
+        }
+        $c++;
+    }
+    $q->delete("key$c");
+    my $reps_count = $c-1;
+
+    # Display header
     my $name = $name_data->{'name'} .  " " . 
         $mySociety::VotingArea::type_name{$area_data->{'type'}};
-
     print html_head($q, $name . " - Edit");
-    print $q->h1($name . " &mdash; Edit");
-    print $q->p($q->a({href=> build_url($q, $q->url('relative'=>1), 
-                    {'area_id' => $area_id, 'page' => 'councilinfo'}) }, 
-            "View data"));
+    print $q->h1($name . " $area_id &mdash; Edit $reps_count Reps");
 
+    # Large form for editing council details
+    print $q->start_form(-method => 'POST');
+    print $q->submit('Save and Done'); 
+    print $q->submit('Save');
+    print "&nbsp;";
+    print $q->submit('Cancel');
 
-    my $raw_input_data = $d_dbh->selectall_hashref(
-            q#select * from raw_input_data where
-            council_id = ?#, 'raw_id', {}, $area_id);
-    for my $raw_id (keys %$raw_input_data) {
-        my $rep = $raw_input_data->{$raw_id};
-        print $q->br();
-        #print Dumper($rep);
+    print $q->start_table();
+    print $q->Tr({}, $q->th({}, [
+        'Ward', 'Name', 'Party', 'Email', 'Fax'                
+    ]));
+
+    $c = 1;
+    while ($q->param("key$c")) {
+        print $q->hidden(-name => "key$c", -size => 30);
+        print $q->Tr({}, $q->td([ 
+            $q->textfield(-name => "ward_name$c", -size => 30),
+            $q->textfield(-name => "rep_name$c", -size => 20),
+            $q->textfield(-name => "rep_party$c", -size => 10),
+            $q->textfield(-name => "rep_email$c", -size => 20),
+            $q->textfield(-name => "rep_fax$c", -size => 15)
+        ]));
+        $c++;
     }
+    
+    print $q->end_table();
+    print $q->hidden('page', 'counciledit');
+    print $q->hidden('area_id');
+    print $q->hidden('r');
+    print $q->hidden('posted', 'true');
 
-#    raw_id serial not null primary key,
-#    ge_id int not null,
-#
-#    council_id integer not null,
-#    council_name text not null, -- in canonical 'C' form
-#    council_type char(3) not null, 
-#
-#    ward_name text,
-#
-#    rep_name text,
-#    rep_party text,
-#    rep_email text,
-#    rep_fax text
-
+    print $q->submit('Save and Done'); 
+    print $q->submit('Save');
+    print "&nbsp;";
+    print $q->submit('Cancel');
+    print $q->end_form();
 
     print html_tail($q);
 }
-
 
 # Main loop, handles FastCGI requests
 my $q;
 try {
     while ($q = new CGI::Fast()) {
         $W->exit_if_changed();
+        #print Dumper($q->Vars);
 
         my $page = $q->param('page');
+
+        $area_id = $q->param('area_id');
+        if ($area_id) {
+            $name_data = $m_dbh->selectrow_hashref(
+                    q#select name from area_name where 
+                        area_id = ? and name_type = 'F'#, {}, $area_id);
+            $area_data = $m_dbh->selectrow_hashref(
+                    q#select * from area where id = ?#, {}, $area_id);
+            $status_data = $d_dbh->selectrow_hashref(
+                    q#select council_id, status, details from raw_process_status
+                    where council_id = ?#, {},$area_id);
+        }
 
         if ($page eq "councilinfo") {
             do_council_info($q);

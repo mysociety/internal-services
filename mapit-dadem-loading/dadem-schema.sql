@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.13 2005-01-24 11:13:32 chris Exp $
+-- $Id: dadem-schema.sql,v 1.14 2005-01-25 17:15:04 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -95,7 +95,7 @@ create table electedbody_edited (
 -- form, "ward" names could contain anything.
 create table raw_input_data (
     raw_id serial not null primary key,
-    ge_id int not null,
+    ge_id integer not null,
 
     council_id integer not null,
     council_name text not null, -- in canonical 'C' form
@@ -114,6 +114,46 @@ create index raw_input_data_council_id_idx on raw_input_data(council_id);
 create index raw_input_data_council_name_idx on raw_input_data(council_name);
 create index raw_input_data_council_type_idx on raw_input_data(council_type);
 
+-- alterations to raw_input_data as a transaction log
+create table raw_input_data_edited (
+    -- order in which rows override each other
+    order_id serial not null primary key,
+
+    -- one of these is always null, the other has a value
+    ge_id integer, -- key for altering existing rows
+    newrow_id integer, -- key for added rows
+    check ( (ge_id is not null and newrow_id is null) or
+            (newrow_id is not null and ge_id is null) ),
+    alteration text not null check (alteration in('modify','delete')),
+
+    -- extra key data for recovery if something goes wrong
+    council_id integer not null,
+    council_name text not null, -- in canonical 'C' form
+    council_type char(3) not null, 
+
+    -- modified values, all must be there
+    ward_name text not null,
+    rep_name text not null,
+    rep_party text not null,
+    rep_email text not null,
+    rep_fax text not null,
+
+    -- name of person who edited it
+    editor text not null,
+    -- time of entry in UNIX time
+    whenedited integer not null, 
+    -- what the change was for: author's notes
+    note text not null
+);
+
+create index raw_input_data_edited_ge_id_idx on raw_input_data_edited(ge_id);
+create index raw_input_data_edited_newrow_id_idx on raw_input_data_edited(newrow_id);
+create index raw_input_data_edited_council_id_idx on raw_input_data_edited(council_id);
+
+create sequence raw_input_data_edited_newrow_seq;
+
+-- how well the data in raw_input_data has been name matched and/or
+-- read into the main representatives table
 create table raw_process_status (
     council_id integer not null,
     
@@ -122,5 +162,7 @@ create table raw_process_status (
 );
 
 create index raw_process_status_status_idx on raw_process_status(status);
+
+
 
 
