@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.10 2005-02-01 15:47:08 francis Exp $
+# $Id: match.cgi,v 1.11 2005-02-01 20:15:56 chris Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.10 2005-02-01 15:47:08 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.11 2005-02-01 20:15:56 chris Exp $';
 
 use strict;
 
@@ -38,7 +38,8 @@ my ($area_id, $name_data, $area_data, $status_data);
 
 sub html_head($$) {
     my ($q, $title) = @_;
-    my $ret = $q->header(type=>'text/html', charset=>'iso-8859-1');
+    # XXX don't send this here; also, charset should be utf-8
+    my $ret = $q->header(-type => 'text/html', -charset => 'iso-8859-1');
     $ret .= <<END;
 <html>
 <head>
