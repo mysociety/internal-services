@@ -1,6 +1,6 @@
 <?php
 /*
- * config-example
+ * general-example
  *
  * Configuration parameters, in PHP syntax. File is also read in by
  * a Perl script, so keep things simple -- in particular, at the moment,
@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.5 2004-12-07 00:16:11 francis Exp $
+ * $Id: general-example,v 1.6 2004-12-16 19:25:17 francis Exp $
  * 
  */
 
