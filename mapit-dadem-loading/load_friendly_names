@@ -10,7 +10,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.4 2004-12-11 00:19:00 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.5 2005-01-07 11:08:45 chris Exp $';
 
 use strict;
 
@@ -41,6 +41,17 @@ sub friendly_from_os ($) {
     s# Burgh Const$##;
     s# Co Const$##;
     s# Boro Const$##;
+
+    # Scottish Constituency/Electoral Region
+    s# P Const$##;
+    s# PER$##;
+
+    # Welsh
+    s# Assembly Const$##;
+    s# Assembly ER$##;
+
+    # London
+    s# GL Assembly Const$##;
 
     # Specific to wards and councils
     s#\s*\(([A-Z]{2})\)$##; # Pendle (BC) => Pendle
