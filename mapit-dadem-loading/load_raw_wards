@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.2 2005-01-27 09:39:05 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.3 2005-01-27 12:19:13 francis Exp $';
 
 use strict;
 
@@ -56,14 +56,14 @@ $s->execute();
 
 while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
-    $_ = mySociety::CouncilMatch::canonicalise_council_name($name);
-    if (exists($parent_to_id{$_})) {
-        die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n";
+    my $canon = mySociety::CouncilMatch::canonicalise_council_name($name);
+    if (exists($parent_to_id{$canon})) {
+        die "Already have id for canonicalised $canon, being " .  $parent_to_id{$canon} .  "\n";
     }
-    $parent_to_id{$_} = $area_id;
+    $parent_to_id{$canon} = $area_id;
 
     # Store in database as 'C' record
-    $m_dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)", {}, $area_id, 'C', $_);
+    $m_dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)", {}, $area_id, 'C', $canon);
 }
  
 # Load the GovEval data.
@@ -88,13 +88,13 @@ while (my $line = <STDIN>) {
     # Special case for areas with elected mayors.
     next if $vdiv eq "Elected Mayor";
     
-    $_ = mySociety::CouncilMatch::canonicalise_council_name($council);
+    my $canon = mySociety::CouncilMatch::canonicalise_council_name($council);
 
-    die "no council in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
+    die "no council in database matches canonical name '$canon'\n" unless (exists($parent_to_id{$canon}));
 
-    my $id = $parent_to_id{$_};
+    my $id = $parent_to_id{$canon};
     
-    $councils->{$id}->{canonname} = $_;
+    $councils->{$id}->{canonname} = $canon;
     $councils->{$id}->{govevalname} = $council;
     push @{$councils->{$id}->{lines}}, \@line;
 }
