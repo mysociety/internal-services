@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.10 2004-12-07 21:59:53 francis Exp $
+-- $Id: mapit-schema.sql,v 1.11 2004-12-09 18:37:42 chris Exp $
 --
 
 -- generations, for currency of data
@@ -60,10 +60,11 @@ create table area_name (
     -- Which type of name this is.
     -- 'O'  name used by Ordnance Survey
     -- 'S'           ... ONS
+    -- 'M'           ... mySociety
     -- 'G'           ... GovEval
     -- 'X'           ... FaxYourMP
     -- 'F'  "friendly" name for our own use
-    name_type char(1) not null check (name_type = 'O' or name_type = 'S' or name_type = 'G' or name_type = 'F' or name_type = 'X'),
+    name_type char(1) not null check (name_type = 'O' or name_type = 'S' or name_type = 'M' or name_type = 'G' or name_type = 'F' or name_type = 'X'),
     name text not null,
     primary key (area_id, name_type)
 );
