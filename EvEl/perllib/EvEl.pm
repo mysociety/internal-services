@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.4 2005-03-23 17:31:40 chris Exp $
+# $Id: EvEl.pm,v 1.5 2005-03-30 11:37:16 francis Exp $
 #
 
 package EvEl::Error;
@@ -249,7 +249,7 @@ sub recipient_id ($) {
 
 =head1 FUNCTIONS
 
-=head1 Individual Mails
+=head2 Individual Mails
 
 =over 4
 
@@ -303,7 +303,7 @@ sub is_address_bouncing ($) {
 
 =back
 
-=head1 Mailing Lists
+=head2 Mailing Lists
 
 =over 4
 
@@ -430,7 +430,7 @@ sub list_subscribe ($$$;$) {
                         select whensubscribed from subscriber
                         where mailinglist_id = ?
                             and recipient_id = ?
-                        for update', {}, $id, $recip)) {
+                        for update', {}, $id, $recip))) {
         dbh()->do('
                     update subscriber
                     set isadmin = ?
@@ -452,7 +452,7 @@ sub list_subscribe ($$$;$) {
 Remove ADDRESS from the list identified by SCOPE and TAG.
 
 =cut
-sub list_subscribe ($$$;$) {
+sub list_unsubscribe ($$$;$) {
     my ($scope, $tag, $addr, $isadmin) = @_;
     $isadmin ||= 0;
     my $id = dbh()->selectrow_array('
@@ -499,7 +499,7 @@ sub list_send ($$$) {
                     insert into message (id, data, whencreated)
                     values (?, ?, ?)');
     $s->bind_param(1, $msg);
-    $s->bind_param(2, $data);
+    $s->bind_param(2, $message);
     $s->bind_param(3, time());
     $s->execute();
 

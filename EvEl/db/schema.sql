@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.5 2005-03-23 15:16:03 chris Exp $
+-- $Id: schema.sql,v 1.6 2005-03-30 11:37:16 francis Exp $
 --
 
 create table secret (
@@ -20,6 +20,9 @@ create table message (
     -- XXX add some stats about this message so that we can garbage-collect the
     -- data later on but keep the message record around for logging purposes.
     whensubmitted integer not null,
+    -- a probe is a message to check an email address works, will say something
+    -- like "We've been having trouble sending mail to your address, if you get
+    -- this then it must be working again."
     isprobe boolean not null default(false)
 );
 

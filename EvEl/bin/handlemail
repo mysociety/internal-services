@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../../perllib
 #
 # handlemail:
 # Handle an individual incoming mail message.
@@ -10,7 +10,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: handlemail,v 1.1 2005-03-23 17:06:05 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: handlemail,v 1.2 2005-03-30 11:37:16 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -27,7 +27,7 @@ use Mail::Header;
 
 use mySociety::Config;
 BEGIN {
-    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+    mySociety::Config::set_file("$FindBin::Bin/../../conf/general");
 }
 use mySociety::DBHandle qw(dbh);
 use mySociety::Util qw(print_log);
