@@ -12,12 +12,14 @@
 # Example usage:
 # cat ../../../goveval/mep-20041001.csv | ./load_goveval_names mep
 # cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
+# cat ../../../goveval/msp-sp{c,e}-20041001.csv | ./load_goveval_names msp
+# cat ../../../goveval/wam-20041001.csv | ./load_goveval_names wam
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.11 2005-01-07 00:29:27 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.12 2005-01-19 14:45:32 francis Exp $';
 
 use strict;
 
@@ -41,6 +43,9 @@ if ($kind eq "mep") {
 } elsif ($kind eq "msp") {
     $types = [qw(SPC SPE)];
     $name_type_char = 'G';
+} elsif ($kind eq "wam") {
+    $types = [qw(WAC WAE)];
+    $name_type_char = 'G';
 } else {
     die "Please specify 'mep' or 'mp'";
 }
@@ -63,12 +68,12 @@ $dbh->do(
 sub canonicalise_constituency_name ($) {
     $_ = shift;
 
-    # Specific to Europe regions
+    # Europe regions
     s#^Greater ##i;
     s# Euro Region$##;
     s#N\. Ireland#Northern Ireland#;
 
-    # Specific to Westminster constituencies
+    # Westminster constituencies
     s# Burgh Const$##;
     s# Co Const$##;
     s# Boro Const$##;
@@ -78,7 +83,7 @@ sub canonicalise_constituency_name ($) {
     s#^City of##;
     s#ô#o#g;
 
-    # Scottish constituencies/electoral regioons
+    # Scottish constituencies/electoral regions
     s#Orkney Islands#Orkney#;
     s#Shetland Islands#Shetland#;
     s# P Const$##;
@@ -89,6 +94,10 @@ sub canonicalise_constituency_name ($) {
     s#E\. #East #;
     s#S\. #South #;
     s#W\. #West #;
+
+    # Welsh Assembly regions
+    s# Assembly ER$##;
+    s# Assembly Const$##;
 
     # General
     $_ = lc;
@@ -138,7 +147,7 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my $cons;
 
-    if ($kind eq "mep" or $kind eq "msp") {
+    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam") {
         # GovEval-format file.
         my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
