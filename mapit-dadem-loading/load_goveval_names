@@ -4,11 +4,14 @@
 # Load in GovEval data, match names to Ordnance Survey once in the MaPit
 # database, and add in the GovEval names as alternates.
 #
+# Parameters:  Pipe the councillors.csv file from GovEval into standard
+# input.
+#
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.1 2004-11-30 09:27:12 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.2 2004-12-01 02:11:57 francis Exp $';
 
 use strict;
 
@@ -16,6 +19,8 @@ use DBI;
 use DBD::SQLite;
 use Text::CSV;
 use Data::Dumper;
+use String::Ediff;
+use Common;
 
 my $dbh = DBI->connect('dbi:SQLite:dbname=/home/francis/toobig/geodata-mysociety/mapit.sqlite', '', '', { AutoCommit => 0, RaiseError => 1 });
 
@@ -32,8 +37,10 @@ sub canonicalise_council_name {
         s# County Council# County#;
     } else {
         s#\s*\(([A-Z]{2})\)##; # Pendle (BC) => Pendle
+        s#(.+) - (.+)#$2#;     # Sir y Fflint - Flintshire => Flintshire
 
-        s#^The ##;
+        s#^City and County of ##;         # City and County of the City of London => the City of London
+        s#^The ##i;
         s# City Council$##;    # OS say "District", GovEval say "City Council", we drop both to match
         s# County Council$##;  # OS say "District", GovEval say "City Council", we drop both to match
         s# Borough Council$##; # Stafford Borough Council => Stafford
@@ -41,9 +48,11 @@ sub canonicalise_council_name {
         s# City$##;            # Liverpool City => Liverpool
         s#^City of ##;         # City of Glasgow => Glasgow
         s#^County of ##;
+        s#^Corp of ##;         # Corp of London => London
         s# District$##;
         s# County$##;
         s# City$##;
+        s# London Boro$##;
 
         s#sh'r$#shire#;       # Renfrewsh'r => Renfrewshire
         s#W\. Isles#Na H-Eileanan an Iar#;    # Scots Gaelic(?) name for Western Isles
@@ -53,9 +62,12 @@ sub canonicalise_council_name {
         s#\bS\.\s#South #g;    # S. Oxfordshire => South Oxfordshire
         s#\bE\.\s#East #g;     # North E. Derbyshire => North East Derbyshire
         s#\bW\.\s#West #g;     # W. Sussex => West Sussex
+        s#\bGt\.\s#Great #g;   # Gt. Yarmouth => Great Yarmouth
 
         s#&#and#g;
         s#-# #g;
+        s#'##g;                # King's Lynn => Kings Lynn
+        s#,##g;                # Rhondda, Cynon, Taff => Rhondda Cynon Taff
     }
     
     return $_;
@@ -85,15 +97,15 @@ while (my ($area_id, $name) = $s->fetchrow_array()) {
     }
 }
  
-# Parse the GovEval data.
+# Load the GovEval data.
 my $C = new Text::CSV;
-
 <STDIN>;    # header line
+my $councils;
 
 while (my $line = <STDIN>) {
     chomp($line);
     $C->parse($line);
-    my ($first, $last, $vdiv, $council, $email) = $C->fields();
+    my ($first, $last, $vdiv, $council, $email) = map { trim_spaces($_) } $C->fields();
 
     if (!defined $council) {
         warn "council not defined for line $line\n";
@@ -102,12 +114,149 @@ while (my $line = <STDIN>) {
     
     $_ = canonicalise_council_name($council);
 
-    if (exists($parent_to_id{$_})) {
-        warn "got $council\n";
-    } else {
+    if (!exists($parent_to_id{$_})) {
         die "not got $council, matching canonical $_\n";
     }
-#    push(@data, [$C->fields()]);
+    my $id = $parent_to_id{$_};
+    
+    $councils->{$id}->{canonname} = $_;
+    $councils->{$id}->{govevalname} = $council;
+    if (!exists($councils->{$id}->{gotwards}->{$vdiv})) {
+        push @{$councils->{$id}->{wards}}, { name => $vdiv };
+        $councils->{$id}->{gotwards}->{$vdiv} = 1;
+    }
+}
+
+# For each "council" (or similar), get list of "wards" (or similar) and match it up
+# with what is in the database already.
+foreach my $id (keys %$councils) {
+    my $council = $councils->{$id}->{govevalname};
+    print "Council: $council Area: $id\n";
+
+    # Set of wards GovEval have
+    my $wards_goveval = $councils->{$id}->{wards};
+    my $count_goveval = $#$wards_goveval;
+
+    # Set of wards already in database (from Ordnance Survey / ONS)
+    my $rows = $dbh->selectall_arrayref('select area_id, name from area_name, area where
+        area_name.area_id = area.id and parent_area_id = ?', {}, $id);
+    my $wards_database;
+    foreach my $row (@$rows) { 
+        my ($area_id, $name) = @$row;
+        push @{$wards_database}, { name => $name, id => $area_id };
+    }
+    my $count_database = $#$wards_database;
+    
+    #print Dumper($wards_goveval);
+    #print Dumper($wards_database);
+
+    if ($count_database != $count_goveval) {
+        print Dumper($wards_goveval);
+        print Dumper($wards_database);
+        die "For $council have $count_database wards in db, but $count_goveval in GovEval data";
+    }
+
+    # Work out area_id for each GovEval ward
+    foreach my $g (@$wards_goveval) {
+        # Find the entry in database which best matches each GovEval
+        # name, store multiple same-length ties.
+        my $longest_len = -1;
+        my $longest_matches = undef;
+        foreach my $d (@$wards_database) {
+            # Generate metric as to number of common characters
+            my $ixes = String::Ediff::ediff($g->{name}, $d->{name});
+            #print " ediff " . $g->{name} . "," . $d->{name} . "\n";
+            my $common_len = 0;
+            if ($ixes ne "") {
+                my @ix = split(" ", $ixes);
+                for (my $i = 0; $i < scalar(@ix); $i+=8) {
+                    my $common = $ix[$i + 1] - $ix[$i];
+                    my $common2 = $ix[$i + 5] - $ix[$i + 4];
+                    # $common and $common2 may differ due to punctuation
+
+                    die if $ix[$i + 2] != 0;
+                    die if $ix[$i + 3] != 0;
+    
+                    die if $ix[$i + 6] != 0;
+                    die if $ix[$i + 7] != 0;
+
+                    $common_len += $common;
+                }
+            }
+            # e.g. "Kew" matching "Kew Ward" was too short for ediff
+            # to catch, but exact substring matching will find it
+            if ($common_len == 0 and index($d->{name}, $g->{name}) >= 0) {
+                $common_len = length($g->{name});
+            }
+            if ($common_len == 0 and index($g->{name}, $d->{name}) >= 0) {
+                $common_len = length($d->{name});
+            }
+           
+            # If more common characters, store it
+            if ($common_len > $longest_len) {
+                $longest_len = $common_len;
+                $longest_matches = undef;
+                push @{$longest_matches}, $d;
+            } elsif ($common_len == $longest_len) {
+                push @{$longest_matches}, $d;
+            }
+        }
+
+        # Record the best ones
+        $g->{matches} = $longest_matches;
+        #print Dumper($longest_matches);
+        # If exactly one match, use it for definite
+        if ($#$longest_matches == 0) {
+            if (exists($longest_matches->[0]->{used})) {
+                print Dumper($wards_goveval);
+                print Dumper($wards_database);
+                die "Already used " . $longest_matches->[0]->{name};
+            }
+            $longest_matches->[0]->{used} = 1;
+            $g->{id} = $longest_matches->[0]->{id};
+            print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n";
+        }
+    }
+
+    # Second pass to clear up those with two matches 
+    # e.g. suppose there are both "Kilbowie West Ward", "Kilbowie Ward"
+    # The match of "Kilbowie Ward" against "Kilbowie West" and "Kilbowie"
+    # will find Kilbowie as shortest substring, and have two matches.
+    # We want to pick "Kilbowie" not "Kilbowie West", but can only do so
+    # after "Kilbowie West" has been allocated to "Kilbowie West Ward".
+    # Hence this second pass.
+    foreach my $g (@$wards_goveval) {
+        if (!exists($g->{id})) {
+            foreach my $longest_match (@{$g->{matches}}) {
+                #print Dumper($longest_match);
+                if (!exists($longest_match->{used})) {
+                    $longest_match->{used} = 1;
+                    $g->{id} = $longest_match->{id};
+                    print "Best is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n";
+                    delete $g->{matches};
+                    next;
+                }
+            }
+        }
+        delete $g->{matches};
+    }
+    
+
+    # Check we used every single ward (rather than used same twice)
+    foreach my $d (@$wards_database) {
+        if (!exists($d->{used})) {
+            print Dumper($wards_goveval);
+            print Dumper($wards_database);
+            die "Failed to pair off " . $d->{name} . " id " . $d->{id};
+        }
+    }
+
+#    print Dumper($wards_goveval);
+#    print Dumper($wards_database);
+    print "--------------------------------------------------\n";
 }
 
 $dbh->disconnect();
+
+
+

@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.2 2004-11-29 19:00:58 chris Exp $
+# $Id: Common.pm,v 1.3 2004-12-01 02:11:57 francis Exp $
 #
 
 package Common;
@@ -20,6 +20,7 @@ use strict;
         &make_new_generation_active
         &get_area_id
         &get_postcode_id
+        &trim_spaces
     );
 
 # current_generation DBH
@@ -97,6 +98,13 @@ sub get_postcode_id ($$$$) {
     return $id;
 }
 
-
+# trim_spaces STRING
+# Remove leading and trailing white space from string.
+# Can pass by reference or, pass by value and return
+sub trim_spaces ($) {
+    $_[0] =~ s/\s+$//;
+    $_[0] =~ s/^\s+//;
+    return $_[0];
+}
 
 1;
