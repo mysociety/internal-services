@@ -1,4 +1,4 @@
-$Id: NAMETYPES,v 1.3 2005-01-21 13:05:45 francis Exp $
+$Id: NAMETYPES,v 1.4 2005-02-09 12:27:11 chris Exp $
 
 Several types of name may be defined for each area. Each type of name is
 identified by a one-letter code:
@@ -38,6 +38,11 @@ X   FaxYourMP Name
     These are names as used in the dataset exported from FaxYourMP. So
     it only applies for House of Commons constituencies.
 
+L   Legislation Name
+
+    Name as given in legislation (e.g. Electoral Changes Order) which defines
+    the area.
+
 F   Friendly Name
 
     These are the names which we present to the user. The intention is that
@@ -48,5 +53,3 @@ F   Friendly Name
 C   Canonical Name
     
     Lowercase and simplified council names.
-
-
