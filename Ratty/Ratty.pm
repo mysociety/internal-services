@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.8 2004-11-16 11:11:17 francis Exp $
+# $Id: Ratty.pm,v 1.9 2004-11-26 10:15:10 francis Exp $
 #
 
 package Ratty;
@@ -90,7 +90,7 @@ sub test ($$) {
     if (defined(my $r = $self->{tester}->($V))) {
         # have a hit on rule $r
         # XXX log this
-        warn "rule #$r triggered\n";
+        warn "ratty rule #$r triggered\n";
         my $message = dbh()->selectrow_array('select message from rule where id = ?', {}, $r);
         $message = "" if (!defined($message));
         $result = [$r, $message];
