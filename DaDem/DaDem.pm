@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.15 2004-12-20 20:34:16 francis Exp $
+# $Id: DaDem.pm,v 1.16 2004-12-20 20:52:16 francis Exp $
 #
 
 package DaDem;
@@ -309,12 +309,25 @@ of information about changes to that representatives contact info.
 =cut
 sub get_representative_history ($) {
     my ($id) = @_;
+    my @ret;
+
+    # Get historical data
     my $sth = dbh()->prepare('select * from representative_edited where representative_id = ? order by order_id desc');
     $sth->execute($id);
-    my @ret;
     while (my $hash_ref = $sth->fetchrow_hashref()) {
         push @ret, $hash_ref;
     }
+    
+    # Get original
+    my $sth = dbh()->prepare('select * from representative where id = ?');
+    $sth->execute($id);
+    while (my $hash_ref = $sth->fetchrow_hashref()) {
+        $hash_ref->{'order_id'} = 0;
+        $hash_ref->{'note'} = "Original data";
+        $hash_ref->{'editor'} = 'import';
+        push @ret, $hash_ref;
+    }
+
     return \@ret;
 } 
 
@@ -337,6 +350,12 @@ sub admin_edit_representative ($$$$) {
         if ($newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
         if ($newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
         if ($newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
+        # Make undef (NULL) for any blank strings
+        if ($newdata->{'name'} eq '') { $newdata->{'name'} = undef; };
+        if ($newdata->{'party'} eq '') { $newdata->{'party'} = undef; };
+        if ($newdata->{'method'} eq '') { $newdata->{'method'} = undef; };
+        if ($newdata->{'email'} eq '') { $newdata->{'email'} = undef; };
+        if ($newdata->{'fax'} eq '') { $newdata->{'fax'} = undef; };
 
         # Insert new data
         dbh()->do('insert into representative_edited 
