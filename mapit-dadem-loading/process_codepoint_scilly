@@ -16,7 +16,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.1 2005-02-10 16:34:32 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.2 2005-02-10 16:36:50 chris Exp $';
 
 use strict;
 
@@ -43,7 +43,7 @@ my %name;
 my %wid;
 
 # Hack: get local authority, constituency and Euro region, by ONS code in first
-# case and name in the second.
+# two cases and name in the third.
 $dbh->do("update area set type = 'COI' where ons_code = '15UH' and type = 'CTY'");
 my $la_id = $dbh->selectrow_array("select id from area where ons_code = '15UH'");
 my $const_id = $dbh->selectrow_array("select id from area where ons_code = '385'");
