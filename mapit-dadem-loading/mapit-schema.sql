@@ -5,13 +5,13 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.8 2004-12-02 18:57:20 chris Exp $
+-- $Id: mapit-schema.sql,v 1.9 2004-12-07 14:22:07 francis Exp $
 --
 
 -- generations, for currency of data
 create table generation (
     id serial not null primary key,
-    active boolean not null default ('f'),
+    active boolean not null default (false),
     created integer not null
 );
 
