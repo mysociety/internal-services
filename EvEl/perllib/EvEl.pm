@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.1 2005-03-22 17:23:03 chris Exp $
+# $Id: EvEl.pm,v 1.2 2005-03-23 15:16:18 chris Exp $
 #
 
 package EvEl::Error;
@@ -18,6 +18,7 @@ package EvEl;
 use strict;
 
 use Digest::SHA1;
+use Mail::RFC822::Address;
 use Net::SMTP;
 
 use mySociety::DBHandle qw(dbh);
@@ -204,6 +205,26 @@ sub process_bounce ($$) {
     dbh()->commit();
 }
 
+# recipient_id ADDRESS
+# Get/create a recipient ID for ADDRESS, and return it.
+sub recipient_id ($) {
+    my $addr = shift;
+
+    # XXX check validity of address
+    
+    my $id = dbh()->selectrow_array('
+                        select id
+                        from recipient
+                        where address = ?
+                        for update', {}, $addr);
+    if (!defined($id)) {
+        $id = dbh()->selectrow_array("select nextval('recipient_id_seq')");
+        dbh()->do('insert into recipient (id, address) values (?, ?)',
+                    {}, $id, $addr);
+    }
+    return $id;
+}
+
 =head1 NAME
 
 EvEl
@@ -221,12 +242,50 @@ etc.
 
 =item send MESSAGE RECIPIENT ...
 
+MESSAGE is the full text of a message to be sent to the given RECIPIENTS. Does
+not commit.
+
 =cut
 sub send ($@) {
-    my ($msg, @recips) = @_;
+    my ($data, @recips) = @_;
+    my $msg = dbh()->selectrow_array("select nextval('message_id_seq')");
+    my $s = dbh()->prepare('
+                    insert into message (id, data, whencreated)
+                    values (?, ?, ?)');
+    $s->bind_param(1, $msg);
+    $s->bind_param(2, $data);
+    $s->bind_param(3, time());
+    $s->execute();
+    
+    foreach (@recips) {
+        dbh()->do('
+                    insert into message_recipient (message_id, recipient_id)
+                    values (?, ?)', {}, $msg, recipient_id($_));
+    }
 }
 
-=item is_address_bouncing
+=item is_address_bouncing ADDRESS
+
+Return true if we have received bounces for the ADDRESS.
+
+=cut
+sub is_address_bouncing ($) {
+    my $addr = shift;
+    my $id = dbh()->selectrow_array('
+                    select id from recipient where address = ?',
+                    {}, $addr);
+    return undef if (!defined($id));
+    
+    # Regard an address as bouncing if we've received any bounces from it
+    # within the last week.
+    return 1 if (scalar(dbh()->selectrow_array('
+                            select count(message_id) from bounce
+                            where recipient_id = ?
+                                and whenreceived > ?',
+                            {}, $id, time() - 7 * 86400)) > 0);
+
+    return 0;
+}
 
 =back
 
@@ -234,17 +293,196 @@ sub send ($@) {
 
 =over 4
 
-=item list_create
+=item list_create SCOPE TAG NAME MODE [LOCALPART DOMAIN]
 
-=item list_destroy
+Create a new mailing list for the given SCOPE (e.g. "pledgebank") and TAG (a
+unique reference for this list within SCOPE). NAME is the human-readable name
+of the list and MODE the posting-mode. Possible MODES are:
 
-=item list_subscribe
+=over 4
 
-=item list_unsubscribe
+=item any
+
+anyone may post;
+
+=item subscribers
+
+only subscribers may post;
+
+=item admins
+
+only administrators may post; or
+
+=item none
+
+nobody may post, so messages can only be submitted through the EvEl API.
+
+=back
+
+If MODE is anything other than "none", then LOCALPART and DOMAIN must be
+specified. These indicate the address for submissions to the list; if
+specified, LOCALPART "@" DOMAIN must form a valid mail address.
+
+=cut
+sub list_create ($$$$;$$) {
+    my ($scope, $tag, $name, $mode, $localpart, $domain) = @_;
+ 
+    throw EvEl::Error("bad MODE '$mode'")
+        if ($mode !~ /^(any|subscribers|admins|none)$/);
+
+    throw EvEl::Error("LOCALPART and DOMAIN must be specified for MODE = '$mode'")
+        if ($mode ne 'none' and !defined($localpart) || !defined($domain));
+   
+    my $id = dbh()->selectrow_array('
+                        select id
+                        from mailinglist
+                        where scope = ? and tag = ?', {}, $scope, $tag);
+
+    # Try to make this idempotent, so assume that a call for an
+    # already-existing list succeeded with the same arguments.
+    return if (defined($id));
+
+    $id = dbh()->selectrow_array("select nextval('mailinglist_id_seq')");
+    dbh()->do('
+            insert into mailinglist (
+                id,
+                scope, tag,
+                name,
+                localpart, domain,
+                postingmode,
+                whencreated
+            ) values (
+                ?,
+                ?, ?,
+                ?,
+                ?, ?,
+                ?,
+                ?
+            )', {},
+            $id,
+            $scope, $tag,
+            $name,
+            $localpart, $domain,
+            $mode,
+            time());
+}
+
+=item list_destroy SCOPE TAG
+
+Delete the list identified by the given SCOPE and TAG.
+
+=cut
+sub list_destroy ($$) {
+    my ($scope, $tag) = @_;
+    my $id = dbh()->selectrow_array('
+                        select id
+                        from mailinglist
+                        where scope = ? and tag = ?
+                        for update', {}, $scope, $tag);
+    return unless (defined($id));
+    dbh()->do('delete from subscriber where mailinglist_id = ?', {}, $id);
+    dbh()->do('delete from mailinglist where id = ?', {}, $id);
+}
+
+=item list_subscribe SCOPE TAG ADDRESS [ISADMIN]
+
+Subscribe ADDRESS to the list identified by SCOPE and TAG. Make the user an
+administrator if ISADMIN is true.
+
+=cut
+sub list_subscribe ($$$;$) {
+    my ($scope, $tag, $addr, $isadmin) = @_;
+    $isadmin ||= 0;
+    my $id = dbh()->selectrow_array('
+                        select id
+                        from mailinglist
+                        where scope = ? and tag = ?
+                        for update', {}, $scope, $tag);
+
+    throw EvEl::Error("no mailing list $scope.$tag")
+        unless (defined($id));
+
+    my $recip = recipient_id($addr);
+
+    if (defined(dbh()->selectrow_array('
+                        select whensubscribed from subscriber
+                        where mailinglist_id = ?
+                            and recipient_id = ?
+                        for update', {}, $id, $recip)) {
+        dbh()->do('
+                    update subscriber
+                    set isadmin = ?
+                    where mailinglist_id = ? and recipient_id = ?',
+                    {}, $isadmin ? 't' : 'f', $id, $recip);
+    } else {
+        dbh()->do('
+                    insert into subscriber
+                        (mailinglist_id, recipient_id, isadmin, whensubscribed)
+                    values (?, ?, ?, ?)',
+                    {}, $id, $recip, $isadmin ? 't' : 'f', time());
+    }
+}
+
+=item list_unsubscribe SCOPE TAG ADDRESS
+
+Remove ADDRESS from the list identified by SCOPE and TAG.
+
+=cut
+sub list_subscribe ($$$;$) {
+    my ($scope, $tag, $addr, $isadmin) = @_;
+    $isadmin ||= 0;
+    my $id = dbh()->selectrow_array('
+                        select id
+                        from mailinglist
+                        where scope = ? and tag = ?
+                        for update', {}, $scope, $tag);
+
+    throw EvEl::Error("no mailing list $scope.$tag")
+        unless (defined($id));
+
+    my $recip = recipient_id($addr);
+
+    dbh()->do('
+                delete from subscriber
+                where mailinglist_id = ? and recipient_id = ?',
+                {}, $id, $recip);
+}
 
 =item list_attribute
 
-=item list_send
+=item list_send SCOPE TAG MESSAGE
+
+Send MESSAGE (on-the-wire message data, including all headers) to the list
+identified by SCOPE and TAG.
+
+=cut
+sub list_send ($$$) {
+    my ($scope, $tag, $message) = @_;
+
+    my $id = dbh()->selectrow_array('
+                        select id
+                        from mailinglist
+                        where scope = ? and tag = ?
+                        for update', {}, $scope, $tag);
+                        
+    throw EvEl::Error("no mailing list $scope.$tag")
+        unless (defined($id));
+
+    my $msg = dbh()->selectrow_array("select nextval('message_id_seq')");
+    my $s = dbh()->prepare('
+                    insert into message (id, data, whencreated)
+                    values (?, ?, ?)');
+    $s->bind_param(1, $msg);
+    $s->bind_param(2, $data);
+    $s->bind_param(3, time());
+    $s->execute();
+
+    dbh()->do('
+                insert into message_recipient (message_id, recipient_id)
+                    select ? as message_id, recipient_id
+                    from mailinglist where id = ?',
+                {}, $msg, $id);
+}
 
 =item list_members
 
