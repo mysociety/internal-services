@@ -20,7 +20,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.13 2005-01-19 17:02:00 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.14 2005-01-27 12:35:20 francis Exp $';
 
 use strict;
 
@@ -127,6 +127,8 @@ sub canonicalise_constituency_name ($) {
 my %parent_to_id;
 
 # Cache of name-->id map of all the areas
+die "the distinct on is suspect here, as it returns a random name, really should select all,
+or pick type O/S or whatever?";
 my $s = $dbh->prepare(
         q#select distinct on (area_id) area_id, name from area_name, area
             where area_name.area_id = area.id
