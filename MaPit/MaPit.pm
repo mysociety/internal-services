@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.17 2005-02-10 23:18:21 chris Exp $
+# $Id: MaPit.pm,v 1.18 2005-02-16 12:52:20 francis Exp $
 #
 
 package MaPit;
@@ -266,7 +266,6 @@ Given an area ID, returns one postcode that maps to it.
 sub get_example_postcode ($);
 sub get_example_postcode ($) {
     my ($area_id) = @_;
-warn "gep --> $area_id\n";
     # Have to catch special cases here.
     if (exists($special_cases{$area_id})) {
         if ($area_id >= DUMMY_ID) {
