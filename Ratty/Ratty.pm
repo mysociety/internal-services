@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.14 2005-01-12 17:38:25 chris Exp $
+# $Id: Ratty.pm,v 1.15 2005-01-12 18:03:13 francis Exp $
 #
 
 package Ratty;
@@ -257,7 +257,7 @@ sub compile_rules () {
 
 
     my $codejoined = join("\n", @code);
-    warn $codejoined;
+    #warn $codejoined;
     my $subr = eval($codejoined);
     die "evaled code: $@" if ($@);
     
@@ -311,7 +311,7 @@ sub admin_update_rule ($$$$) {
 
     my $result = undef;
     if (exists($rule->{'rule_id'})) {
-        $result = dbh()->selectrow_arrayref('select id from rule where id = ? for update', {}, $rule->{'rule_id'});
+        $result = dbh()->selectrow_hashref('select id, scope from rule where id = ? for update', {}, $rule->{'rule_id'});
         die "mismatch between scope \"$scope\" and rule ID \"$rule->{rule_id}\""
             if (defined($result) and $result->{scope} ne $scope);
     }
