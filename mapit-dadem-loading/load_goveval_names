@@ -17,7 +17,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.10 2004-12-07 23:51:26 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.11 2005-01-07 00:29:27 chris Exp $';
 
 use strict;
 
@@ -28,7 +28,7 @@ use Data::Dumper;
 
 use Common;
 
-my $kind = shift(@ARGV);
+my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
 my $types;
 my $name_type_char;
@@ -38,6 +38,9 @@ if ($kind eq "mep") {
 } elsif ($kind eq "mp") {
     $types = [qw(WMC)];
     $name_type_char = 'X';
+} elsif ($kind eq "msp") {
+    $types = [qw(SPC SPE)];
+    $name_type_char = 'G';
 } else {
     die "Please specify 'mep' or 'mp'";
 }
@@ -54,8 +57,8 @@ $dbh->do(
 
 # canonicalise_constituency_name NAME
 # Convert the NAME of a constituency into a "canonical" version of the
-# name.  That is, one with all the parts which often vary between
-# spellings reduced to the simplest form.  This simple form can then
+# name. That is, one with all the parts which often vary between
+# spellings reduced to the simplest form. This simple form can then
 # be used with exact matching.
 sub canonicalise_constituency_name ($) {
     $_ = shift;
@@ -75,6 +78,18 @@ sub canonicalise_constituency_name ($) {
     s#^City of##;
     s#ô#o#g;
 
+    # Scottish constituencies/electoral regioons
+    s#Orkney Islands#Orkney#;
+    s#Shetland Islands#Shetland#;
+    s# P Const$##;
+    s# PER$##;
+    s# Region$##;
+    s# P$##;    # ?
+    s#N\. #North #;
+    s#E\. #East #;
+    s#S\. #South #;
+    s#W\. #West #;
+
     # General
     $_ = lc;
     s#&#and#g;
@@ -85,7 +100,7 @@ sub canonicalise_constituency_name ($) {
     s#\s+# #g;
     s#^\s+##g;
     s#\s+$##g;
-    
+
     return $_;
 }
 
@@ -123,7 +138,8 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my $cons;
 
-    if ($kind eq "mep") {
+    if ($kind eq "mep" or $kind eq "msp") {
+        # GovEval-format file.
         my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
     } elsif ($kind eq "mp") {
