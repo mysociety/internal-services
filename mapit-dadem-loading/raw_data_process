@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.2 2005-02-01 15:33:32 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.3 2005-02-01 16:18:04 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -16,6 +16,10 @@ use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
 use mySociety::CouncilMatch;
+
+#my @foo = ("hello goodbye - foo (bar");
+#mySociety::CouncilMatch::split_lumps_further(\@foo);
+#exit;
 
 #print mySociety::CouncilMatch::canonicalise_person_name('Angel Hope CBE DL');
 #print "\n";
