@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.4 2004-11-12 10:02:33 francis Exp $
+# $Id: Ratty.pm,v 1.5 2004-11-15 13:00:26 francis Exp $
 #
 
 package Ratty;
@@ -271,6 +271,7 @@ sub admin_update_rule ($$$) {
             values (?, ?, ?, ?)', {}, $vals->{'requests'},
             $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'});
         $return = dbh()->selectrow_array("select currval('rule_id_seq')");
+        $vals->{'rule_id'} = $return;
     }
 
     warn(Dumper($conds));
@@ -282,6 +283,24 @@ sub admin_update_rule ($$$) {
     }
     
     dbh()->commit();
+    return $return;
+}
+
+=item admin_delete_rule ID
+
+I<Instance method.> Deletes the rule of the specified ID.
+
+=cut
+sub admin_delete_rule ($$$) {
+    my ($self, $id) = @_;
+    dbh()->commit();
+
+    my $return = undef;
+
+    dbh()->do('delete from condition where rule_id = ?', {}, $id);
+    dbh()->do('delete from rule where id = ?', {}, $id);
+    dbh()->commit();
+
     return $return;
 }
 
@@ -333,5 +352,4 @@ sub admin_get_conditions ($$) {
 
     return \@ret;
 }
-  
-1;
+  1;
