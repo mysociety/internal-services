@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.7 2004-12-01 01:24:11 chris Exp $
+-- $Id: mapit-schema.sql,v 1.8 2004-12-02 18:57:20 chris Exp $
 --
 
 -- generations, for currency of data
@@ -33,7 +33,11 @@ create table area (
     -- 'N'  Northern Ireland
     -- 'S'  Scotland
     -- 'W'  Wales
-    country char(1),
+    -- Strictly, of course, Northern Ireland is not a country. So sue me. A
+    -- null value for country means "not yet known"; this is necessary because
+    -- in GB we can only determine country by searching for overlapping areas
+    -- such as EUR regions.
+    country char(1) check (country is null or country = 'E' or country = 'N' or country = 'S' or country = 'W'),
     -- Generation numbers. This area is current for generations of the database
     -- >= the smallest generation number, and <= the highest generation number.
     -- If on loading new data we identify an area which matches the type and
