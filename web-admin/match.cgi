@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.16 2005-02-04 18:56:10 francis Exp $
+# $Id: match.cgi,v 1.17 2005-02-07 10:49:25 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.16 2005-02-04 18:56:10 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.17 2005-02-07 10:49:25 francis Exp $';
 
 use strict;
 
@@ -115,7 +115,7 @@ sub do_summary ($) {
             q#select area_name.name, area.id from area, area_name
                 where area_name.area_id = area.id and
                 area_name.name_type = 'F' and
-                (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
+                (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::council_parent_types) . q#)#,
             'id');
 
     # Get status of every council

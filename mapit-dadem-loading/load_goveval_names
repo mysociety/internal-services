@@ -21,7 +21,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.15 2005-02-04 14:21:14 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.16 2005-02-07 10:49:25 francis Exp $';
 
 use strict;
 
@@ -54,7 +54,7 @@ if ($kind eq "mep") {
     $types = [qw(LAC LAE)];
     $name_type_char = 'G';
 } elsif ($kind eq "ds") {
-    $types = $mySociety::CouncilMatch::parent_types;
+    $types = $mySociety::CouncilMatch::council_parent_types;
     $name_type_char = 'M';
     $canon_function = \&mySociety::CouncilMatch::canonicalise_council_name
 } else {

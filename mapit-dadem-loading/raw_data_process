@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.7 2005-02-04 18:56:10 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.8 2005-02-07 10:49:25 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -40,7 +40,7 @@ my $area_id_data = $m_dbh->selectall_hashref(
         q#select area_name.name, area.id from area, area_name
             where area_name.area_id = area.id and
             area_name.name_type = 'F' and
-            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
+            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::council_parent_types) . q#)#,
         'id');
 
 if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m/^\d+$/)) {
@@ -58,7 +58,7 @@ if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m
         }
         my $wardnames = $m_dbh->selectall_hashref(
                 q#select * from area_name, area where area_name.area_id = area.id  
-                and (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#, 
+                and (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::council_parent_types) . q#)#, 
                 'name', {});
         my $wardnamescanon;
         do { $wardnamescanon->{mySociety::CouncilMatch::canonicalise_council_name($_)} = $wardnames->{$_} } for keys %$wardnames;
