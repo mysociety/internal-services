@@ -14,12 +14,13 @@
 # cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
 # cat ../../../goveval/msp-sp{c,e}-20041001.csv | ./load_goveval_names msp
 # cat ../../../goveval/wam-20041001.csv | ./load_goveval_names wam
+# cat ../../../goveval/gla-20041001.csv | ./load_goveval_names lam
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.12 2005-01-19 14:45:32 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.13 2005-01-19 17:02:00 francis Exp $';
 
 use strict;
 
@@ -46,8 +47,11 @@ if ($kind eq "mep") {
 } elsif ($kind eq "wam") {
     $types = [qw(WAC WAE)];
     $name_type_char = 'G';
+} elsif ($kind eq "lam") {
+    $types = [qw(LAC LAE)];
+    $name_type_char = 'G';
 } else {
-    die "Please specify 'mep' or 'mp'";
+    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam'";
 }
 
 my $dbh = connect_to_mapit_database();
@@ -99,6 +103,10 @@ sub canonicalise_constituency_name ($) {
     s# Assembly ER$##;
     s# Assembly Const$##;
 
+    # London Assembly
+    s# London$##;
+    s# GL$##;
+
     # General
     $_ = lc;
     s#&#and#g;
@@ -133,7 +141,7 @@ while (my ($area_id, $name) = $s->fetchrow_array()) {
 
     $parent_to_id{$_} = $area_id;
 }
- 
+
 # Load the GovEval data.
 my $C = new Text::CSV_XS({ binary => 1 });
 <STDIN>;    # header line
@@ -147,10 +155,11 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my $cons;
 
-    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam") {
+    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam") {
         # GovEval-format file.
         my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
+        next if $kind eq "lam" and $cons eq "Proportionally Elected Member";
     } elsif ($kind eq "mp") {
         my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
@@ -174,7 +183,7 @@ while (my $line = <STDIN>) {
     }
 }
 
-# Add name alises to the database
+# Add name aliases to the database
 foreach my $name (keys %newnames) {
     my $id = $newnames{$name};
     print "$id $name\n";

@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.10 2005-01-19 10:49:05 chris Exp $
+# $Id: MaPit.pm,v 1.11 2005-01-19 17:02:00 francis Exp $
 #
 
 package MaPit;
@@ -61,7 +61,12 @@ my %special_cases = (
 
         mySociety::VotingArea::LAE_AREA_ID => {
             type => 'LAE',
-            name => 'London Assembly'
+            name => 'London Assembly' # Proportionally elected area
+        },
+
+        mySociety::VotingArea::LAS_AREA_ID => {
+            type => 'LAS',
+            name => 'London Assembly' # Containing body
         },
 
         mySociety::VotingArea::SPA_AREA_ID => {
@@ -116,12 +121,12 @@ my %special_cases = (
 
 # Map area type to ID of "fictional" (i.e., not in DB) enclosing area.
 my %enclosing_areas = (
-        'LAC' => mySociety::VotingArea::LAE_AREA_ID,
-        'SPC' => mySociety::VotingArea::SPA_AREA_ID,
-        'WAC' => mySociety::VotingArea::WAS_AREA_ID,
-        'NIE' => mySociety::VotingArea::NIA_AREA_ID,
-        'WMC' => mySociety::VotingArea::WMP_AREA_ID,
-        'EUR' => mySociety::VotingArea::EUP_AREA_ID
+        'LAC' => [mySociety::VotingArea::LAE_AREA_ID, mySociety::VotingArea::LAS_AREA_ID],
+        'SPC' => [mySociety::VotingArea::SPA_AREA_ID],
+        'WAC' => [mySociety::VotingArea::WAS_AREA_ID],
+        'NIE' => [mySociety::VotingArea::NIA_AREA_ID],
+        'WMC' => [mySociety::VotingArea::WMP_AREA_ID],
+        'EUR' => [mySociety::VotingArea::EUP_AREA_ID],
     );
 
 =item get_generation
@@ -175,8 +180,10 @@ sub get_voting_areas ($) {
     # Add fictional enclosing areas.
     foreach my $ty (keys %enclosing_areas) {
         if (exists($ret->{$ty})) {
-            my $encl = $enclosing_areas{$ty};
-            $ret->{$special_cases{$encl}->{type}} = $enclosing_areas{$ty};
+            my $encls = $enclosing_areas{$ty};
+            foreach my $encl (@$encls) {
+                $ret->{$special_cases{$encl}->{type}} = $encl;
+            }
         }
     }
 
