@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.12 2005-04-01 10:40:06 francis Exp $
+# $Id: EvEl.pm,v 1.13 2005-04-01 12:08:55 francis Exp $
 #
 
 package EvEl::Error;
@@ -367,14 +367,20 @@ sub do_template_substitution ($$) {
         $body =~ s#^Subject: ([^\n]*)\n\n##s;
     }
 
-    # Only treat paragraph breaks as significant.
-    $body =~ s#(?<!\n)\s*\n\s*(?!\n)# #gs;
+    # Merge paragraphs into their own line.  Two blank lines separates a
+    # paragraph.
+    #$body =~ s#(?<!\n)\s*\n\s*(?!\n)# #gs;
+    #$body =~ s#\s*\n\s*(?!\n)# #gs;
+    #$body =~ s#(^|[^\n])\s*\n\s*($|[^\n])# #g;
+    #$body =~ s#\n\n#PARAGRAPHBREAK#g; $body =~ s#\n# #g; $body =~ s#PARAGRAPHBREAK#\n\n#g;
+    $body =~ s#(^|[^\n])[ \t]*\n[ \t]*($|[^\n])#$1 $2#g;
 
     # Wrap text to 72-column lines.
     local($Text::Wrap::columns = 72);
     local($Text::Wrap::huge = 'overflow');
+    my $wrapped = Text::Wrap::wrap('', '', $body);
 
-    return ($subject, Text::Wrap::wrap('', '', $body));
+    return ($subject, $wrapped);
 }
 
 #
@@ -400,14 +406,14 @@ Text of the message to send, as a UTF-8 string with "\n" line-endings.
 
 =item _template_, _parameters_
 
-Templated body text and an associative array of template parameters containing
-optional substititutions <?=$values['name']?>, each of which is replaced by the
-value of the corresponding named value in _parameters_. It is an error to use a
-substitution when the corresponding parameter is not present or undefined. The
-first line of the template will be interpreted as contents of the Subject:
-header of the mail if it begins with the literal string 'Subject: ' followed by
-a blank line. The templated text will be word-wrapped to produce lines of
-appropriate length.
+Templated body text and an associative array of template parameters. _template
+contains optional substititutions <?=$values['name']?>, each of which is
+replaced by the value of the corresponding named value in _parameters_. It is
+an error to use a substitution when the corresponding parameter is not present
+or undefined. The first line of the template will be interpreted as contents of
+the Subject: header of the mail if it begins with the literal string 'Subject:
+' followed by a blank line. The templated text will be word-wrapped to produce
+lines of appropriate length.
 
 =item To
 
@@ -444,7 +450,6 @@ Subject.
 =cut
 sub construct_email ($) {
     my $p = shift;
-    throw EvEl::Error("missing field 'Subject' in MESSAGE") if (!exists($p->{Subject}));
 
     if (!exists($p->{_body_}) && (!exists($p->{_template_}) || !exists($p->{_parameters_}))) {
         throw EvEl::Error("Must specify field '_body_' or both '_template_' and '_parameters_'");
@@ -460,6 +465,8 @@ sub construct_email ($) {
 
         $p->{Subject} = $subject if (defined($subject));
     }
+
+    throw EvEl::Error("missing field 'Subject' in MESSAGE") if (!exists($p->{Subject}));
 
     my %hdr;
     # To: and Cc: are address-lists.
