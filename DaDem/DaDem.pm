@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.6 2004-12-07 17:43:18 chris Exp $
+# $Id: DaDem.pm,v 1.7 2004-12-07 17:44:05 chris Exp $
 #
 
 package DaDem;
@@ -155,7 +155,7 @@ my %dummy_representatives = (
             name => 'Freddy No-Fax',
             contact_method => 'fax',
             fax => '1471'
-        },
+        }
 
 #            'name' => 'Tu Stily',
     );
