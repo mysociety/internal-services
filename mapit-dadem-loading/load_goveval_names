@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.6 2004-12-03 05:43:58 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.7 2004-12-03 22:00:29 chris Exp $';
 
 use strict;
 
@@ -20,26 +20,28 @@ use DBI;
 use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
+
 use Common;
 
 die "argument is Postgres database name" unless (@ARGV > 0);
 my $dbname = shift(@ARGV);
 my $runoneid = shift(@ARGV);
 
-my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+my $dbh = connect_to_database($dbname);
 my $generation = $dbh->selectrow_array('select id from new_generation');
 die "no new generation available" if (!defined($generation));
 
 my $parent_types = [qw(DIS LBO MTD UTA LGD CTY)];
 my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];
 
-my $verbosity = 0;
+my $verbosity = 1;
 
-# Convert the name of a council into a "canonical" version of the name.
+# canonicalise_council_name NAME
+# Convert the NAME of a council into a "canonical" version of the name.
 # That is, one with all the parts which often vary between spellings
 # reduced to the simplest form.  e.g. Removing the word "Council" and
 # punctuation.
-sub canonicalise_council_name {
+sub canonicalise_council_name ($) {
     $_ = shift;
 
     if (m/^Durham /) {
@@ -85,27 +87,41 @@ sub canonicalise_council_name {
     return $_;
 }
 
+# %parent_to_id
+# Hash of council canonical name to council ID from existing MaPit data.
+my %parent_to_id;
+
 # Cache of name-->id map of all the parent area types (District Council,
 # Unitary Authority etc....)
-my $typeclause= "type = '" . join("' or type = '", @$parent_types) . "'";
-my $s = $dbh->prepare('select area_id, name from area_name, area where
-    area_name.area_id = area.id and (' . $typeclause . ')');
+my $s = $dbh->prepare(
+        q#select distinct on (area_id) area_id, name from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$parent_types) . q#)#
+    );
 $s->execute();
-my %parent_to_id;
-while (my ($area_id, $name) = $s->fetchrow_array()) {
-    #print "$area_id $name\n";
 
+while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
     $_ = canonicalise_council_name($name);
     if (exists($parent_to_id{$_})) {
         die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n";
     }
     $parent_to_id{$_} = $area_id;
+printf "%38s %30s %d\n", $name, $_, $area_id;
 }
  
 # Load the GovEval data.
 my $C = new Text::CSV;
 <STDIN>;    # header line
+
+# $councils
+# Reference to hash of council ID to reference to hash of information about the
+# council, including:
+#   canonname       its canonical name
+#   govevalname     its GovEval name
+#   wards           reference list of wards/EDs
+#   gotwards        reference of hash containing key for name of each present
+#                   ward/ED
 my $councils;
 
 while (my $line = <STDIN>) {
@@ -113,17 +129,15 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my ($first, $last, $vdiv, $council, $email) = map { trim_spaces($_) } $C->fields();
 
-    if (!defined $council) {
-        print STDERR "council not defined for line $line\n";
-        die;
-    }
+    die "council not defined for line '$line'\n" unless (defined($council));
+
+    # Special case for areas with elected mayors.
     next if $vdiv eq "Elected Mayor";
     
     $_ = canonicalise_council_name($council);
 
-    if (!exists($parent_to_id{$_})) {
-        die "not got $council, matching canonical $_\n";
-    }
+    die "no council in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
+
     my $id = $parent_to_id{$_};
     
     $councils->{$id}->{canonname} = $_;
@@ -141,9 +155,19 @@ if ($#ck != $#pk) {
     print STDERR "Council count mismatch:\n";
     print STDERR "There are " . scalar(@ck) . " councils in GovEval data\n";
     print STDERR "There are " . scalar(@pk) . " councils in database\n";
+
+    my %p = %parent_to_id;
+    foreach (keys %$councils) {
+        delete($p{$councils->{$_}->{canonname}});
+    }
+
+    print "Database councils not matched:\n", join("\n", sort keys %p), "\n";
+    
+#    die; # ignore for the moment
 }
 foreach my $parent (@pk) {
     my $id = $parent_to_id{$parent};
+    die "\$parent_to_id{'$parent'} not present" unless (defined($id));
     if (!exists($councils->{$id})) {
         print STDERR "Missing $parent id $id from GovEval data\n"; 
     }
@@ -169,7 +193,7 @@ foreach my $id (keys %$councils) {
 print "Success for $success/$count councils\n";
 print "Failed for " . ($count-$success) . " councils\n";
 
-sub match_council_wards {
+sub match_council_wards ($$) {
     my ($council, $id) = @_;
     print "Council: $council Area: $id\n" if $verbosity > 0;
     my $error = 0;
@@ -178,12 +202,28 @@ sub match_council_wards {
     my $wards_goveval = $councils->{$id}->{wards};
 
     # Set of wards already in database (from Ordnance Survey / ONS)
-    my $rows = $dbh->selectall_arrayref('select area_id, name from area_name, area where
-        area_name.area_id = area.id and parent_area_id = ?', {}, $id);
+    my $rows = $dbh->selectall_arrayref(q#select distinct on (area_id) area_id, name from area_name, area where
+        area_name.area_id = area.id and parent_area_id = ?#, {}, $id);
     my $wards_database;
     foreach my $row (@$rows) { 
         my ($area_id, $name) = @$row;
         push @{$wards_database}, { name => $name, id => $area_id };
+    }
+
+    @$wards_database = sort { $a->{name} cmp $b->{name} } @$wards_database;
+    @$wards_goveval = sort { $a->{name} cmp $b->{name} } @$wards_goveval;
+
+    printf "%38s %38s\n", 'OS/ONS ward name', 'GovEval ward name';
+    print "-" x 38, ' ', "-" x 38, "\n";
+    for (my $i = 0; $i < @$wards_database || $i < @$wards_goveval; ++$i) {
+        my ($d, $g) = qw(- -);
+        $d = $wards_database->[$i]->{name} if (exists($wards_database->[$i]));
+        $g = $wards_goveval->[$i]->{name} if (exists($wards_goveval->[$i]));
+        printf "%38s %38s\n", $d, $g;
+    }
+
+    if (@$wards_goveval != @$wards_database) {
+        die "different numbers of wards";
     }
     
     my $dump_wards = sub {
@@ -315,8 +355,8 @@ sub match_council_wards {
     foreach my $g (@$wards_goveval) {
         # next if (!exists($g->{id}));
         # $dbh->do(
-        print "insert into area_name (area_id, name_type, name) values (?, 'G',?)", $g->{id}, $g->{name};
-        print "\n";
+#        print "insert into area_name (area_id, name_type, name) values (?, 'G',?)", $g->{id}, $g->{name};
+#        print "\n";
     }
 
 #    print Dumper($wards_goveval);
