@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.19 2004-12-30 19:46:20 francis Exp $
+# $Id: DaDem.pm,v 1.20 2005-01-11 12:14:31 chris Exp $
 #
 
 package DaDem;
@@ -162,6 +162,7 @@ my %dummy_representatives = (
 
 my %dummy_areas;
 foreach (keys %dummy_representatives) {
+    $dummy_representatives{$_}->{party} = 'Independent';
     push(@{$dummy_areas{$dummy_representatives{$_}->{voting_area}}}, $_);
 }
 
