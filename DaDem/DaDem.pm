@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.22 2005-01-17 19:28:19 matthew Exp $
+# $Id: DaDem.pm,v 1.23 2005-01-31 19:12:15 chris Exp $
 #
 
 package DaDem;
@@ -306,11 +306,35 @@ sub get_representatives_info ($) {
     return { (map { $_ => get_representative_info($_) } @$ary) };
 }
 
+=item get_electedbody_info 
+
 =item admin_get_stats
+
+Return a hash of information about the number of representatives in the
+database. The elements of the hash are,
+
+=over 4
+
+=item area_count
+
+Number of areas for which representative information is stored.
+
+=item email_present
+
+Number of representatives who have a contact email address.
+
+=item fax_present
+
+Number of representatives who have a contact fax number.
+
+=item either_present
+
+Number of representatives who have either email address or fax number.
+
+=back
 
 =cut
 sub admin_get_stats () {
-    () = @_;
     my %ret;
 
     $ret{'representative_count'} = scalar(dbh()->selectrow_array('select count(*) from representative', {}));
@@ -328,8 +352,8 @@ sub admin_get_stats () {
 
 =item get_representative_history ID
 
-Given the ID of a representative, return an array of hashes
-of information about changes to that representatives contact info.
+Given the ID of a representative, return an array of hashes of information
+about changes to that representative's contact info.
 
 =cut
 sub get_representative_history ($) {
@@ -360,10 +384,9 @@ sub get_representative_history ($) {
 =item admin_edit_representative ID DETAILS EDITOR NOTE
 
 Alters data for a representative, updating the override table
-representative_edited.  DETAILS is a hash from name, party,
-method, email and fax to their new values.  Not every value
-has to be present.  EDITOR is the name of the person who
-edited the data.  NOTE is any explanation of why / where from.
+representative_edited. DETAILS is a hash from name, party, method, email and
+fax to their new values. Not every value has to be present. EDITOR is the name
+of the person who edited the data. NOTE is any explanation of why / where from.
 
 =cut
 sub admin_edit_representative ($$$$) {
