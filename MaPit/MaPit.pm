@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.15 2005-02-10 19:10:23 chris Exp $
+# $Id: MaPit.pm,v 1.16 2005-02-10 20:34:30 chris Exp $
 #
 
 package MaPit;
@@ -225,9 +225,8 @@ sub get_voting_area_info ($) {
     } else {
         # Real data
         my ($type, $name, $parent_area_id);
-        throw RABX::Error("Voting area not found id $id",
-        mySociety::MaPit::AREA_NOT_FOUND) unless (($type, $name,
-        $parent_area_id) = dbh()->selectrow_array("
+        throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
+            unless (($type, $name, $parent_area_id) = dbh()->selectrow_array("
             select type, name, parent_area_id from area, area_name 
                 where area_name.area_id = area.id 
                 and name_type = 'F'
@@ -258,6 +257,17 @@ Given an area ID, returns one postcode that maps to it.
 =cut
 sub get_example_postcode ($) {
     my ($area_id) = @_;
+
+    # Have to catch special cases here.
+    if (exists($special_cases{$area_id})) {
+        if ($area_id >= DUMMY_ID) {
+            return "ZZ9 9ZZ";
+        } else {
+            # Pick first non-special-case child area and call recursively.
+            return get_example_postcode((grep { !exists($special_cases{$_}) } @{get_voting_area_children($area_id)})[0]);
+        }
+    }
+    
     my $pc = scalar(dbh()->selectrow_array("select postcode from postcode, postcode_area
         where postcode.id = postcode_area.postcode_id and area_id = ?
         limit 1", {}, $area_id));
