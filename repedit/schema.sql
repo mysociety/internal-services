@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.1 2004-12-15 19:00:15 chris Exp $
+-- $Id: schema.sql,v 1.2 2004-12-20 18:03:48 francis Exp $
 --
 
 -- A set of data obtained from an outside source.
@@ -29,6 +29,7 @@ create table original (
     area1 text not null,        -- ward, electoral division, constituency, ...
     area2 text not null,        -- council, assembly, parliament, ...
     party text not null,
+    method text not null,
     email text not null,
     fax text not null,
     primary key (version_id, id)
@@ -53,6 +54,7 @@ create table change (
     area1 text,
     area2 text,
     party text,
+    method text,
     email text,
     fax text
 );

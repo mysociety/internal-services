@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.13 2004-12-13 17:48:49 francis Exp $
+# $Id: DaDem.pm,v 1.14 2004-12-20 18:03:48 francis Exp $
 #
 
 package DaDem;
@@ -242,6 +242,18 @@ sub get_representative_info ($) {
 
     # Real data case
     if (my ($area_id, $area_type, $name, $party, $method, $email, $fax) = dbh()->selectrow_array('select area_id, area_type, name, party, method, email, fax from representative where id = ?', {}, $id)) {
+        my $edited = 0;
+
+        # Override with any edits
+        if (my ($edited_name, $edited_party, $edited_method,
+        $edited_email, $edited_fax) = dbh()->selectrow_array('select name, party, method, email, fax from representative_edited where representative_id = ? order by order_id desc limit 1', {}, $id)) {
+            $name = $edited_name if (defined $edited_name);
+            $party = $edited_party if (defined $edited_party);
+            $method = $edited_method if (defined $edited_method);
+            $email = $edited_email if (defined $edited_email);
+            $fax = $edited_fax if (defined $edited_fax);
+            $edited = 1;
+        }
 
         return {
                 voting_area => $area_id,
@@ -250,7 +262,8 @@ sub get_representative_info ($) {
                 party => $party,
                 method => $method,
                 email => $email,
-                fax => $fax
+                fax => $fax,
+                edited => $edited,
             };
     } else {
         throw RABX::Error("Representative $id not found", mySociety::DaDem::REP_NOT_FOUND);
@@ -271,7 +284,7 @@ sub get_representatives_info ($) {
 =item admin_get_stats
 
 =cut
-sub admin_get_stats ($) {
+sub admin_get_stats () {
     () = @_;
     my %ret;
 
@@ -285,14 +298,41 @@ sub admin_get_stats ($) {
     $ret{'either_present'} = scalar(dbh()->selectrow_array("select count(*)
         from representative where not(fax is null or fax='') or not(email is null or email='')", {}));
 
-#    my $rows = dbh()->selectall_arrayref('select type, count(*) from area group by type', {});
-#    warn Dumper($rows);
-#    foreach (@$rows) {
-#        my ($type, $count) = @$_; 
-#        $ret{'area_count_'. $type} = $count;
-#    }
-
     return \%ret;
+}
+
+=item admin_edit_representative ID DETAILS EDITOR NOTE
+
+Alters data for a representative, updating the override table
+representative_edited.  DETAILS is a hash from name, party,
+method, email and fax to their new values.  Not every value
+has to be present.  EDITOR is the name of the person who
+edited the data.  NOTE is any explanation of why / where from.
+
+=cut
+sub admin_edit_representative ($$$$) {
+    my ($id, $newdata, $editor, $note) = @_;
+
+    if (my ($name, $party, $method, $email, $fax) = dbh()->selectrow_array('select name, party, method, email, fax from representative where id = ?', {}, $id)) {
+        # Make undef (NULL) for any unchanged fields from original
+        if ($newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
+        if ($newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };
+        if ($newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
+        if ($newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
+        if ($newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
+
+        # Insert new data
+        dbh()->do('insert into representative_edited 
+            (representative_id, 
+            name, party, method, email, fax, 
+            editor, note)
+            values (?, ?, ?, ?, ?, ?, ?, ?)', {}, 
+            $id, $newdata->{'name'}, $newdata->{'party'}, $newdata->{'method'},
+            $newdata->{'email'}, $newdata->{'fax'}, $editor, $note);
+        dbh()->commit();
+    } else {
+        throw RABX::Error("Representative $id not found, so can't be edited", mySociety::DaDem::REP_NOT_FOUND);
+    }
 }
 
 1;
