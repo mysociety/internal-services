@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.8 2004-12-30 19:46:21 francis Exp $
+# $Id: MaPit.pm,v 1.9 2005-01-07 20:20:12 chris Exp $
 #
 
 package MaPit;
@@ -64,6 +64,21 @@ my %special_cases = (
             name => 'London Assembly'
         },
 
+        mySociety::VotingArea::SPA_AREA_ID => {
+            type => 'SPA',
+            name => 'Scottish Parliament'
+        },
+
+        mySociety::VotingArea::WAS_AREA_ID => {
+            type => 'WAS',
+            name => 'National Assembly for Wales'
+        },
+
+        mySociety::VotingArea::NIA_AREA_ID => {
+            type => 'NIA',
+            name => 'Northern Ireland Assembly'
+        },
+
         # Test data
         1000001 => {
             type => 'CTY',
@@ -102,6 +117,9 @@ my %special_cases = (
 # Map area type to ID of "fictional" (i.e., not in DB) enclosing area.
 my %enclosing_areas = (
         'LAC' => mySociety::VotingArea::LAE_AREA_ID,
+        'SPC' => mySociety::VotingArea::SPA_AREA_ID,
+        'WAC' => mySociety::VotingArea::WAS_AREA_ID,
+        'NIE' => mySociety::VotingArea::NIA_AREA_ID,
         'WMC' => mySociety::VotingArea::WMP_AREA_ID,
         'EUR' => mySociety::VotingArea::EUP_AREA_ID
     );
