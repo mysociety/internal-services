@@ -10,17 +10,18 @@
 # make sure ../conf/general is configured for mapit db
 #
 # Example usage:
-# cat ../../../goveval/mep-20041001.csv | ./load_goveval_names mep
-# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
-# cat ../../../goveval/msp-sp{c,e}-20041001.csv | ./load_goveval_names msp
-# cat ../../../goveval/wam-20041001.csv | ./load_goveval_names wam
-# cat ../../../goveval/gla-20041001.csv | ./load_goveval_names lam
+# cat ../../../repdata/goveval/mep-20041001.csv | ./load_goveval_names mep
+# cat ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
+# cat ../../../repdata/goveval/msp-sp{c,e}-20041001.csv | ./load_goveval_names msp
+# cat ../../../repdata/goveval/wam-20041001.csv | ./load_goveval_names wam
+# cat ../../../repdata/goveval/gla-20041001.csv | ./load_goveval_names lam
+# cat ../../../repdata/mysociety/democratic-services-rev7.csv | ./load_goveval_names ds
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.14 2005-01-27 12:35:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.15 2005-02-04 14:21:14 francis Exp $';
 
 use strict;
 
@@ -30,11 +31,13 @@ use Text::CSV_XS;
 use Data::Dumper;
 
 use Common;
+use mySociety::CouncilMatch;
 
 my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
 my $types;
 my $name_type_char;
+my $canon_function = \&mySociety::CouncilMatch::canonicalise_constituency_name;
 if ($kind eq "mep") {
     $types = [qw(EUR)];
     $name_type_char = 'G';
@@ -50,8 +53,12 @@ if ($kind eq "mep") {
 } elsif ($kind eq "lam") {
     $types = [qw(LAC LAE)];
     $name_type_char = 'G';
+} elsif ($kind eq "ds") {
+    $types = $mySociety::CouncilMatch::parent_types;
+    $name_type_char = 'M';
+    $canon_function = \&mySociety::CouncilMatch::canonicalise_council_name
 } else {
-    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam'";
+    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
 }
 
 my $dbh = connect_to_mapit_database();
@@ -64,82 +71,26 @@ $dbh->do(
             and name_type = ?;#, {}, $name_type_char
 );
 
-# canonicalise_constituency_name NAME
-# Convert the NAME of a constituency into a "canonical" version of the
-# name. That is, one with all the parts which often vary between
-# spellings reduced to the simplest form. This simple form can then
-# be used with exact matching.
-sub canonicalise_constituency_name ($) {
-    $_ = shift;
-
-    # Europe regions
-    s#^Greater ##i;
-    s# Euro Region$##;
-    s#N\. Ireland#Northern Ireland#;
-
-    # Westminster constituencies
-    s# Burgh Const$##;
-    s# Co Const$##;
-    s# Boro Const$##;
-    s# The$##;
-    s#^The##;
-    s# City of$##;
-    s#^City of##;
-    s#ô#o#g;
-
-    # Scottish constituencies/electoral regions
-    s#Orkney Islands#Orkney#;
-    s#Shetland Islands#Shetland#;
-    s# P Const$##;
-    s# PER$##;
-    s# Region$##;
-    s# P$##;    # ?
-    s#N\. #North #;
-    s#E\. #East #;
-    s#S\. #South #;
-    s#W\. #West #;
-
-    # Welsh Assembly regions
-    s# Assembly ER$##;
-    s# Assembly Const$##;
-
-    # London Assembly
-    s# London$##;
-    s# GL$##;
-
-    # General
-    $_ = lc;
-    s#&#and#g;
-    s#-# #g;
-    s#'##g;
-    s#,##g;
-    s#\.##g;
-    s#\s+# #g;
-    s#^\s+##g;
-    s#\s+$##g;
-
-    return $_;
-}
-
 # %parent_to_id
 # Hash of voting area canonical name to voting area ID from existing
 # MaPit data.
 my %parent_to_id;
 
 # Cache of name-->id map of all the areas
-die "the distinct on is suspect here, as it returns a random name, really should select all,
-or pick type O/S or whatever?";
 my $s = $dbh->prepare(
-        q#select distinct on (area_id) area_id, name from area_name, area
+        q#select area_id, name from area_name, area
             where area_name.area_id = area.id
             and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
     );
 $s->execute();
 
 while (my ($area_id, $name) = $s->fetchrow_array()) {
+    # "Durham" without specifcying "County" or "City" is no use
+    next if ($kind eq "ds" and $name eq "Durham");
+
     # Create canonical version of name and also hash it as lookup
-    $_ = canonicalise_constituency_name($name);
-    die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n" if (exists($parent_to_id{$_}));
+    $_ = &$canon_function($name);
+    die "$area_id: Already have different id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n" if (exists($parent_to_id{$_}) and $parent_to_id{$_} != $area_id);
 
     $parent_to_id{$_} = $area_id;
 }
@@ -163,14 +114,19 @@ while (my $line = <STDIN>) {
         $cons = $constituency;
         next if $kind eq "lam" and $cons eq "Proportionally Elected Member";
     } elsif ($kind eq "mp") {
+        # Dump from FYMP
         my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
+    } elsif ($kind eq "ds") {
+        # Out own mySociety data collected by Steiny with patience and pinache
+        my ($council, $email, $fax, $web) = map { trim_spaces($_) } $C->fields();
+        $cons = $council;
     } else {
         die "Missing kind in code";
     }
 
     die "constituency not defined for line '$line'\n" unless (defined($cons));
-    $_ = canonicalise_constituency_name($cons);
+    $_ = &$canon_function($cons);
     die "no constituency in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
     my $id = $parent_to_id{$_};
 

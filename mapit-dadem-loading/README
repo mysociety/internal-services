@@ -1,4 +1,4 @@
-$Id: README,v 1.2 2005-02-04 12:27:39 francis Exp $
+$Id: README,v 1.3 2005-02-04 14:21:14 francis Exp $
 
 NAMETYPES - Types of voting area names in MaPit.
 dadem-schema.sql, mapit-schema.sql - Database schemas.
@@ -12,7 +12,7 @@ process_codepoint_ni - Create postcode to voting area mappings for NI.
 Voting Area Name Matching
 -------------------------
 
-load_goveval_names - Add 'G' name aliases to MaPit.
+load_goveval_names - Add 'G' name aliases to MaPit.  Also some 'X' and 'M'.
 load_ons_names - Adds 'S' name alises to MaPit.
 load_friendly_names - Deletes all 'F' type names and remakes them from 'O' ones.
 
@@ -48,5 +48,5 @@ Probably Not Needed?
 ni-electoral-areas.csv
 create_new_generation
 
-# $Id: README,v 1.2 2005-02-04 12:27:39 francis Exp $
+# $Id: README,v 1.3 2005-02-04 14:21:14 francis Exp $
 # for X in `ls -1`; do grep $X README >/dev/null || echo Missing $X; done

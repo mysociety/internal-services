@@ -7,22 +7,23 @@
 # load_goveval_name first to do that.
 #
 # Parameters: 
-# $1 - kind of data, currently choose from: mep, mp
+# $1 - kind of data, currently choose from: mep, mp, msp, wam, lam, ds
 # stdin - the CSV file from GovEval or FaxYourMP
 # make sure ../conf/general is configured for mapit db
 #
-# Example usage:
-# cat ../../../goveval/mep-20041001.csv | ./dadem_goveval_load mep
-# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./dadem_goveval_load mp
-# cat ../../../goveval/msp-sp{c,e}-20041001.csv | ./dadem_goveval_load msp
-# cat ../../../goveval/wam-20041001.csv | ./dadem_goveval_load wam
-# cat ../../../goveval/gla-20041001.csv | ./dadem_goveval_load lam
+# Example usages:
+# cat ../../../repdata/goveval/mep-20041001.csv | ./dadem_goveval_load mep
+# cat ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv | ./dadem_goveval_load mp
+# cat ../../../repdata/goveval/msp-sp{c,e}-20041001.csv | ./dadem_goveval_load msp
+# cat ../../../repdata/goveval/wam-20041001.csv | ./dadem_goveval_load wam
+# cat ../../../repdata/goveval/gla-20041001.csv | ./dadem_goveval_load lam
+# cat ../../../repdata/mysociety/democratic-services-rev7.csv | ./dadem_goveval_load ds
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.12 2005-01-20 18:28:11 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.13 2005-02-04 14:21:14 francis Exp $';
 
 use strict;
 
@@ -33,6 +34,7 @@ use Data::Dumper;
 use Common;
 use mySociety::Parties;
 use mySociety::VotingArea;
+use mySociety::CouncilMatch;
 #DBI->trace(1);
 
 my $kind = lc(shift(@ARGV));
@@ -49,8 +51,10 @@ if ($kind eq "mep") {
     $types = [qw(WAC WAE)];
 } elsif ($kind eq "lam") {
     $types = [qw(LAC LAE)];
+} elsif ($kind eq "ds") {
+    $types = $mySociety::CouncilMatch::parent_types;
 } else {
-    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam'";
+    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
 }
 
 my $m_dbh = connect_to_mapit_database();
@@ -71,7 +75,12 @@ my $s = $m_dbh->prepare(
 $s->execute();
 while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     #print "$area_id $name $type\n";
-    die "duplicate name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
+
+    # "Durham" without specifcying "County" or "City" is no use
+    next if ($kind eq "ds" and $name eq "Durham");
+
+    die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
+
     $name_to_id{$name} = $area_id;
     $name_to_type{$name} = $type;
 }
@@ -150,6 +159,29 @@ while (my $line = <STDIN>) {
             $finalfax = undef;
             $finalmethod = "shame";
         }
+
+    } elsif ($kind eq "ds") {
+        my ($council, $email, $fax, $web) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $council;
+        $finalname = "Democratic Services";
+        $finalparty = "NOT A PERSON";
+
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+
+        # We can accept either fax or email if present in CSV, as
+        # Tom paintsakingly found it all, so all data is good.
+        if (defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "email";
+        } elsif (!defined($finalemail) and defined($finalfax)) {
+            $finalmethod = "fax";
+        } elsif (!defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "unknown";
+        } else {
+            $finalmethod = "either";
+        }
+
     } else {
         die "Missing kind in code";
     }
