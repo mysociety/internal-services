@@ -6,8 +6,14 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.17 2005-01-13 11:27:32 chris Exp $
+# $Id: Ratty.pm,v 1.18 2005-01-13 13:44:45 chris Exp $
 #
+
+package Ratty::Error;
+
+use RABX;
+
+@Ratty::Error::ISA = qw(RABX::Error::User);
 
 package Ratty;
 
@@ -78,13 +84,28 @@ sub new ($) {
 =item test SCOPE VARS
 
 I<Instance method.> Test whether the request described by VARS should be
-permitted or not. Returns true if it should not, or an array of
-[rule_number, message] ift it should.
+permitted or not. VARS is a reference to a hash, each key of which is the name
+of a value, and each value of which is a reference to an array giving the value
+itself (or undef if a possible field is not present) and a textual description
+of the meaning of the field. Returns true if the request should be permitted,
+or an array of [rule number, message, rule description] it it should not. The
+message may be blank ('') and the description undefined.
 
 =cut
 sub test ($$) {
     my ($self, $scope, $V) = @_;
     my $result = undef;
+
+    # Sanity checks.
+    throw Ratty::Error('SCOPE must be specified') unless (defined($scope));
+    throw Ratty::Error('VARS must be a reference to a hash') if (!ref($V) or ref($V) ne 'HASH');
+    foreach my $k (keys %$V) {
+        my $v = $V->{$k};
+        throw Ratty::Error("Value for '$k' must be list of two elements")
+            unless (ref($v) and ref($v) eq 'ARRAY' and @$v == 2);
+        throw Ratty::Error("No description supplied for field '$k'")
+            unless (defined($v->[1]));
+    }
 
     # Always check the generation number. Otherwise we can get a referential
     # integrity violation if a rule is deleted.
@@ -96,9 +117,9 @@ sub test ($$) {
         # have a hit on rule $r
         # XXX log this properly
 #        warn "ratty rule #$r triggered\n";
-        my $message = dbh()->selectrow_array('select message from rule where id = ?', {}, $r);
+        my ($message, $note) = dbh()->selectrow_array('select message, note from rule where id = ?', {}, $r);
         $message = "" if (!defined($message));
-        $result = [$r, $message];
+        $result = [$r, $message, $note];
     } else {
         # No rule hits, carry on.
         $result = undef;
@@ -131,18 +152,29 @@ sub compile_rules () {
             # Update the available fields table if there are fields we
             # haven't seen before.
             'my $af = 0;',
-            'while (my ($field, $value) = each(%$V)) {',
-            '   next unless defined($value);',  # don't want to insert null examples
-            '   if (!exists($seen_fields->{$scope}) or !exists($seen_fields->{$scope}->{$field})) {',
+            'while (my ($field, $vv) = each(%$V)) {',
+            '   next if (exists($seen_fields->{$scope}->{$field}))',
+            '   my ($example, $description) = @$vv;',
+            '   my $f = 0;',
+                # Save up to three distinct examples of each field.
+            '   if (defined($example)',
+            '       and scalar(dbh()->selectrow_array(q#select count(*) from field_example where scope = ? and field = ?#, {}, $scope, $field)) < 3',
+            '       and !defined(dbh()->selectrow_array(q#select example from field_example where scope = ? and field = ? and example = ? for update#, {}, $scope, $field, $example))) {',
+            '       dbh()->do(q#insert into field_example (scope, field, example) values (?, ?, ?)#, {}, $scope, $field, $example)',
+            '       ++$f',
+            '   }',
+                # Save the field description too.
+            '   if (!defined(scalar(dbh()->selectrow_array(q#select description from field_description where scope = ? and field = ? for update#, {}, $scope, $field)))) {',
+            '       dbh()->do(q#insert into field_description (scope, field, description) values (?, ?, ?)#, {}, $scope, $field, $example)',
+            '       ++$f',
+            '   }',
+            '   if (!$f) {'
             '       $seen_fields->{$scope}->{$field} = 1;',
-            '       if (!defined(scalar(dbh()->selectrow_array(q#select example from available_fields where scope = ? and field = ? for update#, {}, $scope, $field)))) {',
-            '           my $example = $value;',
-            '           $example = substr($value, 0, 16) . "..." if (length($example) > 16);',
-            '           $dbh->do("insert into available_fields (scope, field, example) values (?, ?, ?)", {}, $scope, $field, $example);',
-            '           ++$af;',
-            '       }',
+            '   } else {',
+            '       ++$af;',
             '   }',
             '}',
+
             'dbh()->commit() if ($af > 0);',
 
             'my $result = undef;'
@@ -169,18 +201,18 @@ sub compile_rules () {
             my ($id, $field, $condition, $value, $invert) = @$_;
             push(@data, $field);
             my $fi = $#data;
-            push(@code, sprintf('    && defined($V->{$data->[%d]}) &&', $fi));
+            push(@code, sprintf('    && defined($V->{$data->[%d]}->[0]) &&', $fi));
             if ($condition eq 'E') {
                 push(@data, $value);
                 my $vi = $#data;
-                push (@code, sprintf('        $V->{$data->[%d]} %s $data->[%d]', $fi, $invert ? 'ne' : 'eq', $vi));
+                push (@code, sprintf('        $V->{$data->[%d]}->[0] %s $data->[%d]', $fi, $invert ? 'ne' : 'eq', $vi));
             } elsif ($condition eq 'R') {
                 # Construct a regexp from the value.
                 my $re = eval(sprintf('qr#%s#', $value));
                 if (defined($re)) {
                     push(@data, $re);
                     my $vi = $#data;
-                    push(@code, sprintf('        $V->{$data->[%d]} %s m#$data->[%d]#i', $fi, $invert ? '!~' : '=~', $vi));
+                    push(@code, sprintf('        $V->{$data->[%d]}->[0] %s m#$data->[%d]#i', $fi, $invert ? '!~' : '=~', $vi));
                 } else {
                     push(@code, '        0');
                 }
@@ -189,7 +221,7 @@ sub compile_rules () {
                 if (defined($ipnet)) {
                     push(@data, $ipnet);
                     my $vi = $#data;
-                    push(@code, sprintf('        %s$data->[%d]->match($V->{$data->[%d]})', $invert ? '!' : '', $vi, $fi));
+                    push(@code, sprintf('        %s$data->[%d]->match($V->{$data->[%d]}->[0])', $invert ? '!' : '', $vi, $fi));
                 } else {
                     push(@code, '0');
                 }
@@ -204,7 +236,7 @@ sub compile_rules () {
                 }
                 push(@data, $number);
                 my $vi = $#data;
-                push(@code, sprintf('        $V->{$data->[%d]} %s $data->[%d]', $fi, $condition, $vi));
+                push(@code, sprintf('        $V->{$data->[%d]}->[0] %s $data->[%d]', $fi, $condition, $vi));
             }
         }
         push(@code, '    ) {',
@@ -222,7 +254,7 @@ sub compile_rules () {
                 my ($id, $field, $condition, $value) = @$_;
                 push(@data, $field);
                 my $fi = $#data;
-                push(@code, sprintf('$%s->add($V->{$data->[%d]}) if (defined($V->{$data->[%d]}));', $condition, $fi, $fi));
+                push(@code, sprintf('$%s->add($V->{$data->[%d]}->[0]) if (defined($V->{$data->[%d]}->[0]));', $condition, $fi, $fi));
             }
         }
 
@@ -301,14 +333,19 @@ sub compile_rules () {
 =item admin_available_fields SCOPE
 
 I<Instance method.> Returns all the fields Ratty has seen so far in the given
-SCOPE, and an example value of that field.  Structure is an array of pairs of
-(field, example).
+SCOPE, a description of each, and (if available) a few example values of the
+field. Structure is an array of [field, description, [example, ...]] tuples.
 
 =cut
 sub admin_available_fields ($$) {
     my ($self, $scope) = @_;
-    my $result = dbh()->selectall_arrayref('select field, example from available_fields where scope = ?', {}, $scope);
-    return $result;
+    return [
+            map {
+                [@$_,
+                    [@{dbh->selectcol_arrayref('select example from field_example where scope = ? and field = ?', {}, $scope, $_->[0])}]
+                ]
+            } @{dbh->selectall_arrayref('select field, description from field_description where scope = ?', {}, $scope)}
+        ];
 }
 
 =item admin_update_rule SCOPE RULE CONDITIONS
