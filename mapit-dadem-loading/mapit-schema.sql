@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.1 2004-11-25 13:39:26 chris Exp $
+-- $Id: mapit-schema.sql,v 1.2 2004-11-25 17:05:55 chris Exp $
 --
 
 -- description of areas
@@ -20,7 +20,7 @@ create table area (
     -- 'N'  Northern Ireland
     -- 'S'  Scotland
     -- 'W'  Wales
-    country char(1)
+    country char(1) not null
 );
 
 -- different names of areas
@@ -47,6 +47,7 @@ create table postcode (
 );
 
 create unique index postcode_id_idx on postcode(id);
+create unique index postcode_postcode_idx on postcode(postcode);
 
 -- mapping from postcodes to areas
 create table postcode_area (
