@@ -4,11 +4,29 @@
 # Load the Boundary-Line polygons into memory, and compare postcodes (e.g.
 # from CodePoint) against their areas, to form the database used by MaPit.
 #
-# Copyright (c) 2004 Chris Lightfoot. All rights reserved.
-# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+# The strategy here is as follows: For each area, we read each polygon from the
+# OS-supplied NTF files. Rather than storing these as Geo::Shapefile objects,
+# they are represented in memory as packed arrays of doubles (otherwise the
+# memory requirement exceeded poor caesious's little mind). This also makes use
+# of the C pnpoly function (see below) more convenient, which speeds things up
+# a little. We assemble a "spatial hash" which maps square regions (presently
+# of size 1km) to the electoral/administrative areas which overlap them. Now we
+# are ready to compute point-polygon intersections. We read the CodePoint data
+# from the OS-supplied CSV files, ignoring data for Northern Ireland (processed
+# separately, since Boundary-Line only covers GB) and determine the locations
+# in which each point lies. We cheat a little here and end each search once we
+# have sufficient electoral geography for each point, so errors which arise
+# from overlapping polygons in Boundary-Line will not be detected (this would
+# correspond to one point lying in two constituencies, say). This doesn't
+# matter too much, because (a) there shouldn't be any such overlaps (and
+# weren't when I tested this exhaustively); and (b) there wouldn't be a whole
+# lot we could do even if there were.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.1 2004-11-09 08:28:28 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.2 2004-11-22 20:43:15 chris Exp $';
 
 use strict;
 use Geo::ShapeFile;
@@ -16,6 +34,10 @@ use Fcntl;
 use DBI;
 use DBD::SQLite;
 
+#
+# Point-in-polygon tests. Do these in C, so that the performance isn't too
+# miserable.
+#
 use Inline C => <<'EOF';
 #include <stdint.h>
 #include <stdlib.h>
