@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+#
+# create_new_generation:
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.1 2004-11-29 16:18:12 chris Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+
+use Common;
+
+die "only argument should be name of Pg database" unless (@ARGV == 1);
+my $dbname = shift @ARGV;
+my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+printf "%d\n", new_generation($dbh);
+$dbh->commit();
+$dbh->disconnect();
