@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.9 2005-03-31 11:25:16 chris Exp $
+# $Id: EvEl.pm,v 1.10 2005-04-01 08:51:20 chris Exp $
 #
 
 package EvEl::Error;
@@ -357,7 +357,7 @@ sub do_one_substitution ($$) {
 #
 sub do_template_substitution ($$) {
     my ($body, $params) = @_;
-    $body =~ s#<\?=\$values\['([^']+)'\]\?>#do_one_substitution($params, $n)#ges;
+    $body =~ s#<\?=\$values\['([^']+)'\]\?>#do_one_substitution($params, $1)#ges;
 
     my $subject;
     if ($body =~ m#^Subject: ([^\n]*)\n\n#s) {
@@ -372,7 +372,7 @@ sub do_template_substitution ($$) {
     local($Text::Wrap::columns = 72);
     local($Text::Wrap::huge = 'overflow');
 
-    return ($subject, Text::Wrap::wrap('', '', $text));
+    return ($subject, Text::Wrap::wrap('', '', $body));
 }
 
 #
