@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.2 2004-11-25 17:05:55 chris Exp $
+-- $Id: mapit-schema.sql,v 1.3 2004-11-29 12:27:36 chris Exp $
 --
 
 -- description of areas
@@ -40,13 +40,12 @@ create index area_name_area_id_idx on area_name(area_id);
 
 -- lookup table for postcodes
 create table postcode (
-    postcode varchar(8) not null primary key,
-    id integer not null,
+    id integer not null primary key,
+    postcode varchar(8) not null,
     easting number,
     northing number
 );
 
-create unique index postcode_id_idx on postcode(id);
 create unique index postcode_postcode_idx on postcode(postcode);
 
 -- mapping from postcodes to areas
