@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.3 2005-03-22 12:07:42 chris Exp $
+-- $Id: schema.sql,v 1.4 2005-03-22 12:40:26 chris Exp $
 --
 
 -- A message represents a single message which may be sent to one or more
@@ -87,16 +87,14 @@ create index mailinglist_tag_idx on mailinglist(tag);
 create unique index mailinglist_scope_tag_idx on mailinglist(scope, tag);
 
 -- Table to map recipients to mailing lists (as subscribers).
-create table mailinglist_recipient (
+create table subscriber (
     mailinglist_id integer not null references mailinglist(id),
     recipient_id integer not null references recipient(id),
     isadmin boolean not null default(false),
+    whensubscribed integer not null,
     primary key(mailinglist_id, recipient_id)
 );
 
-create index mailinglist_recipient_mailinglist_id_idx
-    on mailinglist_recipient(mailinglist_id);
-
-create index mailinglist_recipient_recipient_id_idx
-    on mailinglist_recipient(recipient_id);
+create index subscriber_mailinglist_id_idx on subscriber(mailinglist_id);
+create index subscriber_recipient_id_idx on subscriber(recipient_id);
 
