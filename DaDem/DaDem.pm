@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.25 2005-02-03 19:54:59 francis Exp $
+# $Id: DaDem.pm,v 1.26 2005-02-04 11:10:00 chris Exp $
 #
 
 package DaDem;
@@ -163,8 +163,32 @@ my %dummy_representatives = (
         2000015 => {
             'type' => 'DIW',
             'voting_area' => 1000004,
-            'name' => 'Virginie Via',
+            'name' => 'Virginie Via Fax',
             'method' => 'via'
+        },
+
+        2000016 => {
+            type => 'DIW',
+            voting_area => 1000002,
+            name => 'Vernon via Email',
+            method => 'via'
+        },
+
+        # These are the "democratic services contacts" for those areas.
+        2000017 => {
+            type => 'DIS',
+            voting_area => 1000003,
+            name => 'Our District Council',
+            method => 'fax',
+            fax => 'TOMS_FAX'
+        },
+
+        2000018 => {
+            type => 'CTY',
+            voting_area => 1000001,
+            name => "Everyone's County Council",
+            method => 'email',
+            email => 'chris@ex-parrot.com'
         }
     );
 
@@ -237,8 +261,8 @@ about that representative, including:
 
 =item type
 
-Numeric code for the type of voting area (for instance, CED or ward) for which
-the representative is returned.
+Three-letter OS-style code for the type of voting area (for instance, CED or
+ward) for which the representative is returned.
 
 =item name
 

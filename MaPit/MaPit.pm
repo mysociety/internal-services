@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.12 2005-01-31 20:14:45 chris Exp $
+# $Id: MaPit.pm,v 1.13 2005-02-04 11:10:02 chris Exp $
 #
 
 package MaPit;
@@ -88,7 +88,7 @@ my %special_cases = (
         # Test data
         1000001 => {
             type => 'CTY',
-            name => 'Everyone\'s County Council'
+            name => "Everyone's County Council"
         },
         1000002 => {
             type => 'CED',
