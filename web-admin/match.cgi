@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib -I../mapit-dadem-loading
+#!/usr/bin/perl -w -I../../perllib -I../mapit-dadem-loading -I ../MaPit
 #
 # match.cgi
 # 
@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.11 2005-02-01 20:15:56 chris Exp $
+# $Id: match.cgi,v 1.12 2005-02-02 03:22:14 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.11 2005-02-01 20:15:56 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.12 2005-02-02 03:22:14 francis Exp $';
 
 use strict;
 
@@ -29,6 +29,7 @@ use Common;
 use mySociety::CouncilMatch;
 use mySociety::WatchUpdate;
 use mySociety::VotingArea;
+use MaPit;
 my $W = new mySociety::WatchUpdate();
 
 my $m_dbh = connect_to_mapit_database();
@@ -115,9 +116,13 @@ sub do_summary ($) {
 
     # Get status of every council
     my $status_data = $d_dbh->selectall_arrayref(
-            q#select council_id, status from raw_process_status#);
+            q#select council_id, status, error from raw_process_status#);
+    do { $_->[2] = defined($_->[2]) ? ($_->[2] =~ tr/\n/\n/) : 0 } for @$status_data;
     @$status_data = sort 
-        { $area_id_data->{$a->[0]}->{name} cmp $area_id_data->{$b->[0]}->{name} } 
+        { 
+        $a->[2] <=> $b->[2] ||
+        $area_id_data->{$a->[0]}->{name} cmp $area_id_data->{$b->[0]}->{name} 
+        } 
         @$status_data;
 
     # Headings linking in
@@ -145,11 +150,12 @@ sub do_summary ($) {
 
         # ... display everything in it
         print join($q->br(), map { 
+                        ($_->[2] > 0 ? $_->[2] . " errors " : "") . 
                         $q->a({   
                                   href => build_url($q, $q->url('relative'=>1), 
                                   {'area_id' => $_->[0], 'page' => 'councilinfo'}) 
                               }, encode_entities($area_id_data->{$_->[0]}->{name}))
-                        .  " " . $_->[0] . " " . $_->[1]
+                        .  " " . $_->[0] . " " . $_->[1] 
                     } @subset);
     }
 
@@ -180,6 +186,8 @@ sub do_council_info ($) {
     print html_head($q, $name . " - Status");
     print $q->h1($name . " " . $area_id . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
+
+    #print MaPit::get_example_postcode($area_id);
 
     if ($status_data->{'error'}) {
         print $q->h2("Errors");
