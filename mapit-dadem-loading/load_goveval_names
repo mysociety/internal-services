@@ -11,17 +11,20 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.4 2004-12-02 17:14:30 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.5 2004-12-03 03:38:22 francis Exp $';
 
 use strict;
 
 use DBI;
-use DBD::SQLite;
+use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
 use Common;
 
-my $dbh = DBI->connect('dbi:SQLite:dbname=/home/francis/toobig/geodata-mysociety/mapit.sqlite', '', '', { AutoCommit => 0, RaiseError => 1 });
+my $dbname = "mapit";
+my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+my $generation = $dbh->selectrow_array('select id from new_generation');
+die "no new generation available" if (!defined($generation));
 
 my $parent_types = [qw(DIS LBO MTD UTA LGD CTY)];
 my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];

@@ -25,12 +25,16 @@
 # Call with two or more arguments; the first should be the name of a Postgres
 # database (with schema already constructed from mapit-schema.sql) and the
 # remainder being directories containing .shp files from Boundary-Line.
+# Feed postcodes from codepoint in on a pipe.
+#
+# See http://www.mysociety.org/cgi-bin/moin.cgi/MaPitDaDemDataLoading
+# for details.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.10 2004-12-02 21:29:09 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.11 2004-12-03 03:38:22 francis Exp $';
 
 use strict;
 
