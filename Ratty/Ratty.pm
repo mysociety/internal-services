@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.21 2005-01-13 14:18:34 chris Exp $
+# $Id: Ratty.pm,v 1.22 2005-01-13 14:23:29 chris Exp $
 #
 
 package Ratty::Error;
@@ -165,7 +165,7 @@ sub compile_rules () {
             '   }',
                 # Save the field description too.
             '   if (!defined(scalar(dbh()->selectrow_array(q#select description from field_description where scope = ? and field = ? for update#, {}, $scope, $field)))) {',
-            '       dbh()->do(q#insert into field_description (scope, field, description) values (?, ?, ?)#, {}, $scope, $field, $example);',
+            '       dbh()->do(q#insert into field_description (scope, field, description) values (?, ?, ?)#, {}, $scope, $field, $description);',
             '       ++$f;',
             '   }',
             '   if (!$f) {',
