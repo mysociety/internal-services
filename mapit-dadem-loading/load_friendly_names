@@ -10,7 +10,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.2 2004-12-09 19:11:11 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.3 2004-12-10 01:27:35 francis Exp $';
 
 use strict;
 
@@ -60,20 +60,21 @@ sub friendly_from_os ($) {
     return $_;
 }
 
-my $s = $dbh->prepare('select area_id from area');  # XXX generations
+my $s = $dbh->prepare('select id from area');  # XXX generations
 $s->execute();
 
 while (my ($area_id) = $s->fetchrow_array()) {
     my $names = $dbh->selectall_hashref('select name_type, name from area_name where area_id = ?', 'name_type', {}, $area_id);
     my $friendly = '';
     if (exists($names->{M})) {
-        $friendly = $names->{M};
+        $friendly = $names->{M}->{name};
     } elsif (exists($names->{O})) {
-        $friendly = friendly_from_os($names->{O});
+        $friendly = friendly_from_os($names->{O}->{name});
     } elsif (exists($names->{S})) {
-        $friendly = $names->{S};
+        $friendly = $names->{S}->{name};
     }
     $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
+#    print $area_id, " ", $friendly, "\n";
 }
 
 $dbh->commit();
