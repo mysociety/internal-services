@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+#
+# msp:
+# Scrape MSP information from the Scottish Parliament's web site.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.1 2005-02-15 12:53:02 chris Exp $';
+
+use strict;
+
+require 5.8.0;
+
+use Encode;
+use HTML::TreeBuilder;
+use WWW::Mechanize;
+
+my $m = new WWW::Mechanize;
+
+#
+# http://www.scottish.parliament.uk/msp/membersPages/ has an alphabetical list
+# of all MSPs, not distinguishing list and constituency members. Each member
+# has various pages including a general information page and a contacts page.
+#
+$m->get('http://www.scottish.parliament.uk/msp/membersPages/');
+
+my $n = 1;
+while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
+    my $url = $m->uri();
+
+    print STDERR "$url\n";
+
+    my $t = HTML::TreeBuilder->new_from_content($m->content())
+        or die "unable to parse $url";
+
+    my $anch = $t->look_down('_tag', 'a', 'name', 'mainContent')
+        or die qq#unable to find <a name="mainContent"> in $url#;
+
+    # Next thing after the anchor should be the table containing the content. 
+    my $contenttable = $anch->right()
+        or die qq#no tag following <a name="mainContent"> in $url#;
+    die "bad HTML structure" unless ($contenttable->tag() eq 'table');
+
+    my $heading = $contenttable->look_down(_tag => 'span', class => 'largeHeading')
+        or die qq#did not find heading (<span class="largeHeading" ...>) in $url#;
+
+    my $mspname = decode("iso-8859-1", $heading->as_text());
+    $mspname =~ s#&nbsp;# #g;
+    $mspname =~ s#\s+# #g;
+    print $mspname, "\n";
+
+    # Find MSP image
+    my $portrait = $contenttable->look_down(_tag => 'img', class => 'pageSectionImage', src => qr/\.jpg$/)
+        or die qq#did not find portrait image in $url#;
+    my $portraiturl = URI->new_abs($portrait->attr('src'), $url)->as_string();
+    print "  $portraiturl\n";
+
+    # Now search for various headings we care about.
+    foreach my $h ($contenttable->look_down(_tag => 'span', class => 'smallHeading')) {
+        my $hh = $h->as_text();
+        next unless ($hh =~ m#(Member for:|Party:)#);
+        print "  ", $h->parent()->as_text(), "\n";
+    }
+    
+    $m->back();
+    ++$n;
+}
