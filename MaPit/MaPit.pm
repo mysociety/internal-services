@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.13 2005-02-04 11:10:02 chris Exp $
+# $Id: MaPit.pm,v 1.14 2005-02-04 12:41:05 chris Exp $
 #
 
 package MaPit;
@@ -92,7 +92,8 @@ my %special_cases = (
         },
         1000002 => {
             type => 'CED',
-            name => 'Chest Westerton ED'
+            name => 'Chest Westerton ED',
+            parent_area_id => 1000001
         },
         1000003 => {
             type => 'DIS',
@@ -100,7 +101,8 @@ my %special_cases = (
         },
         1000004 => {
             type => 'DIW',
-            name => 'Chest Westerton Ward'
+            name => 'Chest Westerton Ward',
+            parent_area_id => 1000003
         },
         1000005 => {
             type => 'WMP',
@@ -191,7 +193,26 @@ sub get_voting_areas ($) {
     return $ret;
 }
 
-=item get_voting_area_info ID
+=item get_voting_area_info AREA
+
+Return information about the given voting. Return value is a reference to a
+hash containing elements,
+
+=over 4
+
+=item type
+
+OS-style 3-letter type code, e.g. "CED" for county electoral division;
+
+=item name
+
+name of voting area;
+
+=item parent_area_id
+
+(if present) the ID of the enclosing area.
+
+=back
 
 =cut
 sub get_voting_area_info ($) {

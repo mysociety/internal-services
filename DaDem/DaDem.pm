@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.26 2005-02-04 11:10:00 chris Exp $
+# $Id: DaDem.pm,v 1.27 2005-02-04 12:41:05 chris Exp $
 #
 
 package DaDem;
@@ -168,7 +168,7 @@ my %dummy_representatives = (
         },
 
         2000016 => {
-            type => 'DIW',
+            type => 'CED',
             voting_area => 1000002,
             name => 'Vernon via Email',
             method => 'via'
