@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.13 2005-04-01 12:08:55 francis Exp $
+# $Id: EvEl.pm,v 1.14 2005-04-05 17:51:24 chris Exp $
 #
 
 package EvEl::Error;
@@ -193,7 +193,7 @@ sub run_queue () {
             print_log('info', "sent message $msg to recipient $recip <$d->{address}>");
         } catch EvEl::Error with {
             my $E = shift;
-            print_log('error', "error during SMTP dialogue: $E");
+            print_log('err', "error during SMTP dialogue: $E");
             $smtp->quit();
             $smtp = undef;
             # For the moment just treat all errors the same way: abort the
