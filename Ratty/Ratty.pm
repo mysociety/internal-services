@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.23 2005-01-14 16:12:44 chris Exp $
+# $Id: Ratty.pm,v 1.24 2005-01-17 20:37:17 chris Exp $
 #
 
 package Ratty::Error;
@@ -137,6 +137,15 @@ sub test ($$) {
     return $result;
 }
 
+# canonicalise TEXT
+# Return TEXT stripped of whitespace and punctuation.
+sub canonicalise ($) {
+    my $text = lc($_[0]);
+    $text =~ s#[[:punct:]]##g;
+    $text =~ s#\p{IsSpace}##g;
+    return $text;
+}
+
 # compile_rules
 # Return in list context the current generation number and a code reference for
 # testing requests against rate-limiting rules. The returned code ref returns a
@@ -220,7 +229,15 @@ sub compile_rules () {
                 } else {
                     push(@code, '        0');
                 }
+            } elsif ($condition eq 'T') {
+                # Loose text match. Do this like in FYR::SubstringHash -- see
+                # canonicalise() above -- and then use a regex match.
+                my $re = eval(sprintf(q#qr'\Q%s\E'i#, canonicalise($value)));
+                push(@data, $re);
+                my $vi = $#data;
+                push(@code, sprintf('        Ratty::canonicalise($V->{$data->[%d]}->[0]) %s $data->[%d]', $fi, $invert ? '!~' : '=~', $vi));
             } elsif ($condition eq 'I') {
+                # Matches IP net/mask.
                 my $ipnet = new2 Net::Netmask($value);
                 if (defined($ipnet)) {
                     push(@data, $ipnet);
@@ -230,6 +247,7 @@ sub compile_rules () {
                     push(@code, '0');
                 }
             } elsif ($condition eq '<' or $condition eq '>') {
+                # Less/greater than.
                 my $number = $value + 0.0;   # XXX should check that value is a number
                 if ($invert) {
                     if ($condition eq '<') {
@@ -241,6 +259,9 @@ sub compile_rules () {
                 push(@data, $number);
                 my $vi = $#data;
                 push(@code, sprintf('        $V->{$data->[%d]}->[0] %s $data->[%d]', $fi, $condition, $vi));
+            } elsif ($condition eq 'P') {
+                # Value is present -- we've already tested this.
+                push(@code, '        1');
             }
         }
         push(@code, '    ) {',
@@ -398,9 +419,9 @@ sub admin_update_rule ($$$$) {
     #warn(Dumper($conds));
     dbh()->do('delete from condition where rule_id = ?', {}, $rule->{'rule_id'});
     foreach my $cond (@$conds) {
-        dbh()->do('insert into condition (rule_id, field, condition, value) values (?,?,?,?)',
-            {}, $rule->{'rule_id'}, $cond->{'field'},
-            $cond->{'condition'}, $cond->{'value'});
+        dbh()->do('insert into condition (rule_id, field, condition, value, invert)
+                    values (?, ?, ?, ?, ?)',
+            {}, $rule->{'rule_id'}, $cond->{'field'}, $cond->{'condition'}, $cond->{'value'}, $cond->{invert} ? 't' : 'f');
     }
     
     dbh()->commit();
@@ -475,15 +496,10 @@ sub admin_get_conditions ($$$) {
 
     my $scope2 = dbh()->selectrow_array('select scope from rule where id = ?', {}, $id);
     die "mismatch between scope \"$scope\" and rule ID \"$id\"" unless ($scope2 eq $scope);
-    
-    my $sth = dbh()->prepare('select * from condition where rule_id = ?');
-    $sth->execute($id);
-    my @ret;
-    while (my $hash_ref = $sth->fetchrow_hashref()) {
-        push @ret, $hash_ref;
-    }
-
-    return \@ret;
+   
+    return [values(%{dbh()->selectall_hashref(
+                    'select * from condition where rule_id = ?',
+                    'id', {}, $id)})];
 }
 
 1;
