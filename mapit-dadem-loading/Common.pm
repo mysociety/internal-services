@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.1 2004-11-29 16:09:17 chris Exp $
+# $Id: Common.pm,v 1.2 2004-11-29 19:00:58 chris Exp $
 #
 
 package Common;
@@ -38,6 +38,7 @@ sub new_generation ($) {
         $id = $dbh->selectrow_array(q#select nextval('generation_id_seq')#);
         $dbh->do('insert into generation (id, created) values (?, ?)', {}, $id, time());
     }
+    return $id;
 }
 
 # make_new_generation_active DBH
@@ -56,9 +57,9 @@ sub get_area_id ($$$$$$) {
     my $gen = new_generation($dbh);
     
     if (defined($onscode)) {
-        $id = $dbh->selectrow_array('select id from area where ons_code = ? and type = ? for update', {}, $onscode);
+        $id = $dbh->selectrow_array('select id from area where ons_code = ? and type = ? for update', {}, $onscode, $type);
     } elsif (defined($geomhash)) {
-        $id = $dbh->selectrow_array('select id from area where geom_hash = ? and type = ? for update', {}, $geomhash);
+        $id = $dbh->selectrow_array('select id from area where geom_hash = ? and type = ? for update', {}, $geomhash, $type);
     }
     
     if (defined($id)) {
