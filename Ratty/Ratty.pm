@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.16 2005-01-13 02:17:22 chris Exp $
+# $Id: Ratty.pm,v 1.17 2005-01-13 11:27:32 chris Exp $
 #
 
 package Ratty;
@@ -132,6 +132,7 @@ sub compile_rules () {
             # haven't seen before.
             'my $af = 0;',
             'while (my ($field, $value) = each(%$V)) {',
+            '   next unless defined($value);',  # don't want to insert null examples
             '   if (!exists($seen_fields->{$scope}) or !exists($seen_fields->{$scope}->{$field})) {',
             '       $seen_fields->{$scope}->{$field} = 1;',
             '       if (!defined(scalar(dbh()->selectrow_array(q#select example from available_fields where scope = ? and field = ? for update#, {}, $scope, $field)))) {',
