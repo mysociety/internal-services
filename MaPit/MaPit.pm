@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.3 2004-12-07 00:16:10 francis Exp $
+# $Id: MaPit.pm,v 1.4 2004-12-07 11:53:55 francis Exp $
 #
 
 package MaPit;
@@ -37,9 +37,9 @@ Implementation of MaPit
 =cut
 sub dbh () {
     our $dbh;
-    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('DADEM_DB_NAME'),
-                        mySociety::Config::get('DADEM_DB_USER'),
-                        mySociety::Config::get('DADEM_DB_PASS'),
+    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('MAPIT_DB_NAME'),
+                        mySociety::Config::get('MAPIT_DB_USER'),
+                        mySociety::Config::get('MAPIT_DB_PASS'),
                         { RaiseError => 1, AutoCommit => 0 });
     return $dbh;
 }
@@ -106,6 +106,15 @@ my %enclosing_areas = (
         mySociety::VotingArea::EUR => mySociety::VotingArea::EUP_AREA_ID
     );
 
+=item get_generation
+
+Return current MaPit data generation.
+
+=cut
+sub get_generation () {
+    return scalar(dbh()->selectrow_array('select id from current_generation'));
+}
+
 =item get_voting_areas POSTCODE
 
 Return voting area IDs for POSTCODE.
@@ -115,6 +124,7 @@ sub get_voting_areas ($) {
     my ($pc) = @_;
     
     my $ret = undef;
+    my $generation = get_generation();
     
     $pc =~ s/\s+//g;
     $pc = uc($pc);
@@ -134,7 +144,12 @@ sub get_voting_areas ($) {
         # Also add pseudo-areas.
         $ret = {
                 ( map { $mySociety::VotingArea::type_to_id{$_->[0]} => $_->[1] } @{
-                        dbh()->selectall_arrayref('select type, id from postcode_area, area where postcode_area.area_id = area.id and postcode_area.postcode_id = ?', {}, $pcid)
+                        dbh()->selectall_arrayref('
+                        select type, id from postcode_area, area 
+                            where postcode_area.area_id = area.id 
+                            and postcode_area.postcode_id = ? 
+                            and generation_low <= ? and ? <= generation_high
+                        ', {}, $pcid, $generation, $generation)
                     })
             };
     }
@@ -162,7 +177,14 @@ sub get_voting_area_info ($) {
     } else {
         # Real data
         my ($type, $name, $parent_area_id);
-        throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND) unless (($type, $name, $parent_area_id) = dbh()->selectrow_array('select type, name, parent_area_id from area where id = ?', {}, $id));
+        throw RABX::Error("Voting area not found id $id",
+        mySociety::MaPit::AREA_NOT_FOUND) unless (($type, $name,
+        $parent_area_id) = dbh()->selectrow_array('
+            select type, name, parent_area_id from area, area_name 
+                where area_name.area_id = area.id 
+                and name_type = \'O\'
+                and id = ?
+            ', {}, $id));
      
         $ret = {
                 name => $name,
