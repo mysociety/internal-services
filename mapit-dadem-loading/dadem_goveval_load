@@ -23,7 +23,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.15 2005-02-07 13:46:09 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.16 2005-02-07 18:31:11 francis Exp $';
 
 use strict;
 
@@ -41,10 +41,12 @@ my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
 my $types;
 my $name_type_char;
+my $allow_multiples = 1;
 if ($kind eq "mep") {
     $types = [qw(EUR)];
 } elsif ($kind eq "mp") {
     $types = [qw(WMC)];
+    $allow_multiples = 0;
 } elsif ($kind eq "msp") {
     $types = [qw(SPC SPE)];
 } elsif ($kind eq "wam") {
@@ -53,6 +55,7 @@ if ($kind eq "mep") {
     $types = [qw(LAC LAE)];
 } elsif ($kind eq "ds") {
     $types = $mySociety::VotingArea::council_parent_types;
+    $allow_multiples = 0;
 } else {
     die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
 }
@@ -104,6 +107,7 @@ sub nullify_if_null($) {
 
 # Read CSV file, load into dadem
 my $C = new Text::CSV_XS({ binary => 1 });
+my $already_done;
 <STDIN>;    # header line
 while (my $line = <STDIN>) {
     chomp($line);
@@ -193,6 +197,10 @@ while (my $line = <STDIN>) {
     $finalparty = $mySociety::Parties::canonical{$finalparty};
     die "party not known for '$line'" if (!defined($finalparty));
 
+    if ((!$allow_multiples) && exists($already_done->{$area_id})) {
+        die "got area $area_id '$finalcons' twice";
+    }
+
 #    print "insert into representative (area_id, area_type, name,
 #        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)",
 #        $area_id, " ", $area_type, " ", $finalname, " ", $finalparty, "
@@ -203,6 +211,7 @@ while (my $line = <STDIN>) {
         party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)", {},
         $area_id, $area_type, $finalname, $finalparty, $finalmethod,
         $finalemail, $finalfax);
+    $already_done->{$area_id} = 1;
 }
  
 $m_dbh->disconnect();
