@@ -7,7 +7,10 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2004-11-10 13:08:00 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.2 2004-11-18 18:48:36 chris Exp $';
+
+use strict;
+require 5.8.0;
 
 use FCGI;
 use mySociety::MaPit;   # client interface
