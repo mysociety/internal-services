@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.13 2005-01-12 16:32:56 chris Exp $
+# $Id: Ratty.pm,v 1.14 2005-01-12 17:38:25 chris Exp $
 #
 
 package Ratty;
@@ -124,7 +124,7 @@ sub compile_rules () {
     my $generation = dbh()->selectrow_array('select number from generation');
     my @code = (
         'sub ($$$$) {',
-            'my ($V, $scope, $data, $seen_fields) = @_;',
+            'my ($scope, $V, $data, $seen_fields) = @_;',
             'my $dbh = Ratty::dbh();',
 
             # Update the available fields table if there are fields we
@@ -205,7 +205,7 @@ sub compile_rules () {
                 push(@code, sprintf('$V->{$data->[%d]} %s $data->[%d]', $fi, $condition, $vi));
             }
         }
-        push(@code, ')) {',
+        push(@code, ') {',
                     sprintf('my ($num, $requests, $interval) = (0, %d, %d);', $requests, $interval));
 
         my @sdconds = grep { $_->[2] =~ m#^[SD]$# } @$conditions;
@@ -257,7 +257,7 @@ sub compile_rules () {
 
 
     my $codejoined = join("\n", @code);
-    #warn $codejoined;
+    warn $codejoined;
     my $subr = eval($codejoined);
     die "evaled code: $@" if ($@);
     
@@ -277,7 +277,8 @@ sub compile_rules () {
     return (
             $generation,
             sub ($$) {
-                return &$subr($_[0], $D, $S);
+                my ($scope, $vals) = @_;
+                return &$subr($scope, $vals, $D, $S);
             }
         );
 }
@@ -372,8 +373,8 @@ I<Instance method.> Returns array of hashes of data about all rules.
 sub admin_get_rules ($$) {
     my ($self, $scope) = @_;
     
-    my $sth = dbh()->prepare('select * from rule where scope = ? order by sequence, note', {}, $scope);
-    $sth->execute();
+    my $sth = dbh()->prepare('select * from rule where scope = ? order by sequence, note');
+    $sth->execute($scope);
     my @ret;
     while (my $rule = $sth->fetchrow_hashref()) {
         my $hits = dbh()->selectrow_array('select count(*) from rule_hit where rule_id = ?', {}, $rule->{'id'});
@@ -389,7 +390,7 @@ sub admin_get_rules ($$) {
 I<Instance method.> Returns hash of data about a rule.
 
 =cut
-sub admin_get_rule ($$) {
+sub admin_get_rule ($$$) {
     my ($self, $scope, $id) = @_;
     
     my $rule = dbh()->selectrow_hashref('select * from rule where id = ?', {}, $id);

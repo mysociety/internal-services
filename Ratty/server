@@ -11,13 +11,16 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.5 2005-01-12 16:32:56 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.6 2005-01-12 17:38:25 chris Exp $';
 
 use FCGI;
 use Ratty;
 use RABX;
 
 use mySociety::Config;
+
+require 5.8.0;
+
 mySociety::Config::set_file('../conf/general');
 
 use mySociety::WatchUpdate;

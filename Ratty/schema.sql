@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.9 2005-01-12 16:32:56 chris Exp $
+-- $Id: schema.sql,v 1.10 2005-01-12 17:38:25 chris Exp $
 --
 
 create table rule (
@@ -78,6 +78,7 @@ insert into generation (number) values (0);
 create function rule_modify_notify() returns trigger as '
     begin
     update generation set number = number + 1;
+    return null;
     end;
 ' language 'plpgsql';
 
