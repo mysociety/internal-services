@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.17 2005-01-28 12:54:06 francis Exp $
+-- $Id: dadem-schema.sql,v 1.18 2005-01-28 13:39:15 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -115,7 +115,6 @@ create unique index raw_input_data_ge_id_idx on raw_input_data(ge_id);
 create index raw_input_data_council_id_idx on raw_input_data(council_id);
 create index raw_input_data_council_name_idx on raw_input_data(council_name);
 create index raw_input_data_council_type_idx on raw_input_data(council_type);
-create index raw_input_data_council_type_idx on raw_input_data(ons_code);
 
 -- alterations to raw_input_data as a transaction log
 create table raw_input_data_edited (
