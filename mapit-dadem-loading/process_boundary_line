@@ -26,13 +26,15 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.3 2004-11-23 14:28:03 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.4 2004-11-25 13:10:35 chris Exp $';
 
 use strict;
-use Geo::ShapeFile;
-use Fcntl;
+
 use DBI;
 use DBD::SQLite;
+use Fcntl;
+use Geo::Shapelib;
+use IO::Handle;
 
 #
 # Point-in-polygon tests. Do these in C, so that the performance isn't too
@@ -201,6 +203,8 @@ create index postcode_area_postcode_id_idx on postcode_area(postcode_id);#);
 
 $dbh->commit();
 
+use Data::Dumper;
+
 # Pass 1:
 # Process all the directories of shape files, saving their coordinates and
 # recording area names etc. in a database.
@@ -209,43 +213,83 @@ foreach my $dir (@ARGV) {
     foreach (glob("$dir/*.shp")) {
         my $name = $_;
         $name =~ s#\.shp$##;
+        next if ($name =~ m#parish_region#);    # XXX hack
 
-        print STDERR "\r$name\n";
-
-        my $sh = new Geo::ShapeFile($name);
+        print STDERR "\r$name... ";
+        my $sh = new Geo::Shapelib($name, { LoadAll => 0 });
         if (!$sh) {
             warn "$name: $!\n";
             next;
         }
+        print STDERR "loaded.\n";
+
+        # Find the appropriate record fields.
+        my %fieldindex;
+        my $i = 0;
+        foreach (@{$sh->{FieldNames}}) {
+            $fieldindex{$_} = $i++;
+        }
         
         # Only care about polygons.
-        next unless (5 == $sh->shape_type());
+        next unless (5 == $sh->{Shapetype});
 
-        for (my $i = 1; $i <= $sh->shapes(); ++$i) {
-            my $D = $sh->get_dbf_record($i);
-            next unless (defined($D->{AREA_CODE}) and exists($interesting_areas{$D->{AREA_CODE}}));
+        for (my $i = 0; $i < $sh->{NShapes}; ++$i) {
+            my $s = $sh->get_shape($i);
+        
+            my $D = { };
+            for (my $j = 0; $j < @{$sh->{FieldNames}}; ++$j) {
+                $D->{$sh->{FieldNames}->[$j]} = $sh->{ShapeRecords}->[$i]->[$j];
+            }
             
-            # Geo::ShapeFile chews up memory like a pig. Copy the polygon
-            # coordinates but kill the reference to the shape record itself.
+            next unless (defined($D->{AREA_CODE}) and exists($interesting_areas{$D->{AREA_CODE}}));
+
             my @parts = ( );
-            my $S = $sh->get_shp_record($i);
+            my $num_parts = @{$s->{Parts}};
+            die "$D->{NAME} has no parts!" unless ($num_parts > 0);
             my $ss;
 
-            if ($S->num_parts() > 10) {
-                printf STDERR "\r%s has %d parts\n", $D->{NAME}, $S->num_parts();
+            if ($num_parts > 100) {
+                printf STDERR "\r%s has %d parts\n", $D->{NAME}, $num_parts;
             }
+
+            my $V = $s->{Vertices};
             
-            for (my $j = 1; $j <= $S->num_parts(); ++$j) {
-                # Record polygon winding and vertices.
-                # cw -- include
-                # ccw -- exclude
-#                my $polydata = pack('d*', map { $_->X(), $_->Y() } $S->get_part($j));
-                my $polydata = pack('d*', map { @$_ } $S->get_part($j)); # fix to remove Geo::ShapeFile::Point use
+            my ($minx, $miny, $maxx, $maxy);
+            my ($x1, $y1);    # coordinates of first vertex.
+            for (my $j = 0; $j < $num_parts; ++$j) {
+                # Record polygon winding and vertices. NB:
+                #   cw -- include
+                #   ccw -- exclude
+                
+                # First vertex, type.
+                my ($st, $ty) = @{$s->{Parts}->[$j]};
+
+                next unless ($ty == 5); # "Ring"
+                
+                my $en;
+                if ($j < $num_parts - 1) {
+                    $en = $s->{Parts}->[$j + 1]->[0] - 1;
+                } else {
+                    $en = @$V - 1;
+                }
+                my $polydata = '';
+                for (my $k = $st; $k <= $en; ++$k) {
+                    my ($x, $y) = ($V->[$k]->[0], $V->[$k]->[1]);
+                    $x1 ||= $x;
+                    $y1 ||= $y;
+                    $minx = $x if (!defined($minx) || $x < $minx);
+                    $miny = $y if (!defined($miny) || $y < $miny);
+                    $maxx = $x if (!defined($maxx) || $x > $maxx);
+                    $maxy = $y if (!defined($maxy) || $y > $maxy);
+                    $polydata .= pack('d*', $x, $y);
+                }
                 push(@parts, [ poly_winding(length($polydata) / (2 * $doublesize), $polydata) < 0 ? +1 : -1, $polydata ]);
-                if ($S->num_parts() > 10) {
-                    printf STDERR "\r%d/%d", $j, $S->num_parts();
+                if ($num_parts > 100) {
+                    printf STDERR "\rreading parts: %d/%d", $j, $num_parts;
                 }
             }
+
+            undef $s;
 
             # Add information about this shape into the database.
             my $id = get_area_id($D->{AREA_CODE}, $D->{UNIT_ID}, $D->{NAME}, $D->{CODE});
@@ -258,32 +302,31 @@ foreach my $dir (@ARGV) {
             # Polygon centroid determination doesn't work. We just need to
             # pick a point which is inside the polygon, so do so at random.
 
-            my @p = $S->get_part(1);
             my ($cx, $cy);
             do {
-                my $i = int(rand(@p));
-                $cx = $p[$i]->[0] + rand(20) - 10;
-                $cy = $p[$i]->[1] + rand(20) - 10;
+                $cx = $x1 + rand(20) - 10;
+                $cy = $y1 + rand(20) - 10;
             } while (!is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1])); # XXX winding assumption
             
-            my $country = '';
+            my $devolved = '';
             if ($D->{AREA_CODE} eq 'EUR') {
                 if ($D->{NAME} =~ m#London#) {
-                    $country = 'L';
+                    $devolved = 'L';
                 } elsif ($D->{NAME} =~ m#Scotland#) {
-                    $country = 'S';
+                    $devolved = 'S';
                 } elsif ($D->{NAME} =~ m#Wales#) {
-                    $country = 'W';
+                    $devolved = 'W';
                 }
             }
-            #               0    1                2        3            4            5            6            7    8    9           10
-            push(@shapes, [ $id, $D->{AREA_CODE}, \@parts, $S->x_min(), $S->x_max(), $S->y_min(), $S->y_max(), $cx, $cy, $D->{CODE}, $country ]);
+
+            #               0    1                2        3      4      5      6      7    8    9           10
+            push(@shapes, [ $id, $D->{AREA_CODE}, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $D->{CODE}, $devolved ]);
             $onscode_to_shape{$D->{CODE}} = $shapes[$#shapes];  # for fast parent-determination
-            
-            $S = undef;
 
             STDERR->printf("\rreading shapes: %d", scalar(@shapes)) if (0 == scalar(@shapes) % 10);
         }
+
+        undef $sh;
     }
 }
 
@@ -376,7 +419,7 @@ sub find_containing_areas ($$;$) {
         }
     }
 
-    # Devolved assemblies.
+    # Devolved assemblies. These cover areas which correspond to Euro-areas.
     if (exists($found{EUR})) {
         if ($found{EUR}->[10] eq 'L') {
             $found{LAC} = $only{LAC} if ($count{LAC} == 1);
@@ -401,21 +444,27 @@ sub find_containing_areas ($$;$) {
 }
 
 # Pass 2:
-# Assign shapes to buckets.
+# Assign shapes to buckets. We do this by "approximate polygon rasterisation".
+# Obviously the polygons from the shapefiles aren't convex, but we pretend that
+# they are and put the shape in each bucket within a rough convex hull of the
+# polygon's vertices. This must be done separately for each part, since shapes
+# may have several disconnected convex parts (e.g. islands).
 my $n = 0;
 foreach my $S (@shapes) {
-    my %buckets = ( );
-
-    my ($minx, $maxx);
-    my @miny = ( );
-    my @maxy = ( );
-
     # Add the buckets in which vertices of the shape lie.
     foreach my $part (@{$S->[2]}) {
+        my ($minx, $maxx);
+        my @miny = ( );
+        my @maxy = ( );
+    
+        # Don't rasterise holes.
+        next if ($part->[0] == -1);
         my @vv = unpack('d*', $part->[1]);
+
         my ($ox, $oy);
-        for (my $i = 0; $i < @vv; $i += 2) {
-            my ($E, $N) = ($vv[$i], $vv[$i + 1]);
+        # NB: must close polygon
+        for (my $i = 0; $i <= @vv; $i += 2) {
+            my ($E, $N) = ($vv[$i % @vv], $vv[($i + 1) % @vv]);
             
             my ($x, $y) = (int($E / $tilesize), int($N / $tilesize));
 
@@ -429,39 +478,39 @@ foreach my $S (@shapes) {
                 }
             }
 
-            $minx = $x if (!defined($minx) or $x < $minx);
-            $maxx = $x if (!defined($maxx) or $x > $maxx);
+            $minx = $x if (!defined($minx) || $x < $minx);
+            $maxx = $x if (!defined($maxx) || $x > $maxx);
 
-            $miny[$x] = $y if (!defined($miny[$x]) or $y < $miny[$x]);
-            $maxy[$x] = $y if (!defined($maxy[$x]) or $y > $maxy[$x]);
+            $miny[$x] = $y if (!defined($miny[$x]) || $y < $miny[$x]);
+            $maxy[$x] = $y if (!defined($maxy[$x]) || $y > $maxy[$x]);
             
-            $buckets{sprintf("%d,%d", $x, $y)} = 1;
-
             $ox = $x;
             $oy = $y;
         }
-    }
 
-    if (!defined($minx) || !defined($maxx)) {
-        print STDERR "\r[2Kshape #$S->[0] has no vertices!\n";
-        next;
-    }
-
-    # Expand the bounding shape to cope with diagonal edges.
-    my (@miny2, @maxy2);
-    for (my $x = $minx; $x <= $maxx; ++$x) {
-        $miny2[$x] = $miny[$x];
-        $maxy2[$x] = $maxy[$x];
-        for (my $X = $x - 1; $X <= $x + 1; ++$X) {
-            next if ($X < $minx || $X > $maxx);
-            $miny2[$x] = $miny[$X] if ($miny[$X] < $miny2[$x]);
-            $maxy2[$x] = $maxy[$X] if ($maxy[$X] > $maxy2[$x]);
+        if (!defined($minx) || !defined($maxx)) {
+            print STDERR "\r[2Kshape #$S->[0] has no vertices!\n";
+            next;
         }
-    }
 
-    for (my $x = $minx; $x <= $maxx; ++$x) {
-        for (my $y = $miny2[$x]; $y <= $maxy2[$x]; ++$y) {
-            push(@{$tiles->[$x]->[$y]}, $S);
+        # Fill the buckets between the shape bounds.
+        my (@miny2, @maxy2);
+        for (my $x = $minx; $x <= $maxx; ++$x) {
+            die "no \$miny[$x]" unless (defined($miny[$x]));
+            die "no \$maxy[$x]" unless (defined($maxy[$x]));
+            $miny2[$x] = $miny[$x];
+            $maxy2[$x] = $maxy[$x];
+            for (my $X = $x - 1; $X <= $x + 1; ++$X) {
+                next if ($X < $minx || $X > $maxx);
+                $miny2[$x] = $miny[$X] if ($miny[$X] < $miny2[$x]);
+                $maxy2[$x] = $maxy[$X] if ($maxy[$X] > $maxy2[$x]);
+            }
+        }
+
+        for (my $x = $minx; $x <= $maxx; ++$x) {
+            for (my $y = $miny2[$x]; $y <= $maxy2[$x]; ++$y) {
+                push(@{$tiles->[$x]->[$y]}, $S);
+            }
         }
     }
 
