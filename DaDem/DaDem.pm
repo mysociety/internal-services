@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.29 2005-02-08 15:06:55 francis Exp $
+# $Id: DaDem.pm,v 1.30 2005-02-10 14:01:59 francis Exp $
 #
 
 package DaDem;
@@ -238,12 +238,48 @@ sub search_representatives ($) {
     my ($query) = @_;
     $query = "%" . lc($query) . "%";
 
-    # Real data
+    # Original data
     my $y = dbh()->selectall_arrayref('select id from representative where 
         (lower(name) like ?) or
         (lower(party) like ?) or
         (lower(email) like ?) or
         (lower(fax) like ?)', {}, $query, $query, $query, $query);
+    if (!$y) {
+        throw RABX::Error("Area containing '$query' not found", mySociety::DaDem::UNKNOWN_AREA);
+    } 
+    
+    # Updates
+    my $z = dbh()->selectall_arrayref('select representative_id from representative_edited where 
+        (lower(name) like ?) or
+        (lower(party) like ?) or
+        (lower(email) like ?) or
+        (lower(fax) like ?)', {}, $query, $query, $query, $query);
+    if (!$z) {
+        throw RABX::Error("Area containing '$query' not found", mySociety::DaDem::UNKNOWN_AREA);
+    } 
+
+    return [ map { $_->[0] } (@$y, @$z) ];
+}
+
+=item get_bad_contacts
+
+Returns list of representatives whose contact details are bad.  That
+is, listed as 'unknown', listed as 'fax' or 'email' or 'either' without
+appropriate details being present, or listed as 'via' without democratic
+services contact.
+
+=cut
+sub get_bad_contacts ($) {
+    my ($query) = @_;
+    $query = "%" . lc($query) . "%";
+
+    # Real data
+    my $y = dbh()->selectall_arrayref(q#select id from representative where 
+        (method = 'unknown')
+        (method = 'fax' and (fax is null or fax !~ '^[0-9+ ()-]+$')) or
+        (method = 'email' and (email is null or email !~ '^.*@.*$')) or
+        (method = 'either' and (fax is null or fax = "" or email is null or email = "")) or
+        #);
 
     if (!$y) {
         throw RABX::Error("Area containing '$query' not found", mySociety::DaDem::UNKNOWN_AREA);
