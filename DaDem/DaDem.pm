@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.4 2004-12-07 00:16:10 francis Exp $
+# $Id: DaDem.pm,v 1.5 2004-12-07 16:56:06 chris Exp $
 #
 
 package DaDem;
@@ -137,7 +137,7 @@ my %dummy_representatives = (
             'voting_area' => 1000008,
             'name' => 'Stom Teinberg',
             'contact_method' => 'fax',
-            'fax' => 'TOMS_FAX'
+            'fax' => 'TOMS_FAX' # don't call config here as this hash is statically initialised
         }
 
 #            'name' => 'Tu Stily',
