@@ -25,7 +25,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.7 2004-12-07 21:59:53 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.8 2004-12-09 18:39:28 chris Exp $';
 
 use strict;
 
@@ -47,7 +47,7 @@ my ($onscodesfile, $nieasfile, $codepointfile) = @ARGV;
 my $dbh = connect_to_mapit_database();
 
 # Special case: create a Euro-region.
-my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'F', 'EUR', undef, undef, undef);
+my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'M', 'EUR', undef, undef, undef);
     # NIA etc.?
 country($dbh, $euro_area_id, 'N');
 
