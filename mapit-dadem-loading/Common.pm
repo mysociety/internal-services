@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.13 2004-12-14 15:41:47 chris Exp $
+# $Id: Common.pm,v 1.14 2004-12-14 15:50:09 chris Exp $
 #
 
 package Common;
@@ -50,7 +50,7 @@ sub connect_to_mapit_database () {
     my $connstr = 'dbi:Pg:dbname=' . mySociety::Config::get('MAPIT_DB_NAME');
     
     $connstr .= ";host=$host" if (defined($host));
-    $connstr .= ";port=$host" if (defined($port));
+    $connstr .= ";port=$port" if (defined($port));
     
     return DBI->connect($connstr,
                         mySociety::Config::get('MAPIT_DB_USER'),
@@ -67,7 +67,7 @@ sub connect_to_dadem_database () {
     my $connstr = 'dbi:Pg:dbname=' . mySociety::Config::get('DADEM_DB_NAME');
     
     $connstr .= ";host=$host" if (defined($host));
-    $connstr .= ";port=$host" if (defined($port));
+    $connstr .= ";port=$port" if (defined($port));
  
     return DBI->connect($connstr,
                         mySociety::Config::get('DADEM_DB_USER'),
