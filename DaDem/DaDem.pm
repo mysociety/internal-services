@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.30 2005-02-10 14:01:59 francis Exp $
+# $Id: DaDem.pm,v 1.31 2005-02-10 16:33:06 francis Exp $
 #
 
 package DaDem;
@@ -15,6 +15,7 @@ use strict;
 
 use DBI;
 use DBD::Pg;
+use Data::Dumper;
 
 use mySociety::DaDem;
 use mySociety::DBHandle qw(dbh);
@@ -265,27 +266,39 @@ sub search_representatives ($) {
 
 Returns list of representatives whose contact details are bad.  That
 is, listed as 'unknown', listed as 'fax' or 'email' or 'either' without
-appropriate details being present, or listed as 'via' without democratic
-services contact.
+appropriate details being present. 
+
+TODO: Check 'via' type as well somehow.
 
 =cut
-sub get_bad_contacts ($) {
-    my ($query) = @_;
-    $query = "%" . lc($query) . "%";
+sub get_bad_contacts () {
+    # Get all data
+    my $reps = dbh()->selectall_hashref(q#select * from representative#, 'id');
+    my $updates = dbh()->selectall_hashref(q#select distinct on (representative_id) 
+        *, representative_id as id 
+        from representative_edited 
+        order by representative_id, order_id desc#,
+        'id');
+    do { $reps->{$_} = $updates->{$_} } for (keys %$updates);
 
-    # Real data
-    my $y = dbh()->selectall_arrayref(q#select id from representative where 
-        (method = 'unknown')
-        (method = 'fax' and (fax is null or fax !~ '^[0-9+ ()-]+$')) or
-        (method = 'email' and (email is null or email !~ '^.*@.*$')) or
-        (method = 'either' and (fax is null or fax = "" or email is null or email = "")) or
-        #);
+    # Look for bad ones
+    my @bad;
+    foreach my $rep_id (keys %$reps) {
+        my $rep = $reps->{$rep_id};
+        my $faxvalid = defined($rep->{fax}) && ($rep->{fax} =~ m/^(\+44|0)[\d\s]+\d$/);
+        my $emailvalid = defined($rep->{email}) && ($rep->{email} =~ m/^[^@\s]+@[^@\s]+$/);
 
-    if (!$y) {
-        throw RABX::Error("Area containing '$query' not found", mySociety::DaDem::UNKNOWN_AREA);
-    } else {
-        return [ map { $_->[0] } @$y ];
+        if (($rep->{method} eq 'unknown')
+            or ($rep->{method} eq 'email' and (!$emailvalid))
+            or ($rep->{method} eq 'fax' and (!$faxvalid))
+            or ($rep->{method} eq 'either' and (!$faxvalid or !$emailvalid))
+        ) {
+            push @bad, $rep_id;
+        }
     }
+
+    # Return results
+    return \@bad;
 }
 
 =item get_representative_info ID
