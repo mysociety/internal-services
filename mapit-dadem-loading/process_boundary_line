@@ -1,0 +1,547 @@
+#!/usr/bin/perl -w
+#
+# process_boundary_line:
+# Load the Boundary-Line polygons into memory, and compare postcodes (e.g.
+# from CodePoint) against their areas, to form the database used by MaPit.
+#
+# Copyright (c) 2004 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.1 2004-11-09 08:28:28 francis Exp $';
+
+use strict;
+use Geo::ShapeFile;
+use Fcntl;
+use DBI;
+use DBD::SQLite;
+
+use Inline C => <<'EOF';
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* pnpoly NUM XX YY X Y
+ * Does the point (X, Y) lie inside the NUM-point polygon with vertices
+ * (XX[0], YY[0]) ... ? */
+int pnpoly(int npol, double *xp, double *yp, double x, double y) {
+    int i, j, c = 0;
+    for (i = 0, j = npol - 1; i < npol; j = i++) {
+        if ((((yp[i] <= y) && (y < yp[j])) ||
+             ((yp[j] <= y) && (y < yp[i]))) &&
+                (x < (xp[j] - xp[i]) * (y - yp[i]) / (yp[j] - yp[i]) + xp[i]))
+          c = !c;
+    }
+    return c;
+}
+
+/* Hack: pass the polygon data as packed char*, so that we don't have to unpick
+ * AV/SV types. */
+
+/* poly_winding NUM DATA
+ * Return the winding order of the NUM-point polygon with vertices given by
+ * DATA. Positive return values indicate ccw winding. */
+double poly_winding(size_t npts, char *vv) {
+    /* XXX returns double because Inline::C doesn't pick up functions which
+     * return float. */
+    int i;
+    double a;
+    for (i = 0, a = 0; i < npts; ++i) {
+        double x0, y0, x1, y1;
+        int j;
+        memcpy(&x0, vv + i * 2 * sizeof x0, sizeof x0);
+        memcpy(&y0, vv + (sizeof y0) + i * 2 * sizeof y0, sizeof y0);
+        j = (i + 1) % npts;
+        memcpy(&x1, vv + j * 2 * sizeof x0, sizeof x0);
+        memcpy(&y1, vv + (sizeof y0) + j * 2 * sizeof y0, sizeof y0);
+        a += x0 * y1 - x1 * y0;
+    }
+    return a / 2.;
+}
+
+
+/* is_point_in_poly X Y NUM DATA
+ * Adapter for pnpoly. */
+int is_point_in_poly(double x, double y, size_t npts, char *vv) {
+    static double *xx, *yy;
+    static size_t nvv;
+    int i;
+
+    if (!xx || nvv < npts) {
+        xx = realloc(xx, npts * sizeof *xx);
+        yy = realloc(yy, npts * sizeof *yy);
+        nvv = npts;
+    }
+
+    for (i = 0; i < npts; ++i) {
+        memcpy(xx + i, vv + i * 2 * sizeof(double), sizeof(double));
+        memcpy(yy + i, vv + sizeof(double) + i * 2 * sizeof(double), sizeof(double));
+    }
+
+    return pnpoly(npts, xx, yy, x, y);
+}
+
+EOF
+
+my $doublesize = length(pack('d', 0));
+
+my %interesting_areas = map { $_ => 1 } (
+    my @interesting_areas = (
+#
+# Types of areas about which we care:
+#
+# AREA_CODE What
+# --------- --------------------------------------------
+ 'LBO',   # London Borough
+ 'LBW',   # London Borough Ward
+
+ 'GLA',   # GLA
+ 'LAC',   # GLA Constituency
+
+ 'CTY',   # County
+ 'CED',   # County Electoral Division
+
+ 'DIS',   # District
+ 'DIW',   # District Ward
+
+ 'UTA',   # Unitary Authority
+ 'UTE',   # Unitary Authority Electoral Division
+ 'UTW',   # Unitary Authority Ward
+
+ 'MTD',   # Metropolitan District
+ 'MTW',   # Metropolitan District Ward
+
+ 'SPE',   # Scottish Parliament Electoral Region
+ 'SPC',   # Scottish Parliament Constituency
+
+ 'WAE',   # Welsh Assembly Electoral Region
+ 'WAC',   # Welsh Assembly Constituency
+
+ 'WMC',   # Westminster Constituency
+
+ 'EUR'    # European Region
+    )
+);
+
+# get_area_id
+# Form area ID from name information.
+my %idmap;
+sub get_area_id (@) {
+    my $blah = join("\0", @_);
+    if (!exists($idmap{$blah})) {
+        $idmap{$blah} = scalar(keys(%idmap));
+    }
+    return $idmap{$blah};
+}
+
+# @shapes
+# List of [ unique ID, area code, shape, min_x, max_x, min_y, max_y, cx, cy, ons_code ] for each
+# area we're interested in.
+my @shapes;
+my %onscode_to_shape;
+
+unlink('mapit-new.sqlite') or die "mapit-new.sqlite: $!" if (-e 'mapit-new.sqlite');
+my $dbh = DBI->connect('dbi:SQLite:dbname=mapit-new.sqlite', '', '', { AutoCommit => 0, RaiseError => 1 });
+
+$dbh->do(q#
+-- description of areas
+create table area (
+    id integer not null primary key,
+    parent_area_id integer,
+    unit_id integer,        -- ESRI shapefile unit ID
+    name text not null,
+    ons_code text,
+    type char(3)            -- 'CTY' or whatever
+);#);
+
+
+$dbh->do(q#
+-- lookup table for postcodes
+create table postcode (
+    postcode varchar(8) not null primary key,
+    id integer not null,
+    easting number,
+    northing number
+);#);
+
+$dbh->do(q#
+create unique index postcode_id_idx on postcode(id);#);
+
+$dbh->do(q#
+-- mapping from postcodes to areas
+create table postcode_area (
+    postcode_id integer not null,
+    area_id integer not null
+);#);
+
+$dbh->do(q#
+create index postcode_area_postcode_id_idx on postcode_area(postcode_id);#);
+
+$dbh->commit();
+
+# Pass 1:
+# Process all the directories of shape files, saving their coordinates and
+# recording area names etc. in a database.
+foreach my $dir (@ARGV) {
+    print STDERR "\r$dir\n";
+    foreach (glob("$dir/*.shp")) {
+        my $name = $_;
+        $name =~ s#\.shp$##;
+
+        my $sh = new Geo::ShapeFile($name);
+        if (!$sh) {
+            warn "$name: $!\n";
+            next;
+        }
+        
+        # Only care about polygons.
+        next unless (5 == $sh->shape_type());
+
+        for (my $i = 1; $i <= $sh->shapes(); ++$i) {
+            my $D = $sh->get_dbf_record($i);
+            next unless (defined($D->{AREA_CODE}) and exists($interesting_areas{$D->{AREA_CODE}}));
+            
+            # Geo::ShapeFile chews up memory like a pig. Copy the polygon
+            # coordinates but kill the reference to the shape record itself.
+            my @parts = ( );
+            my $S = $sh->get_shp_record($i);
+            my $ss;
+            for (my $j = 1; $j <= $S->num_parts(); ++$j) {
+                # Record polygon winding and vertices.
+                # cw -- include
+                # ccw -- exclude
+#                my $polydata = pack('d*', map { $_->X(), $_->Y() } $S->get_part($j));
+                my $polydata = pack('d*', map { @$_ } $S->get_part($j)); # fix to remove Geo::ShapeFile::Point use
+                push(@parts, [ poly_winding(length($polydata) / (2 * $doublesize), $polydata) < 0 ? +1 : -1, $polydata ]);
+            }
+
+            # Add information about this shape into the database.
+            my $id = get_area_id($D->{AREA_CODE}, $D->{UNIT_ID}, $D->{NAME}, $D->{CODE});
+
+            if ($dbh->selectrow_array('select count(*) from area where id = ?', {}, $id) == 0) {
+                $dbh->do('insert into area (id, unit_id, name, ons_code, type) values (?, ?, ?, ?, ?)', {},
+                            $id, $D->{UNIT_ID}, $D->{NAME}, ($D->{CODE} eq '999999' ? undef : $D->{CODE}), $D->{AREA_CODE});
+            }
+
+            # Polygon centroid determination doesn't work. We just need to
+            # pick a point which is inside the polygon, so do so at random.
+
+            my @p = $S->get_part(1);
+            my ($cx, $cy);
+            do {
+                my $i = int(rand(@p));
+                $cx = $p[$i]->[0] + rand(20) - 10;
+                $cy = $p[$i]->[1] + rand(20) - 10;
+            } while (!is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1])); # XXX winding assumption
+            
+            my $country = '';
+            if ($D->{AREA_CODE} eq 'EUR') {
+                if ($D->{NAME} =~ m#London#) {
+                    $country = 'L';
+                } elsif ($D->{NAME} =~ m#Scotland#) {
+                    $country = 'S';
+                } elsif ($D->{NAME} =~ m#Wales#) {
+                    $country = 'W';
+                }
+            }
+            #               0    1                2        3            4            5            6            7    8    9           10
+            push(@shapes, [ $id, $D->{AREA_CODE}, \@parts, $S->x_min(), $S->x_max(), $S->y_min(), $S->y_max(), $cx, $cy, $D->{CODE}, $country ]);
+            $onscode_to_shape{$D->{CODE}} = $shapes[$#shapes];  # for fast parent-determination
+            
+            $S = undef;
+
+            STDERR->printf("\rreading shapes: %d", scalar(@shapes)) if (0 == scalar(@shapes) % 100);
+        }
+    }
+}
+
+$dbh->commit();
+
+STDERR->printf("\rreading shapes: %d total\n", scalar(@shapes));
+
+# Stick the shapes into buckets for a set of grid squares.
+my $tilesize = 1000;   # 1km buckets
+my $tiles = [ ];
+
+# is_point_in_bucket X Y EASTING NORTHING
+# Does the point (EASTING, NORTHING) lie in the bucket (X, Y)?
+sub is_point_in_bucket ($$$$) {
+    my ($x, $y, $E, $N) = @_;
+    return (int($E / $tilesize) == $x and int($N / $tilesize) == $y);
+}
+
+# is_point_in_shape SHAPE EASTING NORTHING
+# SHAPE is a row from @shapes or whatever; EASTING and NORTHING are the
+# coordinates of the point.
+sub is_point_in_shape ($$$) {
+    my ($S, $E, $N) = @_;
+    
+    # Bounding box.
+    return 0 if ($S->[3] > $E or $S->[4] < $E or $S->[5] > $N or $S->[6] < $N);
+
+    my $res = 0;
+    foreach (@{$S->[2]}) {
+        my ($sense, $vv) = @$_;
+        $res += $sense if (is_point_in_poly($E, $N, length($vv) / (2 * $doublesize), $vv));
+    }
+    warn "area $S->[0] coords ($E, $N) result is $res" unless ($res == 0 || $res == 1);
+    return 1 if ($res > 0);
+}
+
+# find_containing_areas EASTING NORTHING [HINTS]
+# Return a list of all shapes (in the same format as rows of @shapes) which
+# contain the point (EASTING, NORTHING). HINTS is an optional hash of area type
+# to containing area.
+my ($total_shape_tests, $total_queries) = (0, 0);
+sub find_containing_areas ($$;$) {
+    my ($E, $N, $hints) = @_;
+    $total_queries++;
+
+    my %found;
+    my %count = map { $_ => 0 } @interesting_areas;
+    my %only;
+
+    # Count number of areas of each type.
+    foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
+        ++$count{$S->[1]};
+        $only{$S->[1]} = $S;
+    }
+
+    # Short-circuit interiors of certain areas. Each point must be in exactly
+    # one WMC and EUR.
+    foreach (qw(WMC EUR)) {
+        if ($count{$_} == 1) {
+            $found{$_} = $only{$_};
+        }
+    }
+
+    # Consider types of local government at (roughly) county level. If we find
+    # only one, then we can cheat a bit.
+    my @locals = qw(LBO CTY UTA MTD);
+    my $sum = 0;
+    map { $sum += $count{$_} } @locals;
+    if ($sum == 1) {
+        # Only one type of contained local government region. We may be able to
+        # short-circuit searches for contained regions.
+        my ($lty) = grep { $count{$_} == 1 } @locals;
+        $found{$lty} = $only{$lty};
+        my %contents = (
+                LBO => [qw(LBW LAC GLA)],
+                CTY => [qw(CED DIS DIW)],
+                UTA => [qw(UTE UTW)],
+                MTD => [qw(MTW)]
+            );
+        foreach (@{$contents{$lty}}) {
+            $found{$_} = $only{$_} if ($count{$_} == 1);
+        }
+    }
+
+    # Try hinted points.
+    if (defined($hints)) {
+        foreach my $S (grep { defined($_) and !exists($found{$_->[1]}) } values %$hints) {
+            ++$total_shape_tests;
+            $found{$S->[1]} = $S if (is_point_in_shape($S, $E, $N));
+        }
+    }
+
+    # Devolved assemblies.
+    if (exists($found{EUR})) {
+        if ($found{EUR}->[10] eq 'L') {
+            $found{LAC} = $only{LAC} if ($count{LAC} == 1);
+            $found{GLA} = $only{GLA} if ($count{GLA} == 1);
+        } elsif ($found{EUR}->[10] eq 'S') {
+            $found{SPC} = $only{SPC} if ($count{SPC} == 1);
+            $found{SPE} = $only{SPE} if ($count{SPE} == 1);
+        } elsif ($found{EUR}->[10] eq 'W') {
+            $found{WAC} = $only{WAC} if ($count{WAC} == 1);
+            $found{WAE} = $only{WAE} if ($count{WAE} == 1);
+        }
+    }
+
+    # Now the slow way.
+    foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
+        next if (exists($found{$S->[1]}));  # only care about one shape of each type.
+        ++$total_shape_tests;
+        $found{$S->[1]} = $S if (is_point_in_shape($S, $E, $N));
+    }
+
+    return %found;
+}
+
+# Pass 2:
+# Assign shapes to buckets.
+my $n = 0;
+foreach my $S (@shapes) {
+    my %buckets = ( );
+
+    my ($minx, $maxx);
+    my @miny = ( );
+    my @maxy = ( );
+
+    # Add the buckets in which vertices of the shape lie.
+    foreach my $part (@{$S->[2]}) {
+        my @vv = unpack('d*', $part->[1]);
+        my ($ox, $oy);
+        for (my $i = 0; $i < @vv; $i += 2) {
+            my ($E, $N) = ($vv[$i], $vv[$i + 1]);
+            
+            my ($x, $y) = (int($E / $tilesize), int($N / $tilesize));
+
+            # Cope with the case where we've moved >1 tile horizontally.
+            if (defined($ox) and $ox != $x and abs($ox - $x) > 1) {
+                my ($a, $b) = sort($ox, $x);
+                my ($A, $B) = sort($oy, $y);
+                for (my $i = $a; $i <= $b; ++$i) {
+                    $miny[$i] = $A if (!defined($miny[$i]) || $A < $miny[$i]);
+                    $maxy[$i] = $B if (!defined($maxy[$i]) || $B > $maxy[$i]);
+                }
+            }
+
+            $minx = $x if (!defined($minx) or $x < $minx);
+            $maxx = $x if (!defined($maxx) or $x > $maxx);
+
+            $miny[$x] = $y if (!defined($miny[$x]) or $y < $miny[$x]);
+            $maxy[$x] = $y if (!defined($maxy[$x]) or $y > $maxy[$x]);
+            
+            $buckets{sprintf("%d,%d", $x, $y)} = 1;
+
+            $ox = $x;
+            $oy = $y;
+        }
+    }
+
+    if (!defined($minx) || !defined($maxx)) {
+        print STDERR "\r[2Kshape #$S->[0] has no vertices!\n";
+        next;
+    }
+
+    # Expand the bounding shape to cope with diagonal edges.
+    my (@miny2, @maxy2);
+    for (my $x = $minx; $x <= $maxx; ++$x) {
+        $miny2[$x] = $miny[$x];
+        $maxy2[$x] = $maxy[$x];
+        for (my $X = $x - 1; $X <= $x + 1; ++$X) {
+            next if ($X < $minx || $X > $maxx);
+            $miny2[$x] = $miny[$X] if ($miny[$X] < $miny2[$x]);
+            $maxy2[$x] = $maxy[$X] if ($maxy[$X] > $maxy2[$x]);
+        }
+    }
+
+    for (my $x = $minx; $x <= $maxx; ++$x) {
+        for (my $y = $miny2[$x]; $y <= $maxy2[$x]; ++$y) {
+            push(@{$tiles->[$x]->[$y]}, $S);
+        }
+    }
+
+    ++$n;
+    STDERR->printf("\rfilling buckets: %d/%d shapes", $n, scalar(@shapes)) if (0 == ($n % 100));
+}
+STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
+
+# Pass 3:
+# Compute area parents for those which should have parents.
+print STDERR "finding parent areas... ";
+my %parentmap = qw(
+        CED CTY
+        DIW DIS
+        LBW LBO
+        MTW MTD
+        DIS CTY
+        UTW UTA
+        UTE UTA
+    );
+$n = 0;
+foreach my $S (@shapes) {
+    ++$n;
+    STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes; total p-in-p tests: %d; average tests/query = %f", $n, scalar(@shapes), $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
+    next if (!exists($parentmap{$S->[1]}));
+
+    # If this shape has a proper ONS code, use it to locate its parent.
+    my $pid = undef;
+    my $ptype = $parentmap{$S->[1]};
+    if ($S->[9] ne '999999') {
+        my $newcode = substr($S->[9], 0, length($S->[9]) - 2);
+        if (exists($onscode_to_shape{$newcode})) {
+            my $s = $onscode_to_shape{$newcode};
+            $pid = $s->[0] if ($s->[1] eq $ptype);
+        }
+    }
+    
+    # Otherwise do it the slow way.
+    if (!defined($pid)) {
+        my %areas = find_containing_areas($S->[7], $S->[8]);
+        if (exists($areas{$ptype})) {
+            $pid = $areas{$ptype}->[0];
+        } else {
+            warn "$S->[1] shape $S->[0] has no $ptype parent\n" unless (defined($pid));
+        }
+    }
+
+    $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if (defined($pid));
+}
+$dbh->commit();
+STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes));
+
+# Reset statistics.
+$total_shape_tests = $total_queries = 0;
+
+# Read list of postcodes and coordinates, do point-in-polygon tests for each
+# one.
+my $pcid = 1;
+{
+    local $/ = "\r\n";
+    my $n = 0;
+
+    # Cache area result between postcode tests for speed.
+    my %areas = map { $_ => undef } @interesting_areas;
+
+    while (defined(my $line = <STDIN>)) {
+        chomp $line;
+        my @x = split(/,/, $line);
+        
+        my ($pc, $qual, $E, $N) = ($x[0], $x[1], $x[10], $x[11]);
+        $pc =~ s/[" ]//g;
+
+        next if ($pc =~ m#^BT#          # NI
+                || $qual == 90);        # no coordinates
+        
+        %areas = find_containing_areas($E, $N, \%areas);
+
+        # Sanity checks.
+        foreach my $musthave (qw(WMC EUR)) {
+            warn "no $musthave for $pc ($E, $N)\n" unless (defined($areas{$musthave}));
+        }
+
+        foreach my $bothneither ([qw(DIS DIW)], [qw(CTY CED)], [qw(GLA LAC)], [qw(LBO LBW)], [qw(MTD MTW)], [qw(SPE SPC)], [qw(WAE WAC)], [qw(DIS CTY)]) {
+            # Locations in the Scilly Isles have a county ("Isles of Scilly")
+            # but no CEDs.
+            next if ($bothneither->[0] eq 'CTY' and $pc =~ m#^TR2#);
+        
+            warn "$bothneither->[0] but no $bothneither->[1] for $pc ($E, $N)\n" if (defined($areas{$bothneither->[0]}) and !defined($areas{$bothneither->[1]}));
+            warn "$bothneither->[1] but no $bothneither->[0] for $pc ($E, $N)\n" if (defined($areas{$bothneither->[1]}) and !defined($areas{$bothneither->[0]}));
+        }
+
+        foreach my $oneof ([qw(LBO UTA DIS MTD)], [qw(LAC SPC WAC)], [qw(CTY UTA MTA)]) {
+            my @a = grep { defined($areas{$_}) } @$oneof;
+            warn join(" ", @a) . " for $pc ($E, $N)\n" if (@a > 1);
+        }
+        
+        $dbh->do('insert into postcode (postcode, id, easting, northing) values (?, ?, ?, ?)', {}, $pc, $pcid, $E, $N);
+        
+        foreach my $S (grep { defined($_) } values %areas) {
+            $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->[0]);
+        }
+
+        ++$pcid;
+
+        ++$n;
+        if (0 == ($n % 100)) {
+            $dbh->commit();
+            STDERR->printf("\r%d postcodes (%s); total p-in-p tests: %d; average tests/query = %f", $n, $pc, $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
+        }
+    }
+    STDERR->printf("\r[2K%d postcodes\n", $n);
+}
+
+$dbh->commit();
+$dbh->disconnect();
