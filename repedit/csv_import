@@ -1,0 +1,251 @@
+#!/usr/bin/perl -w
+#
+# csv_import:
+# Import outside supplier's data from a CSV file into the editing database.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: csv_import,v 1.1 2004-12-15 18:36:01 chris Exp $';
+
+use strict;
+require 5.8.0;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../perllib";
+
+use Encode qw(decode);
+use Getopt::Long;
+use IO::Handle;
+use IO::File;
+use Pod::Usage;
+use Text::CSV_XS;
+
+use mySociety::VotingArea;
+
+# Nice tidy UNIX-style errors naming the guilty program.
+$SIG{__DIE__} = sub ($) {
+        my ($msg) = @_;
+        chomp($msg);
+        $msg =~ s# at .+ line \d+##;
+        print STDERR "csv_import: $msg\n";
+        exit(1);
+    };
+
+my $headerlines = 0;
+my ($fields, $area2, $areatypes);
+my $charset = 'cp1252';
+my $help;
+
+# Try to handle getopt errors uniformly.
+{
+    local $SIG{__WARN__} = sub ($) {
+        my ($msg) = @_;
+        $msg =~ s#^([A-Z])#lc($1)#e;
+        die "$msg";
+    };
+
+    if (!GetOptions (
+            'headerlines=i' =>  \$headerlines,
+            'fields=s' =>       \$fields,
+            'area2=s' =>        \$area2,
+            'areatypes=s' =>    \$areatypes,
+            'charset=s' =>      \$charset,
+            'help' =>           \$help
+        )) {
+        die "bad options; try --help for help";
+    }
+}
+
+if ($help) {
+    pod2usage(-exitval => 0, -verbose => 1);
+    exit(0);
+}
+
+# Check that the specified character encoding is sane.
+decode($charset, 'A') or die "$charset: bad character set";
+
+my %allowedfields = map { $_ => 1 } qw(forename surname name area1 area2 party email fax);
+my @fields;
+my %fieldmap;
+if (!defined($fields)) {
+    die "please give a --fields option to indicate the layout of the input data\n";
+} else {
+    @fields = split(/,/, $fields);
+
+    # Check that field names are valid.
+    my @bad = grep { !exists($allowedfields{$_}) } @fields;
+    die "bad field names " . join(", ", map { "'$_'" } @bad) if (@bad);
+    
+    %fieldmap = map { $fields[$_] => $_ } (0 .. $#fields);
+
+    # Check that we have a sensible combination of fields.
+    die "no elected body area (area2) specified\n" if (!defined($area2) and !exists($fieldmap{area2}));
+    die "no electoral area (area1) field specified\n" if (!exists($fieldmap{area1}));
+
+    die "no name field (or forename-surname fields) specified\n" if (!exists($fieldmap{name}) && !(exists($fieldmap{forename}) && exists($fieldmap{surname})));
+    die "name and forename-surname fields specified\n" if (exists($fieldmap{name}) && (exists($fieldmap{forename}) || exists($fieldmap{surname})));
+
+    # regard party, fax, email as optional
+}
+
+my @areatypes;
+if (!defined($areatypes)) {
+    die "please give a --areatypes option to indicate the electoral area types in this data\n";
+} else {
+    @areatypes = split(/,/, $areatypes);
+    my @bad = grep { !exists($mySociety::VotingArea::known_types{$_}) } @areatypes;
+    die "bad area types " . join(", ", map { "'$_'"} @bad) if (@bad);
+}
+
+my $filename = "(standard input)";
+my $fh = \*STDIN;
+if (@ARGV > 1) {
+    die "spurious trailing arguments on command line; try --help for help\n";
+} elsif (@ARGV == 1) {
+    $filename = $ARGV[0];
+    $fh = new IO::File($filename, O_RDONLY) or die "$filename: $!\n";
+}
+
+my $lineno = 1;
+
+for (my $i = 0; $i < $headerlines; ++$i) {
+    my $x = $fh->getline();
+    if (!defined($x)) {
+        if ($fh->eof()) {
+            die "$filename:$lineno: EOF while reading header lines\n";
+        } else {
+            die "$filename:$lineno: $! while reading header lines\n";
+        }
+    }
+    ++$lineno;
+}
+
+
+my $c = new Text::CSV_XS({ binary => 1 });
+
+while (defined(my $line = $fh->getline())) {
+    ++$lineno;
+    chomp($line);
+    $c->parse($line) or die "$filename:$lineno: invalid CSV row\n";
+
+    my @f = map { defined($_) and $_ eq '' ? undef : $_ } $c->fields();
+    for (my $i = 0; $i < @f; ++$i) {
+        if (defined($f[$i])) {
+            $f[$i] = decode($charset, $f[$i]) or die "$filename:$lineno: unable to decode value of field " . ($i + 1) . " from charset '$charset'\n";
+        }
+    }
+
+    my %data;
+    foreach (@fields) {
+        $data{$_} = $f[$fieldmap{$_}];
+    }
+
+    print join("\n", map { defined($data{$_}) ? "$_ = $data{$_}" : "$_ = n/a" } @fields), "\n\n";
+}
+
+if ($fh->error()) {
+    die "$filename:$lineno: $! while reading data\n";
+}
+
+$fh->close();
+
+
+__END__
+
+=head1 NAME
+
+csv_import
+
+=head1 SYNOPSIS
+
+csv_import --help | [OPTIONS] [FILE]
+
+=head1 DESCRIPTION
+
+Import new data from a comma-separated values file into the DaDem editing
+database for amendment. Data are read from the named FILE, or from standard
+input if no FILE is specified.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help
+
+Display information about using the program.
+
+=item --headerlines NUM
+
+Skip NUM lines of header information at the beginning of the file (default is
+0).
+
+=item --fields FIELD,FIELD,...
+
+Indicate that the data are composed columns representing the FIELDs given.
+Possible values for each FIELD are:
+
+=over 4
+
+=item forename
+
+representative's first name;
+
+=item surname
+
+... surname;
+
+=item name
+
+... full name;
+
+=item area1
+
+... electoral area name (e.g. ward, electoral division or constituency);
+
+=item area2
+
+... elected body name (e.g. county or district council name);
+
+=item party
+
+... political party;
+
+=item email
+
+... preferred contact email address;
+
+=item fax
+
+... preferred fax number.
+
+=back
+
+=item --area2 NAME
+
+Use NAME as the value of the "area2" field for all rows (e.g. "House of
+Commons" or "Welsh Assembly").
+
+=item --areatypes TYPE[,...]
+
+Indicate that each named "area1" in this data may be one of the listed TYPEs
+of area (e.g. "CED" for county electoral division, "DIS" for district ward;
+"WMC" for Westminster constituency; etc.)
+
+=item --charset CHARSET
+
+Assume that the input data are in the named CHARSET (default is cp1252).
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright (c) 2004 UK Citizens Online Democracy
+
+=head1 VERSION
+
+$Id: csv_import,v 1.1 2004-12-15 18:36:01 chris Exp $
+
