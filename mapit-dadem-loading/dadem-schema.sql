@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.24 2005-02-07 17:31:07 francis Exp $
+-- $Id: dadem-schema.sql,v 1.25 2005-02-08 15:06:55 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -54,8 +54,8 @@ create table representative_edited (
     note text not null
 );
 
--- original input data from CSV file, only "council" name matched into standard
--- form, "ward" names could contain anything.
+-- original input data from CSV file (from GovEval), only "council" name
+-- matched into standard form, "ward" names could contain anything.
 create table raw_input_data (
     raw_id serial not null primary key,
     ge_id integer not null,
@@ -143,6 +143,16 @@ create table raw_process_status (
 
 create index raw_process_status_status_idx on raw_process_status(status);
 
+-- data that users have entered on the website to correct representatives
+create table user_corrections (
+    representative_id integer,  -- can be null for "add" items
+    alteration text not null check (alteration in('modify','delete','add')),
+    name text not null,
+    party text not null,
 
+    user_notes text not null,
+    user_email text not null,
+    whenentered integer not null
+);
 
 

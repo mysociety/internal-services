@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.28 2005-02-07 13:46:02 francis Exp $
+# $Id: DaDem.pm,v 1.29 2005-02-08 15:06:55 francis Exp $
 #
 
 package DaDem;
@@ -338,7 +338,24 @@ sub get_representatives_info ($) {
     return { (map { $_ => get_representative_info($_) } @$ary) };
 }
 
-=item get_electedbody_info 
+
+=item store_user_correction ID CHANGE NAME PARTY NOTES EMAIL
+
+Records a correction to representative data made by a user on the website.
+CHANGE is either "add", "delete" or "modify".  NAME and PARTY are new values.
+NOTES and EMAIL are fields the user can put extra info in.
+
+=cut
+sub store_user_correction ($$$$$$) {
+    my ($id, $change, $name, $party, $notes, $email) = @_;
+
+    dbh()->do('insert into user_corrections 
+        (representative_id, alteration, name, party, user_notes, user_email, whenentered)
+        values (?, ?, ?, ?, ?, ?, ?)', {},
+        $id, $change, $name, $party, $notes, $email, time());
+    dbh()->commit();
+}
+
 
 =item admin_get_stats
 
