@@ -1,0 +1,57 @@
+#!/usr/bin/perl -w
+#
+# getmpphotos:
+# Incredibly hacky script to retrieve MP photos from TWFY.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: getmpphotos,v 1.1 2005-02-10 00:46:58 chris Exp $';
+
+use DBI;
+use HTML::Entities;
+use LWP::Simple;
+
+my $db_dadem = DBI->connect('dbi:Pg:dbname=dadem', 'pgsql', '', { RaiseError => 1 });
+my $db_mapit = DBI->connect('dbi:Pg:dbname=mapit', 'pgsql', '', { RaiseError => 1 });
+
+my $consts = $db_mapit->selectall_arrayref(q#select area.id, area_name.name from area, area_name where area.type = 'WMC' and area_name.area_id = area.id and area_name.name_type = 'F'#);
+
+my $mps = $db_dadem->selectall_hashref(q#select id, area_id from representative#, 'area_id');
+
+foreach (@$consts) {
+    my ($id, $name) = @$_;
+
+    $name =~ s/Ashton under Lyne/Ashton-under-Lyne/;
+    $name =~ s/Edinburgh /Edinburgh, /;
+    $name =~ s/Glasgow /Glasgow, /;
+    $name =~ s/Ruislip-/Ruislip - /;
+    $name =~ s/^The Wrekin$/Wrekin, The/;
+    $name =~ s/^(Chester|Durham|York)$/$1, City of/;
+    $name =~ s/^Ynys Mon$/Ynys Môn/;
+
+#   my $mpid = $db_dadem->selectrow_array('select id from representative where area_id = ?', {}, $id);
+    my $mpid = $mps->{$id}->{'id'};
+
+    next if (-e "mps/$mpid.jpg");
+
+    # Get photo URL
+    my $n = $name;
+    $n =~ s# and # & #;
+    encode_entities($n);
+    $n =~ s#([^A-Z0-9])#sprintf('%%%02x', ord($1))#gei;
+    my $d = get("http://www.theyworkforyou.com/mp/?c=$n");
+    my ($img) = ($d =~ m#(/images/mps/\d+\.jpg)#);
+
+    if ($img) {
+        print join(" ", @$_), " $mpid $img\n";
+        system("wget -O mps/$mpid.jpg -q http://www.theyworkforyou.com$img &")
+            unless (-e "mps/$mpid.jpg");
+    } else {
+        warn "$name -- no image -- http://www.theyworkforyou.com/mp/?c=$n\n";
+    }
+}
+
+$db_dadem->disconnect();
+$db_mapit->disconnect();
