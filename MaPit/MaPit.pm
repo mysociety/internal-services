@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.14 2005-02-04 12:41:05 chris Exp $
+# $Id: MaPit.pm,v 1.15 2005-02-10 19:10:23 chris Exp $
 #
 
 package MaPit;
@@ -62,7 +62,8 @@ my %special_cases = (
 
         mySociety::VotingArea::LAE_AREA_ID => {
             type => 'LAE',
-            name => 'London Assembly' # Proportionally elected area
+            name => 'London Assembly', # Proportionally elected area
+            parent_area_id => mySociety::VotingArea::LAS_AREA_ID
         },
 
         mySociety::VotingArea::LAS_AREA_ID => {
