@@ -9,11 +9,13 @@
 #
 # This proceeds much as in process_codepoint_ni.
 #
+# XXX This doesn't work. Difference between real and CAS wards?
+#
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.1 2004-12-02 18:47:27 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.2 2004-12-02 21:29:09 chris Exp $';
 
 use strict;
 
@@ -23,7 +25,7 @@ use Text::CSV_XS;
 
 use Common;
 
-die "arguments are Postgres database name and ONS codes CSV file" unless (@ARGV == 3);
+die "arguments are Postgres database name and ONS codes CSV file" unless (@ARGV == 2);
 
 my ($dbname, $onscodesfile) = @ARGV;
 
@@ -34,14 +36,16 @@ my %have_name = ( );
 foreach (read_csv_file($onscodesfile, 1)) {
     while (@$_ > 0) {
         my $c = shift(@$_);
+        $c =~ s# ##g;   # we ignore the spaces everywhere
         my $n = shift(@$_);
         next if (exists($have_name{$c}));
         my $id = $dbh->selectrow_array('select id from area where ons_code = ?', {}, $c);
         if (!defined($id)) {
             warn "no area for $c ($n)\n";
+        } else {
+            $dbh->do(q#delete from area_name where area_id = ? and name_type = 'S'#, {}, $id);
+            $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $n);
         }
-        $dbh->do(q#delete from area_name where area_id = ? and name_type = 'S'#, {}, $id);
-        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $n);
         $have_name{$c} = 1;
     }
 }

@@ -5,9 +5,9 @@
 # generate a mapping from postcodes to electoral geography.
 #
 # Call with three arguments:
+#   - name of MaPit Postgresql database;
 #   - CSV file generated from the ward to constituency mapping in SNAC;
-#   - CSV file of postcodes and other data from CodePoint;
-#   - SQLite database used to hold MaPit data.
+#   - CSV file of postcodes and other data from CodePoint.
 #
 # All NI postcodes begin BT, so the appropriate file from the CodePoint
 # distribution is BT.CSV. The mapping from ward codes to constituencies is
@@ -18,7 +18,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.3 2004-11-30 14:52:52 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.4 2004-12-02 21:29:09 chris Exp $';
 
 use strict;
 
@@ -26,64 +26,31 @@ use DBI;
 use IO::File;
 use Text::CSV_XS;
 
-sub chomp2 {
-    $_ =~ s#\r\n$##s;
-    $_ =~ s#\n$##s;
-}
-
-my %code_to_id;
-my $aid = 50000;
-sub area_id ($) {
-    my ($code) = @_;
-    if (!exists($code_to_id{$code})) {
-        $code_to_id{$code} = $aid++;
-    }
-    return $code_to_id{$code};
-}
+use Common;
 
 # Text::CSV excludes characters outside the ASCII range from CSV values (bug
 # reported two years ago, never fixed). Text::CSV_XS also has this behaviour
 # by default, but offers options for a slightly less inept behaviour.
 my $c = new Text::CSV_XS({ binary => 1 });
 
-die "arguments are MaPit SQLite database, ONS codes CSV file, and CodePoint CSV file" unless (@ARGV == 3);
+die "arguments are Postgres database name, ONS codes CSV file, and CodePoint CSV file" unless (@ARGV == 3);
 
-my ($dbfile, $onscodesfile, $codepointfile) = @ARGV;
-
-# Open the database, and delete the old areas and postcodes.
-my $dbh = DBI->connect("dbi:SQLite:dbname=$dbfile", "", "", { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
-
-# All NI postcodes begin "BT".
-print STDERR "removing any existing NI postcodes/areas... ";
-my $stmt = $dbh->prepare(q#select id from postcode where postcode like 'BT%'#);
-$stmt->execute();
-while (my $id = $stmt->fetchrow_array()) {
-    $dbh->do('delete from postcode_area where postcode_id = ?', {}, $id);
-}
-$dbh->do(q#delete from postcode where postcode like 'BT%'#);
-
-# Get rid of all areas which make up Northern Ireland.
-$stmt = $dbh->prepare(q#select id from area where country = 'N'#);
-$stmt->execute();
-while (my $id = $stmt->fetchrow_array()) {
-    $dbh->do('delete from area_name where area_id = ?', {}, $id);
-}
-$dbh->do(q#delete from area where country = 'N'#);
-print STDERR "done.\n";
+my ($dbname, $onscodesfile, $codepointfile) = @ARGV;
+my $dbh = connect_to_database($dbname);
 
 # Special case: create a Euro-region.
-my $euro_region_id = area_id('EURO_REGION');   # all other regions have a proper code...
+my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'F', 'EUR', undef, undef, undef);
+    # NIA etc.?
+country($dbh, $euro_area_id, 'N');
 
 my %name;
 my %ward_to_const;
 my %ward_to_district;
 
+my (%aid, %wid, %cid, %eid);
+
 print STDERR "reading ward/constituency codes... ";
-my $f = new IO::File($onscodesfile) or die "$onscodesfile: $!";
-$f->getline();
-while (defined($_ = $f->getline())) {
-    chomp2;
-    $c->parse($_) or die "unable to parse '$_'";
+foreach (read_csv_file($onscodesfile, 1)) {
     # Fields are:
     #   ONS constituency code
     #                    name
@@ -91,7 +58,7 @@ while (defined($_ = $f->getline())) {
     #            name
     #   ONS LA/UA code
     #             name
-    my ($ccode, $cname, $wcode, $wname, $acode, $aname) = $c->fields();
+    my ($ccode, $cname, $wcode, $wname, $acode, $aname) = @$_;
 
     # load Northern Ireland only
     next if ($wcode !~ m/^95/);
@@ -103,26 +70,21 @@ while (defined($_ = $f->getline())) {
     $wcode =~ s/ //g;
 
     if (!exists($name{$acode})) {
-        my $id = area_id($acode);
-        $dbh->do(q#insert into area (id, parent_area_id, unit_id, ons_code, type, country) values (?, null, null, ?, ?, 'N')#, {}, $id, $acode, 'LGD');
-        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $aname);
+        country($dbh, $aid{$acode} = get_area_id($dbh, $aname, 'S', 'LGD', $acode, undef, undef), 'N');
     }
 
     if (!exists($name{$wcode})) {
-        my $id = area_id($wcode);
-        $dbh->do(q#insert into area (id, parent_area_id, unit_id, ons_code, type, country) values (?, ?, null, ?, ?, 'N')#, {}, $id, $code_to_id{$acode}, $wcode, 'LGW');
-        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $wname);
+        country($dbh, $wid{$wcode} = get_area_id($dbh, $wname, 'S', 'LGW', $wcode, undef, undef), 'N');
+        $dbh->do(q#update area set parent_area_id = (select id from area where ons_code = ?) where id = ?#, {}, $acode, $wid{$wcode});
     }
 
     if (!exists($name{$ccode})) {
-        my $id = area_id($ccode);
-        $dbh->do(q#insert into area(id, parent_area_id, unit_id, ons_code, type, country) values (?, null, null, ?, ?, 'N')#, {}, $id, $ccode, 'WMC');
-        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $cname);
+        country($dbh, $cid{$ccode} = get_area_id($dbh, $wname, 'S', 'WMC', $ccode, undef, undef), 'N');
         # Northern Ireland Assembly electoral areas are coterminous with
-        # Westminster constituencies.
-        $id = area_id("${ccode}_NIE");
-        $dbh->do(q#insert into area(id, parent_area_id, unit_id, ons_code, type, country) values (?, null, null, null, ?, 'N')#, {}, $id, 'NIE');
-        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $cname);
+        # Westminster constituencies; note that they have no identifying codes
+        # at all, but in memory index them by the ONS code of the coincident
+        # constituency.
+        country($dbh, $eid{$ccode} = get_area_id($dbh, $wname, 'S', 'NIE', undef, undef, undef), 'N');
     }
 
     $name{$ccode} ||= $cname;
@@ -132,8 +94,6 @@ while (defined($_ = $f->getline())) {
     $ward_to_const{$wcode} = $ccode;
     $ward_to_district{$wcode} = $acode;
 }
-die "$onscodesfile: $!" if ($f->error());
-$f->close();
 print STDERR "done.\n";
 
 my %unused = map { $_ => 1 } grep(/^95/, keys %ward_to_const);
@@ -143,9 +103,9 @@ my @incomplete;
 my $nopos = 0;
 my %cache;
 
-$f = new IO::File($codepointfile) or die "$codepointfile: $!";
+my $f = new IO::File($codepointfile) or die "$codepointfile: $!";
 while (defined($_ = $f->getline())) {
-    chomp2;
+    chomp2($_);
     $c->parse($_) or die "unable to parse '$_'";
     # Fields:
     #   0       postcode
@@ -272,19 +232,18 @@ push(@postcode, @reassigned);
 
 # Now @postcode contains all the postcodes for which we have ward codes.
 print STDERR "writing postcodes into database...\n";
-my $pcid = 2000000;
 my $n = 0;
 foreach (@postcode) {
     ++$n;
     printf STDERR "\r%d/%d", $n, scalar(@postcode) if (0 == ($n % 100));
     my ($pc, $E, $N, $ward) = @$_;
 
-    ++$pcid;
-    $dbh->do('insert into postcode (postcode, id, easting, northing) values (?, ?, ?, ?)', {}, $pc, $pcid, $E, $N);
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, area_id($ward));
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, area_id($ward_to_const{$ward}));
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, area_id("$ward_to_const{$ward}_NIE"));
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, area_id($ward_to_district{$ward}));
+    my $pcid = get_postcode_id($dbh, $pc, $E, $N);
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $wid{$ward});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $cid{$ward_to_const{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eid{$ward_to_const{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $aid{$ward_to_district{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $euro_area_id);
 }
 printf STDERR "\r%d/%d\n", $n, scalar(@postcode);
 print STDERR "committing changes... ";

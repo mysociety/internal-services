@@ -30,7 +30,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.9 2004-12-02 16:34:59 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.10 2004-12-02 21:29:09 chris Exp $';
 
 use strict;
 
@@ -306,7 +306,7 @@ foreach my $dir (@ARGV) {
             my $row;
             if (defined($D->{CODE}) and exists($onscode_to_shape{$D->{CODE}})) {
                 $row = $onscode_to_shape{$D->{CODE}};
-print STDERR "\nsecond shape for ONS code $D->{CODE}; combining\n";
+                print STDERR "\nsecond shape for ONS code $D->{CODE}; combining\n";
                 if ($name ne $row->[12]) {
                     print STDERR "\nONS code $D->{CODE} is used for '$name' and '$row->[12]'\n";
                     $row = undef;
@@ -389,7 +389,7 @@ foreach my $row (@shapes) {
     # Determine the area ID for this area in the database. If this area
     # corresponds exactly to an area we already know about, recycle the ID;
     # otherwise, create a new one.
-    $row->[0] = get_area_id($dbh, $row->[12], $row->[1], $row->[9], $row->[11], $digest);
+    $row->[0] = get_area_id($dbh, $row->[12], 'O', $row->[1], $row->[9], $row->[11], $digest);
     STDERR->printf("\rsaving shapes in database: %d/%d", ++$n, scalar(@shapes));
 }
 
@@ -651,7 +651,7 @@ foreach my $S (@shapes) {
     }
 
     $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if ($needparent and defined($pid));
-    $dbh->do('update area set country = ? where id = ?', {}, $country, $S->[0]) if (defined($country));
+    country($dbh, $S->[0], $country) if (defined($country));
 }
 $dbh->commit();
 STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes));
