@@ -1,0 +1,47 @@
+#!/usr/bin/perl -w
+#
+# councils-without-contacts:
+#
+# Copyright (c) 2004 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: councils-without-contacts,v 1.1 2004-11-22 13:12:29 chris Exp $';
+
+use strict;
+
+use IO::Handle;
+use Text::CSV;
+
+my $C = new Text::CSV;
+
+my (%cllrs, %contacts, %ccontact);
+
+while (my $l = STDIN->getline()) {
+    chomp($l);
+    $C->parse($l) or die "unable to parse CSV line '$l'";
+    my ($first, $last, $ward, $council, $party, $fax, $email, $cfax, $cemail) = $C->fields();
+    $fax =~ s/\s//;
+    $email =~ s/\s//;
+    $cfax =~ s/\s//;
+    $cemail =~ s/\s//;
+    ++$cllrs{$council};
+    $contacts{$council} ||= 0;
+    ++$contacts{$council} if ($fax ne '' or $email ne '');
+    $ccontact{$council} = 1 if ($cfax ne '' or $cemail ne '');
+}
+
+print "Councils for which some councillors have no contact information, and there is\nno contact information for the council as a whole:\n";
+foreach (sort keys %cllrs) {
+    print "    $_\n" if ($contacts{$_} < $cllrs{$_} && !$ccontact{$_});
+}
+
+print "\nCouncils for which there is missing contact information for some councillors:\n";
+foreach (sort keys %cllrs) {
+    print "    $_\n" if ($contacts{$_} < $cllrs{$_});
+}
+
+print "\nCouncils for which there is no contact information for the council as a whole:\n";
+foreach (sort keys %cllrs) {
+    print "    $_\n" if (!exists($ccontact{$_}));
+}
