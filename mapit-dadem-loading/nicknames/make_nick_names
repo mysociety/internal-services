@@ -13,7 +13,7 @@
 # http://policy.ssa.gov/poms.nsf/lnx/0102528008?opendocument
 # (in the public domain as per http://www.ssa.gov/policy/about/copyright.html)
 
-my $rcsid = ''; $rcsid .= '$Id: make_nick_names,v 1.2 2005-02-01 23:01:48 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: make_nick_names,v 1.3 2005-02-02 00:10:02 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -53,23 +53,6 @@ foreach my $filename (qw(ssa-female.html ssa-male.html)) {
     }
 }
 
-# Print it out
-print "\"Nickname\", \"Full form\"\n";
-foreach my $set (@nick_sets) {
-    my $key;
-    foreach my $value (@$set) {
-        die if $value =~ m/"/;
-        if (!defined($key)) {
-            $key = $value;
-            next;
-        }
-        print "\"$value\",\"$key\"\n";
-    }
-}
-
-# These not used for now unless we need them, was harder to parse
-# than the SSA nicknames file.
-=comment
 # Trish
 foreach my $filename (qw(trish-female.html trish-male.html)) {
     open TRISH, "<$filename";
@@ -80,20 +63,50 @@ foreach my $filename (qw(trish-female.html trish-male.html)) {
     # ... read cnicks
     while (<TRISH>) {
         last if m/copyright 1999/;
+        last if m/Welcome Page/;
         s/<br>//g;
         s/<p>//g;
         s/&nbsp;//g;
-        if (m/--/) {
-            my ($key, $values) = m/(.*)--(.*)/;
-            $values =~ s/\bsee .*//;
-            my @keys = split m#/#, $key;
-            foreach $key (@keys) {
-                add_nicks($key, $values);
-            }
-            print "k: $key v: $values\n";
-        } else {
-            die "comma in line without --, '$_'" if m/,/;
-        }
+        s/\b[sS]ee .*//;
+        s/\bnames starting .*//;
+        s/\bmay be .*//;
+        s/\bsometimes .*//;
+        s/\betc\b[.]?//g;
+        s/\([fm]\)//g;
+        $_ = mySociety::StringUtils::trim($_);
+        next if ($_ eq "");
+        next if m/^\*/;
+        next if m/[<>]/;
+        next if m/~~/;
+        next if m/^[A-Z] \(female\)$/;
+        my @names = split m#(?:/|,|--|-|\bor\b| )#, $_;
+        @names = map { mySociety::StringUtils::trim($_) } @names;
+        @names = grep { $_ ne "" } @names;
+        my $key = shift @names;
+#        print $key;
+#        print Dumper(@names);
+        add_nicks($key, join(",", @names));
+        #do { print "$_\n" if m/ /; } for @names;
+#        print Dumper(\@names);
     }
 }
-=cut
+
+# Print it out
+print "\"Nickname\", \"Full form\"\n";
+my $done;
+foreach my $set (@nick_sets) {
+    my $key;
+    foreach my $value (@$set) {
+        die if $value =~ m/"/;
+        if (!defined($key)) {
+            $key = $value;
+            next;
+        }
+        my $line = "\"$value\",\"$key\"\n";
+        # keep only unqiue lines (copied between two sources of names)
+        next if exists($done->{$line});
+        print $line;
+        $done->{$line} = 1;
+    }
+}
+
