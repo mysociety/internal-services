@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.7 2004-12-03 22:00:29 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.1 2004-12-06 14:25:55 francis Exp $';
 
 use strict;
 
