@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.8 2004-12-03 15:10:53 chris Exp $
+# $Id: Common.pm,v 1.9 2004-12-03 21:04:33 chris Exp $
 #
 
 package Common;
@@ -100,7 +100,7 @@ sub get_area_id ($$$$$$$) {
     $id = $dbh->selectrow_array(q#select nextval('area_id_seq')#);
     $dbh->do('insert into area (id, unit_id, ons_code, geom_hash, type, generation_low, generation_high) values (?, ?, ?, ?, ?, ?, ?)',
             {}, $id, $unitid, $onscode, $geomhash, $type, $gen, $gen);
-    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'O', ?)#, {}, $id, $name);
+    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, ?, ?)#, {}, $id, $nametype, $name);
 
     return $id;
 }
