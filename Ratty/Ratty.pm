@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.3 2004-11-12 06:11:22 francis Exp $
+# $Id: Ratty.pm,v 1.4 2004-11-12 10:02:33 francis Exp $
 #
 
 package Ratty;
@@ -52,7 +52,7 @@ sub dbh() {
                         mySociety::Config::get('RATTY_DB_PASS'),
                         { RaiseError => 1, AutoCommit => 0 });
 
-    #DBI->trace(1);
+#    DBI->trace(1);
     return $dbh;
 }
 
@@ -235,12 +235,103 @@ example value of that field.  Structure is an array of pairs of (field,
 example).
 
 =cut
-sub admin_available_fields () {
+sub admin_available_fields ($) {
     my ($self) = @_;
+    dbh()->commit();
     my $result = dbh()->selectall_arrayref('select field, example from available_fields');
-    warn Dumper($result);
     return $result;
 }
 
+=item admin_update_rule VALS CONDS
 
+I<Instance method.> Either creates a new rule or updates an existing
+one.  VALS is a hashref containing id, requests, interval, sequence and
+note (see schema.sql).  CONDS is an arrayref of conditions, each a hash
+containing field, condition and value.
+
+=cut
+sub admin_update_rule ($$$) {
+    my ($self, $vals, $conds) = @_;
+    dbh()->commit();
+
+    my $return = undef;
+
+    my $result = 0;
+    if ($vals->{'rule_id'}) {
+        $result = dbh()->selectrow_arrayref('select id from rule where id = ? for update', {}, $vals->{'rule_id'});
+    }
+
+    if ($result) {
+        dbh()->do('update rule set requests = ?,
+            interval = ?, sequence = ?, note = ? where id = ?', {}, $vals->{'requests'},
+            $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'},
+            $vals->{'rule_id'});
+    } else {
+        dbh()->do('insert into rule (requests, interval, sequence, note)
+            values (?, ?, ?, ?)', {}, $vals->{'requests'},
+            $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'});
+        $return = dbh()->selectrow_array("select currval('rule_id_seq')");
+    }
+
+    warn(Dumper($conds));
+    dbh()->do('delete from condition where rule_id = ?', {}, $vals->{'rule_id'});
+    foreach my $cond (@$conds) {
+        dbh()->do('insert into condition (rule_id, field, condition, value) values (?,?,?,?)',
+            {}, $vals->{'rule_id'}, $cond->{'field'},
+            $cond->{'condition'}, $cond->{'value'});
+    }
+    
+    dbh()->commit();
+    return $return;
+}
+
+=item admin_get_rules
+
+I<Instance method.> Returns array of hashes of data about all rules.
+
+=cut
+sub admin_get_rules ($) {
+    my ($self) = @_;
+    
+    my $sth = dbh()->prepare('select * from rule order by sequence, note');
+    $sth->execute();
+    my @ret;
+    while (my $hash_ref = $sth->fetchrow_hashref()) {
+        push @ret, $hash_ref;
+    }
+
+    return \@ret;
+}
+
+=item admin_get_rule RULE_ID
+
+I<Instance method.> Returns hash of data about a rule.
+
+=cut
+sub admin_get_rule ($$) {
+    my ($self, $id) = @_;
+    
+    my $return = dbh()->selectall_hashref('select * from rule
+        where id = ?', 'id', {}, $id);
+    return $return->{$id};
+}
+ 
+=item admin_get_conditions RULE_ID
+
+I<Instance method.> Returns array of hashes of conditions for one rule.
+
+=cut
+sub admin_get_conditions ($$) {
+    my ($self, $id) = @_;
+    
+    my $sth = dbh()->prepare('select * from condition where rule_id = ?');
+    $sth->execute($id);
+    my @ret;
+    while (my $hash_ref = $sth->fetchrow_hashref()) {
+        push @ret, $hash_ref;
+    }
+
+    return \@ret;
+}
+  
 1;

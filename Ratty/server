@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.2 2004-11-11 18:15:14 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.3 2004-11-12 10:02:33 francis Exp $';
 
 use FCGI;
 use Ratty;
@@ -35,6 +35,18 @@ while ($req->Accept() >= 0) {
             },
             'Ratty.admin_available_fields' => sub {
                 $R->admin_available_fields(@_);
+            },
+            'Ratty.admin_update_rule' => sub {
+                $R->admin_update_rule(@_);
+            },
+            'Ratty.admin_get_rules' => sub {
+                $R->admin_get_rules(@_);
+            },
+            'Ratty.admin_get_rule' => sub {
+                $R->admin_get_rule(@_);
+            },
+            'Ratty.admin_get_conditions' => sub {
+                $R->admin_get_conditions(@_);
             }
         );
     last if ($W->changed());
