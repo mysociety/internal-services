@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.11 2005-01-19 17:02:00 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.12 2005-01-20 18:28:11 francis Exp $';
 
 use strict;
 
@@ -110,6 +110,7 @@ while (my $line = <STDIN>) {
         $finalparty = $party;
 
         $finalcons = "London Assembly" if $kind eq "lam" and $finalcons eq "Proportionally Elected Member";
+        die "Ken Livingstone is not a LAE type" if ($kind eq "lam" and $finalname eq "Ken Livingstone");
 
         $finalemail = nullify_if_null($email);
         $finalfax = nullify_if_null($fax);
