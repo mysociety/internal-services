@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.21 2005-01-12 17:40:59 francis Exp $
+# $Id: DaDem.pm,v 1.22 2005-01-17 19:28:19 matthew Exp $
 #
 
 package DaDem;
@@ -79,9 +79,9 @@ my %dummy_representatives = (
         2000005 => {
             'type' => 'WMC',
             'voting_area' => 1000006,
-            'name' => 'Andrea Bryant',
-            'method' => 'email',
-            'email' => 'Andrea.Bryant@westsussex.gov.uk'
+            'name' => 'Stom Teinberg',
+            'method' => 'fax',
+            'fax' => 'TOMS_FAX' # don't call config here as this hash is statically initialised
         },
         
         2000006 => {
@@ -135,9 +135,9 @@ my %dummy_representatives = (
         2000012 => {
             'type' => 'EUR',
             'voting_area' => 1000008,
-            'name' => 'Stom Teinberg',
-            'method' => 'fax',
-            'fax' => 'TOMS_FAX' # don't call config here as this hash is statically initialised
+            'name' => 'Andrea Bryant',
+            'method' => 'email',
+            'email' => 'Andrea.Bryant@westsussex.gov.uk'
         },
 
         # Users with bouncing email/unsendable faxes
