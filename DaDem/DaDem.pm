@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.31 2005-02-10 16:33:06 francis Exp $
+# $Id: DaDem.pm,v 1.32 2005-02-11 00:38:37 chris Exp $
 #
 
 package DaDem;
@@ -16,6 +16,7 @@ use strict;
 use DBI;
 use DBD::Pg;
 use Data::Dumper;
+use Mail::RFC822::Address;
 
 use mySociety::DaDem;
 use mySociety::DBHandle qw(dbh);
@@ -272,29 +273,27 @@ TODO: Check 'via' type as well somehow.
 
 =cut
 sub get_bad_contacts () {
-    # Get all data
-    my $reps = dbh()->selectall_hashref(q#select * from representative#, 'id');
-    my $updates = dbh()->selectall_hashref(q#select distinct on (representative_id) 
-        *, representative_id as id 
-        from representative_edited 
-        order by representative_id, order_id desc#,
-        'id');
-    do { $reps->{$_} = $updates->{$_} } for (keys %$updates);
+    # Bad SQL voodoo.
+    my $s = dbh()->prepare(q#
+            select id,
+                coalesce(representative_edited.email, representative.email) as email,
+                coalesce(representative_edited.fax, representative.fax) as fax,
+                coalesce(representative_edited.method, representative.method) as method
+            from representative left join representative_edited on representative.id = representative_edited.representative_id
+            where order_id is null or order_id = (select max(order_id) from representative_edited where representative_id = representative.id);
+        #);
 
-    # Look for bad ones
+    $s->execute();
     my @bad;
-    foreach my $rep_id (keys %$reps) {
-        my $rep = $reps->{$rep_id};
-        my $faxvalid = defined($rep->{fax}) && ($rep->{fax} =~ m/^(\+44|0)[\d\s]+\d$/);
-        my $emailvalid = defined($rep->{email}) && ($rep->{email} =~ m/^[^@\s]+@[^@\s]+$/);
+    while (my ($id, $email, $fax, $method) = $s->fetchrow_array()) {
+        my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
+        my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
 
-        if (($rep->{method} eq 'unknown')
-            or ($rep->{method} eq 'email' and (!$emailvalid))
-            or ($rep->{method} eq 'fax' and (!$faxvalid))
-            or ($rep->{method} eq 'either' and (!$faxvalid or !$emailvalid))
-        ) {
-            push @bad, $rep_id;
-        }
+        push(@bad, $id)
+            if (($method eq 'unknown')
+                or ($method eq 'email' and (!$emailvalid))
+                or ($method eq 'fax' and (!$faxvalid))
+                or ($method eq 'either' and (!$faxvalid or !$emailvalid)));
     }
 
     # Return results
