@@ -5,8 +5,12 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.4 2005-03-22 12:40:26 chris Exp $
+-- $Id: schema.sql,v 1.5 2005-03-23 15:16:03 chris Exp $
 --
+
+create table secret (
+    secret text not null
+);
 
 -- A message represents a single message which may be sent to one or more
 -- recipients.
