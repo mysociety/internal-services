@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.8 2005-03-31 09:56:21 chris Exp $
+# $Id: EvEl.pm,v 1.9 2005-03-31 11:25:16 chris Exp $
 #
 
 package EvEl::Error;
@@ -34,6 +34,7 @@ use Mail::RFC822::Address;
 use MIME::Entity;
 use MIME::Words;
 use Net::SMTP;
+use Text::Wrap ();
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
@@ -345,10 +346,39 @@ sub format_email_address ($$) {
     return sprintf('%s <%s>', format_mimewords($name), $addr);
 }
 
+sub do_one_substitution ($$) {
+    my ($p, $n) = @_;
+    throw EvEl::Error("Substitution parameter '$n' is not present")
+        unless (exists($p->{$n}));
+    return $p->{$n};
+}
+
+# do_template_substitution TEMPLATE PARAMETERS
+#
+sub do_template_substitution ($$) {
+    my ($body, $params) = @_;
+    $body =~ s#<\?=\$values\['([^']+)'\]\?>#do_one_substitution($params, $n)#ges;
+
+    my $subject;
+    if ($body =~ m#^Subject: ([^\n]*)\n\n#s) {
+        $subject = $1;
+        $body =~ s#^Subject: ([^\n]*)\n\n##s;
+    }
+
+    # Only treat paragraph breaks as significant.
+    $body =~ s#(?<!\n)\s*\n\s*(?!\n)# #gs;
+
+    # Wrap text to 72-column lines.
+    local($Text::Wrap::columns = 72);
+    local($Text::Wrap::huge = 'overflow');
+
+    return ($subject, Text::Wrap::wrap('', '', $text));
+}
 
 #
 # Interface
 #
+
 =head1 FUNCTIONS
 
 =head2 Formatting mails
@@ -364,28 +394,39 @@ associative array containing elements as follows:
 
 =item _body_
 
-text of the message to send, as a UTF-8 string with "\n" line-endings;
+Text of the message to send, as a UTF-8 string with "\n" line-endings.
+
+=item _template_, _parameters_
+
+Templated body text and an associative array of template parameters containing
+optional substititutions <?=$values['name']?>, each of which is replaced by the
+value of the corresponding named value in _parameters_. It is an error to use a
+substitution when the corresponding parameter is not present or undefined. The
+first line of the template will be interpreted as contents of the Subject:
+header of the mail if it begins with the literal string 'Subject: ' followed by
+a blank line. The templated text will be word-wrapped to produce lines of
+appropriate length.
 
 =item To
 
-contents of the To: header, as a literal UTF-8 string, or an array of addresses
-or [address, name] pairs;
+Contents of the To: header, as a literal UTF-8 string or an array of addresses
+or [address, name] pairs.
 
 =item From
 
-contents of the From: header, as an email address or an [address, name] pair;
+Contents of the From: header, as an email address or an [address, name] pair.
 
 =item Cc
 
-contents of the Cc: header, as for To;
+Contents of the Cc: header, as for To.
 
 =item Subject
 
-contents of the Subject: header, as a UTF-8 string;
+Contents of the Subject: header, as a UTF-8 string.
 
 =item Message-ID
 
-contents of the Message-ID: header, as a US-ASCII string.
+Contents of the Message-ID: header, as a US-ASCII string.
 
 =item I<any other element>
 
@@ -395,13 +436,27 @@ interpreted as the literal value of a header with the same name.
 
 If no Message-ID is given, one is generated. If no To is given, then the string
 "Undisclosed-Recipients: ;" is used. If no From is given, a generic no-reply
-address is used. It is an error to fail to give a body or Subject.
+address is used. It is an error to fail to give a body, templated body, or
+Subject.
 
 =cut
 sub construct_email ($) {
     my $p = shift;
-    foreach (qw(_body_ Subject)) {
-        throw EvEl::Error("missing field '$_' in MESSAGE") if (!exists($p->{$_}));
+    throw EvEl::Error("missing field '$_' in MESSAGE") if (!exists($p->{Subject}));
+
+    if (!exists($p->{_body_}) && (!exists($p->{_template_}) || !exists($p->{_parameters_}))) {
+        throw EvEl::Error("Must specify field '_body_' or both '_template_' and '_parameters_'");
+    }
+
+    if (exists($p->{_template_})) {
+        throw EvEl::Error("Template parameters '_parameters_' must be an associative array")
+            if (ref($p->{_parameters_}) ne 'HASH');
+        
+        (my $subject, $p->{_body_}) = do_template_substitution($p->{_template_}, $p->{_parameters_});
+        delete($p->{_template_});
+        delete($p->{_parameters_});
+
+        $p->{Subject} = $subject if (defined($subject));
     }
 
     my %hdr;
@@ -432,7 +487,7 @@ sub construct_email ($) {
 
     if (exists($p->{From})) {
         if (ref($p->{From}) eq '') {
-            $hdr{From} = format_mimewords($p->{From});
+            $hdr{From} = $p->{From};
         } elsif (ref($p->{From}) ne 'ARRAY' || @{$p->{From}} != 2) {
             throw EvEl::Error("'From' field should be string or 2-element array");
         } else {
