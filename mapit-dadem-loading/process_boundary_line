@@ -22,11 +22,15 @@
 # weren't when I tested this exhaustively); and (b) there wouldn't be a whole
 # lot we could do even if there were.
 #
+# Call with two or more arguments; the first should be the name of an SQLite
+# database (with schema already constructed from mapit-schema.sql) and the
+# remainder being directories containing .shp files from Boundary-Line.
+#
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.4 2004-11-25 13:10:35 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.5 2004-11-25 16:58:26 chris Exp $';
 
 use strict;
 
@@ -164,46 +168,27 @@ sub get_area_id (@) {
 my @shapes;
 my %onscode_to_shape;
 
-unlink('mapit-new.sqlite') or die "mapit-new.sqlite: $!" if (-e 'mapit-new.sqlite');
-my $dbh = DBI->connect('dbi:SQLite:dbname=mapit-new.sqlite', '', '', { AutoCommit => 0, RaiseError => 1 });
+die "arguments are SQLite database and directories containing SHP files" unless (@ARGV > 1);
+my $dbfile = shift(@ARGV);
 
-$dbh->do(q#
--- description of areas
-create table area (
-    id integer not null primary key,
-    parent_area_id integer,
-    unit_id integer,        -- ESRI shapefile unit ID
-    name text not null,
-    ons_code text,
-    type char(3)            -- 'CTY' or whatever
-);#);
+# Open database; delete old areas and postcodes.
+my $dbh = DBI->connect("dbi:SQLite:dbname=$dbfile", '', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
 
+# GB postcodes do not begin "BT".
+my $stmt = $dbh->prepare(q#select id from postcode where postcode not like 'BT%'#);
+$stmt->execute();
+while (my $id = $stmt->fetchrow_array()) {
+    $dbh->do('delete from postcode_area where postcode_id = ?', {}, $id);
+}
+$dbh->do(q#delete from postcode where postcode not like 'BT%'#);
 
-$dbh->do(q#
--- lookup table for postcodes
-create table postcode (
-    postcode varchar(8) not null primary key,
-    id integer not null,
-    easting number,
-    northing number
-);#);
-
-$dbh->do(q#
-create unique index postcode_id_idx on postcode(id);#);
-
-$dbh->do(q#
--- mapping from postcodes to areas
-create table postcode_area (
-    postcode_id integer not null,
-    area_id integer not null
-);#);
-
-$dbh->do(q#
-create index postcode_area_postcode_id_idx on postcode_area(postcode_id);#);
-
-$dbh->commit();
-
-use Data::Dumper;
+# Get rid of all areas which make up Great Britain.
+$stmt = $dbh->prepare(q#select id from area where country <> 'N'#);
+$stmt->execute();
+while (my $id = $stmt->fetchrow_array()) {
+    $dbh->do('delete from area_name where area_id = ?', {}, $id);
+}
+$dbh->do(q#delete from area where country <> 'N'#);
 
 # Pass 1:
 # Process all the directories of shape files, saving their coordinates and
@@ -295,20 +280,21 @@ foreach my $dir (@ARGV) {
             my $id = get_area_id($D->{AREA_CODE}, $D->{UNIT_ID}, $D->{NAME}, $D->{CODE});
 
             if ($dbh->selectrow_array('select count(*) from area where id = ?', {}, $id) == 0) {
-                $dbh->do('insert into area (id, unit_id, name, ons_code, type) values (?, ?, ?, ?, ?)', {},
-                            $id, $D->{UNIT_ID}, $D->{NAME}, ($D->{CODE} eq '999999' ? undef : $D->{CODE}), $D->{AREA_CODE});
+                $dbh->do(q#insert into area (id, unit_id, ons_code, type, country) values (?, ?, ?, ?, 'X')#, {},
+                            $id, $D->{UNIT_ID}, ($D->{CODE} eq '999999' ? undef : $D->{CODE}), $D->{AREA_CODE});
+                $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'O', ?)#, {},
+                            $id, $D->{NAME});
             }
 
             # Polygon centroid determination doesn't work. We just need to
             # pick a point which is inside the polygon, so do so at random.
-
             my ($cx, $cy);
             do {
                 $cx = $x1 + rand(20) - 10;
                 $cy = $y1 + rand(20) - 10;
             } while (!is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1])); # XXX winding assumption
             
-            my $devolved = '';
+            my $devolved = 'E';
             if ($D->{AREA_CODE} eq 'EUR') {
                 if ($D->{NAME} =~ m#London#) {
                     $devolved = 'L';
@@ -535,30 +521,61 @@ $n = 0;
 foreach my $S (@shapes) {
     ++$n;
     STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes; total p-in-p tests: %d; average tests/query = %f", $n, scalar(@shapes), $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
-    next if (!exists($parentmap{$S->[1]}));
 
-    # If this shape has a proper ONS code, use it to locate its parent.
+    my $needparent = exists($parentmap{$S->[1]});
+
+    # Even areas which do not have a proper parent need to have a country.
+    my $country = undef;
+
+    # If this shape has a proper ONS code, use it to locate its parent and
+    # country.
     my $pid = undef;
     my $ptype = $parentmap{$S->[1]};
     if ($S->[9] ne '999999') {
-        my $newcode = substr($S->[9], 0, length($S->[9]) - 2);
-        if (exists($onscode_to_shape{$newcode})) {
-            my $s = $onscode_to_shape{$newcode};
-            $pid = $s->[0] if ($s->[1] eq $ptype);
+        if ($needparent) {
+            my $newcode = substr($S->[9], 0, length($S->[9]) - 2);
+            if (exists($onscode_to_shape{$newcode})) {
+                my $s = $onscode_to_shape{$newcode};
+                $pid = $s->[0] if ($s->[1] eq $ptype);
+            }
+        }
+
+        # XXX I am assuming that ONS codes which begin '00N' are all in Wales,
+        # and those which begin '00Q' are all in Scotland. This is true of SNAC
+        # 2003, and I assume will be in future too.
+        if ($S->[9] =~ m#^00N#) {
+            $country = 'W';
+        } elsif ($S->[9] =~ m#^00Q#) {
+            $country = 'S';
+        } else {
+            $country = 'E';
         }
     }
     
     # Otherwise do it the slow way.
-    if (!defined($pid)) {
+    if (!defined($country) or ($needparent && !defined($pid))) {
         my %areas = find_containing_areas($S->[7], $S->[8]);
-        if (exists($areas{$ptype})) {
-            $pid = $areas{$ptype}->[0];
-        } else {
-            warn "$S->[1] shape $S->[0] has no $ptype parent\n" unless (defined($pid));
+        if ($needparent and !defined($pid)) {
+            if (exists($areas{$ptype})) {
+                $pid = $areas{$ptype}->[0];
+            } else {
+                warn "$S->[1] shape $S->[0] has no $ptype parent\n" unless (defined($pid));
+            }
+        }
+        if (!defined($country)) {
+            my $euro = $areas{EUR};
+            if (!defined($euro)) {
+                warn "$S->[1] shape $S->[0] is not in a Euro-area\n";
+            } else {
+                # Devolved assembly info.
+                $country = $euro->[10];
+                $country = 'E' if ($country eq 'L');
+            }
         }
     }
 
-    $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if (defined($pid));
+    $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if ($needparent and defined($pid));
+    $dbh->do('update area set country = ? where id = ?', {}, $country, $S->[0]) if (defined($country));
 }
 $dbh->commit();
 STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes));
