@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.1 2004-12-06 14:25:55 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.2 2004-12-06 16:38:32 francis Exp $';
 
 use strict;
 
@@ -28,8 +28,6 @@ my $dbname = shift(@ARGV);
 my $runoneid = shift(@ARGV);
 
 my $dbh = connect_to_database($dbname);
-my $generation = $dbh->selectrow_array('select id from new_generation');
-die "no new generation available" if (!defined($generation));
 
 my $parent_types = [qw(DIS LBO MTD UTA LGD CTY)];
 my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];

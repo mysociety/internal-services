@@ -1,0 +1,120 @@
+#!/usr/bin/perl -w
+#
+# load_goveval_euroregion_names
+# Load in GovEval MEP data, match names to Ordnance Survey once in the
+# MaPit database, and add in the GovEval names as alternates.
+#
+# Parameters:  Give the name of the Postgres database as the first
+# parameter.  Pipe the mep.csv file from GovEval into standard input.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_euroregion_names,v 1.1 2004-12-06 16:38:32 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+use Text::CSV;
+use Data::Dumper;
+
+use Common;
+
+die "argument is Postgres database name" unless (@ARGV > 0);
+my $dbname = shift(@ARGV);
+my $runoneid = shift(@ARGV);
+
+my $dbh = connect_to_database($dbname);
+# DBI->trace(2);
+my $types = [qw(EUR)];
+
+# Delete existing GovEval name data
+$dbh->do(
+        q#delete from area_name where area_id in (select area_id from area where
+            (# . join(' or ', map { "type = '$_'" } @$types) . q#)) 
+            and name_type = 'G';#
+);
+
+# canonicalise_euroregion_name NAME
+# Convert the NAME of a Euro region into a "canonical" version of the
+# name.  That is, one with all the parts which often vary between
+# spellings reduced to the simplest form.
+sub canonicalise_euroregion_name ($) {
+    $_ = shift;
+
+    s#^Greater ##i;
+    s# Euro Region$##;
+    s#N\. Ireland#Northern Ireland#;
+
+    $_ = lc;
+
+    s#&#and#g;
+    s#-# #g;
+    s#'##g;
+    s#,##g;
+    
+    return $_;
+}
+
+# %parent_to_id
+# Hash of voting area canonical name to voting area ID from existing
+# MaPit data.
+my %parent_to_id;
+
+# Cache of name-->id map of all the areas
+my $s = $dbh->prepare(
+        q#select distinct on (area_id) area_id, name from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
+    );
+$s->execute();
+
+while (my ($area_id, $name) = $s->fetchrow_array()) {
+    # Create canonical version of name and also hash it as lookup
+    $_ = canonicalise_euroregion_name($name);
+    die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n" if (exists($parent_to_id{$_}));
+
+    $parent_to_id{$_} = $area_id;
+}
+ 
+# Load the GovEval data.
+my $C = new Text::CSV;
+<STDIN>;    # header line
+
+# %newnames
+# Hash of GovEval name to corresponding id.
+my %newnames;
+
+while (my $line = <STDIN>) {
+    chomp($line);
+    $C->parse($line);
+    my ($first, $last, $cons, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+
+    die "constituency not defined for line '$line'\n" unless (defined($cons));
+    $_ = canonicalise_euroregion_name($cons);
+    die "no constituency in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
+    my $id = $parent_to_id{$_};
+
+    if (exists($newnames{$cons})) {
+        if ($newnames{$cons} != $id) {
+            die "Already have different id for GovEval name $cons id $id, being " .  $newnames{$cons} .  "\n" 
+        } else {
+            # Exact duplicate, so ignore it
+        }
+    } else {
+        $newnames{$cons} = $id;
+    }
+}
+
+# Add name alises to the database
+foreach my $name (keys %newnames) {
+    my $id = $newnames{$name};
+    $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'G', ?)", {}, $id, $name);
+}
+
+$dbh->commit();
+
+$dbh->disconnect();
+
