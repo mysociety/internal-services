@@ -14,6 +14,7 @@ use Data::Dumper;
 use URI;
 
 use mySociety::CouncilMatch;
+use mySociety::StringUtils qw(trim merge_spaces);
 use HTML::TokeParser;
 use Common;
 
@@ -69,52 +70,6 @@ my $samplecouncils = [
 #{id=>2430, url=>"http://www.southsomerset.gov.uk/portal/page?_pageid=69,84872&_dad=cms&_schema=CMS&3410_COUNCILLORS_89102133.l_model=District%20Councillor"},
 
 ];
-
-# trim STRING
-# Remove whitespace from either end.
-sub trim($) {
-    ($_) = @_;
-    s/^\s+//;
-    s/\s+$//;
-    return $_;
-}
-
-# merge_spaces STRING
-# Replace contiguous whitespace with a single space
-sub merge_spaces($) {
-    ($_) = @_;
-    s/\s+/ /gs;   
-    return $_;
-}
-
-# break_into_lumps CONTENT
-# Converts HTML into space-trimmed, comment-removed lumps in an array.
-# Each lump was separated by a "paragraph" level tag.  Not just P, but also
-# e.g. TD or LI.
-sub break_into_lumps($) {
-    my ($content) = @_;
-
-    $content =~ s/&amp;/&/g;  # make ampersands normal
-    $content =~ s/<!--[^>]*-->//g;  # remove comments
-
-    # Remove, without replacing with spaces, all the tags which are character
-    # spanning.  We do this by removing all those except the most common 
-    # paragraph spanning tags.  This is because sometimes there are errors
-    # where character spanning tags (e.g. a, strong, span...) are used in
-    # the middle of a name.  e.g.
-    #  D A Hal</a></span></span></strong><a href="../cllrhall_da.htm">l</a><br>
-    $content =~ s/<\/?(?!p|br|tr|td|div|table|hr|li|ol|ul|h[1-9])\b[^>]+>//ig;
-
-    # Flush all spacing (including NL CR) to just space
-    $content = merge_spaces($content);
-
-    # Break it up into parts between tags.  Note the only tags left are
-    # those in the regular expression above at this point.
-    my @lumps = split /<[^>]+>/, $content;
-    @lumps = map { trim($_) } @lumps;
-    return @lumps;
-}
-
 
 # canonicalise_person_name NAME
 # Convert name from various formats "Fred Smith", "Smith, Fred",
@@ -181,7 +136,7 @@ sub check_councillors($) {
     print "Getting main page... $spec->{url} ";
     my $mainpage = get($spec->{url});
     print "...got\n";
-    my @lumps = break_into_lumps($mainpage);
+    my @lumps = mySociety::StringUtils::break_into_lumps($mainpage);
     my $content = $mainpage;
 
     # Get out next layer of URLs
@@ -300,7 +255,7 @@ sub check_councillors($) {
             print "Getting... $url ";
             my $subpage = get($url);
             print "...got\n";
-            push @lumps, break_into_lumps($subpage);
+            push @lumps, mySociety::StringUtils::break_into_lumps($subpage);
         }
         $error1 = &$scan_with_pattern("WCWCCC");
         $error2 = &$scan_with_pattern("CWCWCW");
