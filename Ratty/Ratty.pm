@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.2 2004-11-11 18:15:14 francis Exp $
+# $Id: Ratty.pm,v 1.3 2004-11-12 06:11:22 francis Exp $
 #
 
 package Ratty;
@@ -228,14 +228,14 @@ sub compile_rules () {
         };
 }
 
-=item admin_available_fields VARS
+=item admin_available_fields
 
 I<Instance method.> Returns all the fields Ratty has seen so far, and an
 example value of that field.  Structure is an array of pairs of (field,
 example).
 
 =cut
-sub admin_available_fields ($) {
+sub admin_available_fields () {
     my ($self) = @_;
     my $result = dbh()->selectall_arrayref('select field, example from available_fields');
     warn Dumper($result);
