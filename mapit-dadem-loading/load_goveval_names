@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.3 2004-12-01 17:15:10 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.4 2004-12-02 17:14:30 francis Exp $';
 
 use strict;
 
@@ -25,6 +25,8 @@ my $dbh = DBI->connect('dbi:SQLite:dbname=/home/francis/toobig/geodata-mysociety
 
 my $parent_types = [qw(DIS LBO MTD UTA LGD CTY)];
 my $child_types = [qw(DIW LBW MTW UTE UTW LGW CED)];
+
+my $verbosity = 0;
 
 sub canonicalise_council_name {
     $_ = shift;
@@ -104,6 +106,7 @@ while (my $line = <STDIN>) {
         print STDERR "council not defined for line $line\n";
         die;
     }
+    next if $vdiv eq "Elected Mayor";
     
     $_ = canonicalise_council_name($council);
 
@@ -145,7 +148,7 @@ foreach my $id (keys %$councils) {
 
 sub match_council_wards {
     my ($council, $id) = @_;
-    print "Council: $council Area: $id\n";
+    print "Council: $council Area: $id\n" if $verbosity > 0;
 
     # Set of wards GovEval have
     my $wards_goveval = $councils->{$id}->{wards};
@@ -159,6 +162,13 @@ sub match_council_wards {
         push @{$wards_database}, { name => $name, id => $area_id };
     }
     
+    my $dump_wards = sub {
+        print STDERR " ---- ";
+        print STDERR "GovEval wards: " . join(", ", sort map { $_->{name} } @$wards_goveval) . " ";
+        print STDERR " ++++ Database wards: " . join(", ", sort map { $_->{name} } @$wards_database). " ";
+        print STDERR "\n";
+    };
+
     # Work out area_id for each GovEval ward
     foreach my $g (@$wards_goveval) {
         # Find the entry in database which best matches each GovEval
@@ -182,7 +192,8 @@ sub match_council_wards {
 
         # Longest len
         if ($longest_len < 3) {
-            print STDERR "${council}: Couldn't find match in database for GovEval ward " .  $g->{name} . " (longest common substring < 3)\n";
+            print STDERR "${council}: Couldn't find match in database for GovEval ward " .  $g->{name} . " (longest common substring < 3)";
+            &$dump_wards();
             return;
         }
 
@@ -193,10 +204,10 @@ sub match_council_wards {
         if ($#$longest_matches == 0) {
             push @{$longest_matches->[0]->{used}}, $g;
             $g->{id} = $longest_matches->[0]->{id};
-            print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n";
+            print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n" if $verbosity > 0;
         } else {
             foreach my $longest_match (@{$longest_matches}) {
-                print "Ambiguous are: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n";
+                print "Ambiguous are: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} .  "\n" if $verbosity > 0;
             }
 
         }
@@ -210,33 +221,38 @@ sub match_council_wards {
     # after "Kilbowie West" has been allocated to "Kilbowie West Ward".
     # Hence this second pass.
     foreach my $g (@$wards_goveval) {
-        if (!exists($g->{id})) {
-            my $found = 0;
-            foreach my $longest_match (@{$g->{matches}}) {
-                #print Dumper($longest_match);
-                if (!exists($longest_match->{used})) {
-                    if ($found) {
-                        print STDERR "${council}: Only ambiguous matches found for " .  $longest_match->{name} . "\n";
-                        return;
-                    }
-                    push @{$longest_match->{used}}, $g;
-                    $g->{id} = $longest_match->{id};
-                    print "Resolved is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n";
-                    $found = 1;
-                }
-            }
-            if (!$found) {
-                print STDERR "${council}: Couldn't find match in database for GovEval ward " . $g->{name} . " (still ambiguous)\n";
-                return;
-            }
+        next if (exists($g->{id}));
+
+        # Find matches which haven't been used elsewhere
+        my @left = grep { !exists($_->{used}) } @{$g->{matches}};
+        my $count = scalar(@left);
+       
+        # If there are none, that's no good
+        if ($count == 0) {
+            print STDERR "${council}: Couldn't find match in database for GovEval ward " . $g->{name} . " (still ambiguous)";
+            &$dump_wards();
+            return;
         }
+        # If there is more than one
+        if ($count > 1) {
+            print STDERR "${council}: Only ambiguous matches found for GovEval ward " .  $g->{name} . 
+                ", matches are " . join(", ", map { $_->{name} } @left);
+            &$dump_wards();
+            return;
+        }
+        
+        my $longest_match = $left[0];
+        push @{$longest_match->{used}}, $g;
+        $g->{id} = $longest_match->{id};
+        print "Resolved is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n" if $verbosity > 0;
     }
     
 
     # Check we used every single ward (rather than used same twice)
     foreach my $d (@$wards_database) {
         if (!exists($d->{used})) {
-            print STDERR "${council}: Ward in database, not in GovEval data: " . $d->{name} . " id " . $d->{id} . "\n";
+            print STDERR "${council}: Ward in database, not in GovEval data: " . $d->{name} . " id " . $d->{id};
+            &$dump_wards();
             return;
         }
         delete $d->{used};
@@ -250,9 +266,17 @@ sub match_council_wards {
         delete $g->{matches};
     }
 
+    # Add name alises to the database
+    foreach my $g (@$wards_goveval) {
+        # next if (!exists($g->{id}));
+        # $dbh->do(
+        print "insert into area_name (area_id, name_type, name) values (?, 'G',?)", $g->{id}, $g->{name};
+        print "\n";
+    }
+
 #    print Dumper($wards_goveval);
 #    print Dumper($wards_database);
-    print "--------------------------------------------------\n";
+    print "--------------------------------------------------\n" if $verbosity > 0;
 }
 
 $dbh->disconnect();
