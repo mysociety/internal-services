@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.35 2005-02-15 16:48:39 francis Exp $
+# $Id: DaDem.pm,v 1.36 2005-02-15 18:09:28 francis Exp $
 #
 
 package DaDem;
@@ -523,10 +523,10 @@ Alters data for a representative, updating the override table
 representative_edited. ID contains the representative id, or undefined
 to make a new one (in which case DETAILS needs to contain area_id and
 area_type).  DETAILS is a hash from name, party, method, email and fax to their
-new values, or not defined to delete the representative. Not every value has to
-be present.  Any modification counts as an undeletion.  EDITOR is the name of
-the person who edited the data.  NOTE is any explanation of why / where from.
-Returns ID, or if ID was undefined the new id.
+new values, or DETAILS is not defined to delete the representative. Not every
+value has to be present.  Any modification counts as an undeletion.  EDITOR is
+the name of the person who edited the data.  NOTE is any explanation of why /
+where from.  Returns ID, or if ID was undefined the new id.
 
 =cut
 sub admin_edit_representative ($$$$) {
@@ -534,7 +534,6 @@ sub admin_edit_representative ($$$$) {
 
     # Create new one
     if (!$id) {
-        warn $newdata;
         dbh()->do('insert into representative
             (area_id, area_type, name, party, method, email, fax, import_key)
             values (?, ?, ?, ?, ?, ?, ?, ?)', {}, 
@@ -542,7 +541,6 @@ sub admin_edit_representative ($$$$) {
             $newdata->{name}, $newdata->{party}, $newdata->{method}, 
             $newdata->{email}, $newdata->{fax}, undef);
         $id = dbh()->selectrow_array("select currval('representative_id_seq')");
-        warn Dumper($id);
     }
 
     # Deletion
@@ -564,17 +562,17 @@ sub admin_edit_representative ($$$$) {
         }
 
         # Make undef (NULL) for any unchanged fields from original
-        if ($newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
-        if ($newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };
-        if ($newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
-        if ($newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
-        if ($newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
+        if ($newdata->{'name'} && $newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
+        if ($newdata->{'party'} && $newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };
+        if ($newdata->{'method'} && $newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
+        if ($newdata->{'email'} && $newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
+        if ($newdata->{'fax'} && $newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
         # Make undef (NULL) for any blank strings
-        if ($newdata->{'name'} eq '') { $newdata->{'name'} = undef; };
-        if ($newdata->{'party'} eq '') { $newdata->{'party'} = undef; };
-        if ($newdata->{'method'} eq '') { $newdata->{'method'} = undef; };
-        if ($newdata->{'email'} eq '') { $newdata->{'email'} = undef; };
-        if ($newdata->{'fax'} eq '') { $newdata->{'fax'} = undef; };
+        if ($newdata->{'name'} && $newdata->{'name'} eq '') { $newdata->{'name'} = undef; };
+        if ($newdata->{'party'} && $newdata->{'party'} eq '') { $newdata->{'party'} = undef; };
+        if ($newdata->{'method'} && $newdata->{'method'} eq '') { $newdata->{'method'} = undef; };
+        if ($newdata->{'email'} && $newdata->{'email'} eq '') { $newdata->{'email'} = undef; };
+        if ($newdata->{'fax'} && $newdata->{'fax'} eq '') { $newdata->{'fax'} = undef; };
 
         # Insert new data
         dbh()->do('insert into representative_edited 
