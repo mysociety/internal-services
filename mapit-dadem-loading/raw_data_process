@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.5 2005-02-02 11:50:58 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.6 2005-02-02 19:26:58 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -27,12 +27,13 @@ use mySociety::CouncilMatch;
 
 use Common;
 
-my $runoneid = shift(@ARGV);
+my $param1 = shift(@ARGV);
+my $param2 = shift(@ARGV);
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
-my $verbosity = 2;
+my $verbosity = 0;
 
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref(
@@ -42,11 +43,11 @@ my $area_id_data = $m_dbh->selectall_hashref(
             (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
         'id');
 
-if (defined $runoneid) {
-    if ($runoneid eq "london" or $runoneid eq "top") {
+if ($param1 eq "london" or $param1 eq "top" or $param1 =~ m/^\d+$/) {
+    if ($param1 eq "london" or $param1 eq "top") {
         print "Processing London councils\n";
         my $specialcouncils;
-        if ($runoneid eq "london") {
+        if ($param1 eq "london") {
             $specialcouncils = [
                "City of London", "Westminster", "Kensington and Chelsea", "Hammersmith and Fulham", "Wandsworth", "Lambeth", "Southwark", "Tower Hamlets", "Hackney", "Islington", "Camden", "Brent", "Ealing", "Hounslow", "Richmond upon Thames", "Kingston upon Thames", "Merton", "Sutton", "Croydon", "Bromley", "Lewisham", "Greenwich", "Bexley", "Havering", "Barking and Dagenham", "Redbridge", "Newham", "Waltham Forest", "Haringey", "Enfield", "Barnet", "Harrow", "Hillingdon",
             ];
@@ -71,8 +72,8 @@ if (defined $runoneid) {
         }
     } else {
         # Process just one council
-        print "Processing one council " . $area_id_data->{$runoneid}->{name} . " $runoneid\n";
-        my $result = mySociety::CouncilMatch::process_ge_data($runoneid, $verbosity);
+        print "Processing one council " . $area_id_data->{$param1}->{name} . " $param1\n";
+        my $result = mySociety::CouncilMatch::process_ge_data($param1, $verbosity);
         if ($result->{error}) {
             print "Failed\n";
             print $result->{details};
@@ -87,7 +88,11 @@ if (defined $runoneid) {
     my $success = 0;
     my $count = 0;
     foreach my $id (keys %$area_id_data) {
+        my $current_status =  mySociety::CouncilMatch::get_process_status($id);
+        next if (($param1 eq "status") and ($current_status ne $param2));
+
         printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id;
+
         my $result = mySociety::CouncilMatch::process_ge_data($id, $verbosity);
         if ($result->{error}) {
             print " FAIL\n";
