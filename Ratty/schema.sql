@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.3 2004-11-11 18:15:14 francis Exp $
+-- $Id: schema.sql,v 1.4 2004-11-16 11:11:17 francis Exp $
 --
 
 create table rule (
@@ -13,7 +13,8 @@ create table rule (
     requests integer not null,  -- maximum allowed rate is requests / interval
     interval integer not null,  -- in seconds
     sequence integer not null,  -- place where this rule fits in the order
-    note text                   -- human-readable description
+    note text,                  -- human-readable description
+    message text                -- message to display to website user who is blocked
 );
 
 create index rule_key_idx on rule(key);

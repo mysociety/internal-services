@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.7 2004-11-15 15:54:14 francis Exp $
+# $Id: Ratty.pm,v 1.8 2004-11-16 11:11:17 francis Exp $
 #
 
 package Ratty;
@@ -80,7 +80,8 @@ sub new ($) {
 =item test VARS
 
 I<Instance method.> Test whether the request described by VARS should be
-permitted or not. Returns true if it should, or false if it should not.
+permitted or not. Returns true if it should not, or an array of
+[rule_number, message] ift it should.
 
 =cut
 sub test ($$) {
@@ -90,10 +91,12 @@ sub test ($$) {
         # have a hit on rule $r
         # XXX log this
         warn "rule #$r triggered\n";
-        $result = 0;
+        my $message = dbh()->selectrow_array('select message from rule where id = ?', {}, $r);
+        $message = "" if (!defined($message));
+        $result = [$r, $message];
     } else {
         # No rule hits, carry on.
-        $result = 1;
+        $result = undef;
     }
     ++$self->{numsincelastcommit};
     if ($self->{numsincelastcommit} > 50 || $self->{lastcommit} < time() - 10) {
@@ -107,6 +110,7 @@ sub test ($$) {
         $self->{tester} = compile_rules();
         $self->{lastrebuild} = time();
     }
+    warn Dumper($result);
     return $result;
 }
 
@@ -263,13 +267,13 @@ sub admin_update_rule ($$$) {
 
     if ($result) {
         dbh()->do('update rule set requests = ?,
-            interval = ?, sequence = ?, note = ? where id = ?', {}, $vals->{'requests'},
-            $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'},
+            interval = ?, sequence = ?, note = ?, message = ? where id = ?', {}, $vals->{'requests'},
+            $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'}, $vals->{'message'},
             $vals->{'rule_id'});
     } else {
-        dbh()->do('insert into rule (requests, interval, sequence, note)
-            values (?, ?, ?, ?)', {}, $vals->{'requests'},
-            $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'});
+        dbh()->do('insert into rule (requests, interval, sequence, note, message)
+            values (?, ?, ?, ?, ?)', {}, $vals->{'requests'},
+            $vals->{'interval'}, $vals->{'sequence'}, $vals->{'note'}, $vals->{'message'});
         $return = dbh()->selectrow_array("select currval('rule_id_seq')");
         $vals->{'rule_id'} = $return;
     }
@@ -297,6 +301,7 @@ sub admin_delete_rule ($$$) {
 
     my $return = undef;
 
+    dbh()->do('delete from rule_hit where rule_id = ?', {}, $id);
     dbh()->do('delete from condition where rule_id = ?', {}, $id);
     dbh()->do('delete from rule where id = ?', {}, $id);
     dbh()->commit();
