@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.11 2004-12-13 13:20:05 francis Exp $
+# $Id: DaDem.pm,v 1.12 2004-12-13 14:54:31 francis Exp $
 #
 
 package DaDem;
@@ -243,10 +243,6 @@ sub get_representative_info ($) {
     # Real data case
     if (my ($area_id, $area_type, $name, $party, $method, $email, $fax) = dbh()->selectrow_array('select area_id, area_type, name, party, method, email, fax from representative where id = ?', {}, $id)) {
 
-        # No real faxing or emailing for now.
-        $fax = '000' if (defined($fax));
-        $email = 'x@x.invalid' if (defined($email));
-    
         return {
                 voting_area => $area_id,
                 type => $mySociety::VotingArea::type_to_id{$area_type},
