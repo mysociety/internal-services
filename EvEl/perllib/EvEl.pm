@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.6 2005-03-30 15:45:01 chris Exp $
+# $Id: EvEl.pm,v 1.7 2005-03-30 18:12:07 francis Exp $
 #
 
 package EvEl::Error;
@@ -157,7 +157,7 @@ sub run_queue () {
                 $smtp->quit();
             }
             my $smtpserver = mySociety::Config::get('EVEL_MAIL_HOST', 'localhost');
-            $smtp = new Net::SMTP(Host => $smtpserver, Timeout => 10) or
+            $smtp = new Net::SMTP($smtpserver, Timeout => 10) or
                 throw EvEl::Error("unable to connect to $smtpserver: $!");
             $nsent = 0;
             print_log('debug', "connected to SMTP server $smtpserver"); 
@@ -289,7 +289,7 @@ sub send ($@) {
     my ($data, @recips) = @_;
     my $msg = dbh()->selectrow_array("select nextval('message_id_seq')");
     my $s = dbh()->prepare('
-                    insert into message (id, data, whencreated)
+                    insert into message (id, data, whensubmitted)
                     values (?, ?, ?)');
     $s->bind_param(1, $msg);
     $s->bind_param(2, $data);
@@ -523,7 +523,7 @@ sub list_send ($$$) {
 
     my $msg = dbh()->selectrow_array("select nextval('message_id_seq')");
     my $s = dbh()->prepare('
-                    insert into message (id, data, whencreated)
+                    insert into message (id, data, whensubmitted)
                     values (?, ?, ?)');
     $s->bind_param(1, $msg);
     $s->bind_param(2, $message);

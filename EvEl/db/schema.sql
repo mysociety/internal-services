@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.6 2005-03-30 11:37:16 francis Exp $
+-- $Id: schema.sql,v 1.7 2005-03-30 18:12:07 francis Exp $
 --
 
 create table secret (
@@ -23,7 +23,7 @@ create table message (
     -- a probe is a message to check an email address works, will say something
     -- like "We've been having trouble sending mail to your address, if you get
     -- this then it must be working again."
-    isprobe boolean not null default(false)
+    isprobe boolean not null default(false),
 );
 
 -- A recipient is one of the targets of a mail. We identify recipients uniquely

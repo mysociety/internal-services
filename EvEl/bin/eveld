@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.1 2005-03-30 15:45:01 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.2 2005-03-30 18:12:07 francis Exp $';
 
 use strict;
 
@@ -55,10 +55,12 @@ my $numprocesses = mySociety::Config::get('EVEL_DAEMON_SEND_PROCESSES', 1);
 my $pidfilepath = mySociety::Config::get('EVEL_DAEMON_PIDFILE', '/var/run/eveld.pid');
 my $nodetach = 0;
 my $help = 0;
+my $once = 0;
 if (!GetOptions(
         'processes=i' =>        \$numprocesses,
         'pidfile=s' =>          \$pidfilepath,
         'debug' =>              \$nodetach,
+        'once' =>               \$once,
         'help' =>               \$help
     )) {
     print_log('err', "bad options; try --help for help");
@@ -67,6 +69,11 @@ if (!GetOptions(
 
 if ($help) {
     pod2usage(-exitval => 0, -verbose => 1);
+    exit(0);
+}
+
+if ($once) {
+    my $N = EvEl::run_queue();
     exit(0);
 }
 
@@ -149,5 +156,5 @@ Copyright (c) 2005 UK Citizens Online Democracy
 
 =head1 VERSION
 
-$Id: eveld,v 1.1 2005-03-30 15:45:01 chris Exp $
+$Id: eveld,v 1.2 2005-03-30 18:12:07 francis Exp $
 
