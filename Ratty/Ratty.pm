@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.15 2005-01-12 18:03:13 francis Exp $
+# $Id: Ratty.pm,v 1.16 2005-01-13 02:17:22 chris Exp $
 #
 
 package Ratty;
@@ -70,8 +70,8 @@ I<Class method.> Return a new Ratty testing object.
 =cut
 sub new ($) {
     my ($class) = @_;
-    my $self = { lastrebuild => time() };
-    ($self->{lastrebuildgeneration}, $self->{tester}) = compile_rules();
+    my $self = { };
+    ($self->{generation}, $self->{tester}) = compile_rules();
     return bless($self, $class);
 }
 
@@ -85,10 +85,17 @@ permitted or not. Returns true if it should not, or an array of
 sub test ($$) {
     my ($self, $scope, $V) = @_;
     my $result = undef;
+
+    # Always check the generation number. Otherwise we can get a referential
+    # integrity violation if a rule is deleted.
+    my $gen = dbh()->selectrow_array('select number from generation');
+    ($self->{generation}, $self->{tester}) = compile_rules()
+        if ($gen != $self->{generation});
+
     if (defined(my $r = $self->{tester}->($scope, $V))) {
         # have a hit on rule $r
-        # XXX log this
-        warn "ratty rule #$r triggered\n";
+        # XXX log this properly
+#        warn "ratty rule #$r triggered\n";
         my $message = dbh()->selectrow_array('select message from rule where id = ?', {}, $r);
         $message = "" if (!defined($message));
         $result = [$r, $message];
@@ -106,12 +113,6 @@ sub test ($$) {
     #   - correct
     $dbh->commit();
 
-    if ($self->{lastrebuild} < time() - 5) {
-        my $gen = dbh()->selectrow_array('select number from generation');
-        ($self->{lastrebuildgeneration}, $self->{tester}) = compile_rules()
-            if ($gen != $self->{lastrebuildgeneration});
-        $self->{lastrebuild} = time();
-    }
     return $result;
 }
 
@@ -167,27 +168,27 @@ sub compile_rules () {
             my ($id, $field, $condition, $value, $invert) = @$_;
             push(@data, $field);
             my $fi = $#data;
-            push(@code, sprintf('&& defined($V->{$data->[%d]}) &&', $fi));
+            push(@code, sprintf('    && defined($V->{$data->[%d]}) &&', $fi));
             if ($condition eq 'E') {
                 push(@data, $value);
                 my $vi = $#data;
-                push (@code, sprintf('$V->{$data->[%d]} %s $data->[%d]', $fi, $invert ? 'ne' : 'eq', $vi));
+                push (@code, sprintf('        $V->{$data->[%d]} %s $data->[%d]', $fi, $invert ? 'ne' : 'eq', $vi));
             } elsif ($condition eq 'R') {
                 # Construct a regexp from the value.
                 my $re = eval(sprintf('qr#%s#', $value));
                 if (defined($re)) {
                     push(@data, $re);
                     my $vi = $#data;
-                    push(@code, sprintf('$V->{$data->[%d]} %s m#$data->[%d]#i', $fi, $invert ? '!~' : '=~', $vi));
+                    push(@code, sprintf('        $V->{$data->[%d]} %s m#$data->[%d]#i', $fi, $invert ? '!~' : '=~', $vi));
                 } else {
-                    push(@code, '0');
+                    push(@code, '        0');
                 }
             } elsif ($condition eq 'I') {
                 my $ipnet = new2 Net::Netmask($value);
                 if (defined($ipnet)) {
                     push(@data, $ipnet);
                     my $vi = $#data;
-                    push(@code, sprintf('%s$data->[%d]->match($V->{$data->[%d]})', $invert ? '!' : '', $vi, $fi));
+                    push(@code, sprintf('        %s$data->[%d]->match($V->{$data->[%d]})', $invert ? '!' : '', $vi, $fi));
                 } else {
                     push(@code, '0');
                 }
@@ -202,11 +203,11 @@ sub compile_rules () {
                 }
                 push(@data, $number);
                 my $vi = $#data;
-                push(@code, sprintf('$V->{$data->[%d]} %s $data->[%d]', $fi, $condition, $vi));
+                push(@code, sprintf('        $V->{$data->[%d]} %s $data->[%d]', $fi, $condition, $vi));
             }
         }
-        push(@code, ') {',
-                    sprintf('my ($num, $requests, $interval) = (0, %d, %d);', $requests, $interval));
+        push(@code, '    ) {',
+                sprintf('    my ($num, $requests, $interval) = (0, %d, %d);', $requests, $interval));
 
         my @sdconds = grep { $_->[2] =~ m#^[SD]$# } @$conditions;
         my @sconds = grep { $_->[2] eq 'S' } @sdconds;
@@ -245,8 +246,10 @@ sub compile_rules () {
 
         # If we've got here, and the number of requests over the last interval
         # exceeds the limit, record the matching rule if it's the first which
-        # matches.
-        push(@code, sprintf('$result ||= %d if ($num > $requests);', $ruleid),
+        # matches. >= to take account of this request (that matters because we
+        # want to be able to give a hit limit of 0 for any interval to mean
+        # that requests should be completely denied).
+        push(@code, sprintf('$result ||= %d if ($num >= $requests);', $ruleid),
                     '}');
     }
 
@@ -257,9 +260,20 @@ sub compile_rules () {
 
 
     my $codejoined = join("\n", @code);
-    #warn $codejoined;
+
     my $subr = eval($codejoined);
-    die "evaled code: $@" if ($@);
+    if ($@) {
+        # Something went wrong in the eval'd code. That's really bad, so dump
+        # a great big error message.
+        my ($ln) = ($@ =~ m#line (\d+)#);
+        --$ln;
+        my $errmsg = "error in generated code: $@\n";
+        for (my $i = $ln - 5; $i <= $ln + 5; ++$i) {
+            next if ($i < 0 || $i > $#code);
+            $errmsg .= sprintf("% 4d%s> %s\n", $i + 1, $i == $ln ? '*' : ' ', $code[$i]);
+        }
+        die $errmsg;
+    }
     
     my $D = \@data;
     
