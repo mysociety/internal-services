@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: deploy,v 1.3 2005-01-04 11:34:18 francis Exp $
+# $Id: deploy,v 1.4 2005-02-03 11:47:40 francis Exp $
 #
 
 set -e
@@ -47,6 +47,11 @@ read DUMMY
 
 warn "Exporting from CVS..."
 cvs_export $SERVICES_UNAME $SERVICES_VHOST $SERVICES_DEPLOYSPACE
+
+warn "Fixing permissions for mssecure..."
+# for suexec to work on these, when shown from mssecure
+chown -R mssecure $SERVICES_DEPLOYSPACE/mysociety/services/web-admin
+chgrp -R mssecure $SERVICES_DEPLOYSPACE/mysociety/services/web-admin
 
 warn "Checking config files..."
 check_config_files $SERVICES_DEPLOYSPACE/mysociety/services/conf
