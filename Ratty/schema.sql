@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.12 2005-01-13 13:44:45 chris Exp $
+-- $Id: schema.sql,v 1.13 2005-01-13 13:48:12 chris Exp $
 --
 
 create table rule (
@@ -116,7 +116,7 @@ create index rule_hit_dhash_idx on rule_hit(dhash);
 create table field_example (
     scope text not null,
     field text not null,
-    example text not null,
+    example text not null
     -- no primary key as save >1 example for each field
 );
 
