@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.19 2005-01-13 13:51:29 chris Exp $
+# $Id: Ratty.pm,v 1.20 2005-01-13 14:06:28 chris Exp $
 #
 
 package Ratty::Error;
@@ -153,20 +153,20 @@ sub compile_rules () {
             # haven't seen before.
             'my $af = 0;',
             'while (my ($field, $vv) = each(%$V)) {',
-            '   next if (exists($seen_fields->{$scope}->{$field}))',
+            '   next if (exists($seen_fields->{$scope}->{$field}));',
             '   my ($example, $description) = @$vv;',
             '   my $f = 0;',
                 # Save up to three distinct examples of each field.
             '   if (defined($example)',
             '       and scalar(dbh()->selectrow_array(q#select count(*) from field_example where scope = ? and field = ?#, {}, $scope, $field)) < 3',
             '       and !defined(dbh()->selectrow_array(q#select example from field_example where scope = ? and field = ? and example = ? for update#, {}, $scope, $field, $example))) {',
-            '       dbh()->do(q#insert into field_example (scope, field, example) values (?, ?, ?)#, {}, $scope, $field, $example)',
-            '       ++$f',
+            '       dbh()->do(q#insert into field_example (scope, field, example) values (?, ?, ?)#, {}, $scope, $field, $example);',
+            '       ++$f;',
             '   }',
                 # Save the field description too.
             '   if (!defined(scalar(dbh()->selectrow_array(q#select description from field_description where scope = ? and field = ? for update#, {}, $scope, $field)))) {',
-            '       dbh()->do(q#insert into field_description (scope, field, description) values (?, ?, ?)#, {}, $scope, $field, $example)',
-            '       ++$f',
+            '       dbh()->do(q#insert into field_description (scope, field, description) values (?, ?, ?)#, {}, $scope, $field, $example);',
+            '       ++$f;',
             '   }',
             '   if (!$f) {',
             '       $seen_fields->{$scope}->{$field} = 1;',
@@ -294,7 +294,13 @@ sub compile_rules () {
 
     my $codejoined = join("\n", @code);
 
-    my $subr = eval($codejoined);
+    my $subr;
+    {
+        # Don't print warnings/errors from the eval'd code, but accumulate them
+        # for display.
+        local $SIG{__WARN__} = sub () { };
+        $subr = eval($codejoined);
+    }
     if ($@) {
         # Something went wrong in the eval'd code. That's really bad, so dump
         # a great big error message.
@@ -313,7 +319,12 @@ sub compile_rules () {
     # Construct hash of seen fields
     my $S = { };
     
-    foreach my $row (@{dbh()->selectall_arrayref('select scope, field from available_fields')}) {
+    foreach my $row (@{dbh()->selectall_arrayref('
+            select scope, field from field_description
+                where (select count(*) from field_example
+                        where field_example.scope = field_description.scope
+                          and field_example.field = field_description.field) >= 3
+        ')}) {
         my ($scope, $field) = @$row;
         $S->{$scope}->{$field} = 1;
     }
