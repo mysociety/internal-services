@@ -10,7 +10,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.7 2005-02-08 10:36:29 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.8 2005-02-09 17:40:21 francis Exp $';
 
 use strict;
 
@@ -23,6 +23,7 @@ use Common;
 my $dbh = connect_to_mapit_database();
 
 # Nuke any existing friendly names.
+die "What about the Northern Ireland Euro region friendly name, eh?";
 $dbh->do(q#delete from area_name where name_type = 'F'#);
 
 # friendly_from_os NAME
