@@ -30,12 +30,13 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.5 2004-11-25 16:58:26 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.6 2004-11-29 15:59:24 chris Exp $';
 
 use strict;
 
 use DBI;
 use DBD::SQLite;
+use Digest::SHA1;
 use Fcntl;
 use Geo::Shapelib;
 use IO::Handle;
@@ -66,10 +67,10 @@ int pnpoly(int npol, double *xp, double *yp, double x, double y) {
 /* Hack: pass the polygon data as packed char*, so that we don't have to unpick
  * AV/SV types. */
 
-/* poly_winding NUM DATA
- * Return the winding order of the NUM-point polygon with vertices given by
- * DATA. Positive return values indicate ccw winding. */
-double poly_winding(size_t npts, char *vv) {
+/* poly_area NUM DATA
+ * Return the area and winding order of the NUM-point polygon with vertices
+ * given by DATA. Positive return values indicate ccw winding. */
+double poly_area(size_t npts, char *vv) {
     /* XXX returns double because Inline::C doesn't pick up functions which
      * return float. */
     int i;
@@ -151,15 +152,33 @@ my %interesting_areas = map { $_ => 1 } (
     )
 );
 
-# get_area_id
+# get_area_id DBH NAME TYPE ONSCODE UNITID GEOMHASH
 # Form area ID from name information.
 my %idmap;
-sub get_area_id (@) {
-    my $blah = join("\0", @_);
-    if (!exists($idmap{$blah})) {
-        $idmap{$blah} = scalar(keys(%idmap));
+sub get_area_id ($$$$$$) {
+    my ($dbh, $name, $type, $onscode, $unitid, $geomhash) = @_;
+    my $id;
+    if (defined($onscode)) {
+        $id = $dbh->selectrow_array('select id from area where ons_code = ? and type = ? for update', {}, $onscode);
+    } elsif (defined($geomhash)) {
+        $id = $dbh->selectrow_array('select id from area where geom_hash = ? and type = ? for update', {}, $geomhash);
     }
-    return $idmap{$blah};
+    if (defined($id)) {
+        my $n = $dbh->selectrow_array('select name from area_name where area_id = ?', {}, $id);
+        if (defined($n) and $n eq $name) {
+            # This is the same area.
+            $dbh->do('update area set generation_high = (select new_generation.id from new_generation) where area.id = ?', {}, $id);
+            return $id;
+        }
+    }
+
+    # No existing area. Create a new one.
+    $id = $dbh->selectrow_array(q#select nextval('area_id_seq')#);
+    $dbh->do('insert into area (id, unit_id, ons_code, geom_hash, type, generation_low) values (?, ?, ?, ?, ?, (select new_generation.id from new_generation))',
+            {}, $id, $unitid, $onscode, $geomhash, $type);
+    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'O', ?)#, {}, $id, $name);
+
+    return $id;
 }
 
 # @shapes
@@ -168,27 +187,13 @@ sub get_area_id (@) {
 my @shapes;
 my %onscode_to_shape;
 
-die "arguments are SQLite database and directories containing SHP files" unless (@ARGV > 1);
-my $dbfile = shift(@ARGV);
+die "arguments are Postgres database name and directories containing SHP files" unless (@ARGV > 1);
+my $dbname = shift(@ARGV);
 
-# Open database; delete old areas and postcodes.
-my $dbh = DBI->connect("dbi:SQLite:dbname=$dbfile", '', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
-
-# GB postcodes do not begin "BT".
-my $stmt = $dbh->prepare(q#select id from postcode where postcode not like 'BT%'#);
-$stmt->execute();
-while (my $id = $stmt->fetchrow_array()) {
-    $dbh->do('delete from postcode_area where postcode_id = ?', {}, $id);
-}
-$dbh->do(q#delete from postcode where postcode not like 'BT%'#);
-
-# Get rid of all areas which make up Great Britain.
-$stmt = $dbh->prepare(q#select id from area where country <> 'N'#);
-$stmt->execute();
-while (my $id = $stmt->fetchrow_array()) {
-    $dbh->do('delete from area_name where area_id = ?', {}, $id);
-}
-$dbh->do(q#delete from area where country <> 'N'#);
+# Open database.
+my $dbh = DBI->connect("dbi:SQLite:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+my $generation = $dbh->selectrow_array('select id from new_generation');
+die "no new generation available" if (!defined($generation));
 
 # Pass 1:
 # Process all the directories of shape files, saving their coordinates and
@@ -251,24 +256,60 @@ foreach my $dir (@ARGV) {
 
                 next unless ($ty == 5); # "Ring"
                 
+                # Obtain list of vertices. We want to do this in a stable
+                # order, so once we've got the list we sort it to bring the
+                # easternmost northernmost point to the beginning.
                 my $en;
                 if ($j < $num_parts - 1) {
                     $en = $s->{Parts}->[$j + 1]->[0] - 1;
                 } else {
                     $en = @$V - 1;
                 }
-                my $polydata = '';
+                
+                my @verts = ( );
                 for (my $k = $st; $k <= $en; ++$k) {
-                    my ($x, $y) = ($V->[$k]->[0], $V->[$k]->[1]);
-                    $x1 ||= $x;
-                    $y1 ||= $y;
+                    push(@verts, [ $V->[$k]->[0], $V->[$k]->[1] ]);
+                }
+
+                my ($maxE, $maxN) = (0, 0);
+                foreach (@verts) {
+                    my ($x, $y) = @$_;
+
+                    # Also compute bounding rectangle.
                     $minx = $x if (!defined($minx) || $x < $minx);
                     $miny = $y if (!defined($miny) || $y < $miny);
                     $maxx = $x if (!defined($maxx) || $x > $maxx);
                     $maxy = $y if (!defined($maxy) || $y > $maxy);
-                    $polydata .= pack('d*', $x, $y);
+
+                    if ($x > $maxE || ($x == $maxE && $y > $maxN)) {
+                        ($maxE, $maxN) = ($x, $y);
+                    }
                 }
-                push(@parts, [ poly_winding(length($polydata) / (2 * $doublesize), $polydata) < 0 ? +1 : -1, $polydata ]);
+
+                # Now we need to find the first point having coordinates
+                # (maxE, maxN).
+                my $k = 0;
+                while ($verts[$k]->[0] == $maxE && $verts[$k]->[1] == $maxN) {
+                    ++$k;
+                    die "all points in part $j of $D->{NAME} are the same" if ($k == @verts);
+                }
+                while ($verts[$k]->[0] != $maxE || $verts[$k]->[1] != $maxN) {
+                    $k = ($k + 1) % @verts;
+                }
+
+                my @v2;
+                for (my $l = 0; $l < @verts; ++$l) {
+                    $v2[$l] = $verts[($k + $l) % @verts];
+                }
+                @verts = @v2;
+                
+                ($x1, $y1) = @{$verts[0]};
+
+                # Obtain the packed version of the data.
+                my $polydata = pack('d*', map { @$_ } @verts);
+                
+                my $area = poly_area(length($polydata) / (2 * $doublesize), $polydata);
+                push(@parts, [ $area < 0 ? +1 : -1, $polydata, $area ]);
                 if ($num_parts > 100) {
                     printf STDERR "\rreading parts: %d/%d", $j, $num_parts;
                 }
@@ -276,15 +317,22 @@ foreach my $dir (@ARGV) {
 
             undef $s;
 
-            # Add information about this shape into the database.
-            my $id = get_area_id($D->{AREA_CODE}, $D->{UNIT_ID}, $D->{NAME}, $D->{CODE});
-
-            if ($dbh->selectrow_array('select count(*) from area where id = ?', {}, $id) == 0) {
-                $dbh->do(q#insert into area (id, unit_id, ons_code, type, country) values (?, ?, ?, ?, 'X')#, {},
-                            $id, $D->{UNIT_ID}, ($D->{CODE} eq '999999' ? undef : $D->{CODE}), $D->{AREA_CODE});
-                $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'O', ?)#, {},
-                            $id, $D->{NAME});
+            # Compute the geometry hash of the polygon. Consider parts in order
+            # of area (counting winding), and hash the polydata. Strictly
+            # that's architecture-dependent, but that doesn't matter because
+            # the data have already passed through Shapelib, which treats them
+            # as binary floating-point numbers.
+            my $digest = new Digest::SHA1();
+            foreach (sort { $parts[$a]->[2] <=> $parts[$b]->[2] } (0 .. $#parts)) {
+                $digest->add($parts[$_]->[1]);
             }
+            $digest = $digest->hexdigest();
+
+            # Determine the area ID for this area in the database. If this area
+            # corresponds exactly to an area we already know about, recycle the
+            # ID; otherwise, create a new one.
+            $D->{CODE} = undef if ($D->{CODE} eq '999999');
+            my $id = get_area_id($dbh, $D->{AREA_CODE}, $D->{UNIT_ID}, $D->{NAME}, $D->{CODE}, $hexdigest);
 
             # Polygon centroid determination doesn't work. We just need to
             # pick a point which is inside the polygon, so do so at random.
@@ -307,7 +355,9 @@ foreach my $dir (@ARGV) {
 
             #               0    1                2        3      4      5      6      7    8    9           10
             push(@shapes, [ $id, $D->{AREA_CODE}, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $D->{CODE}, $devolved ]);
-            $onscode_to_shape{$D->{CODE}} = $shapes[$#shapes];  # for fast parent-determination
+            if (defined($D->{CODE})) {
+                $onscode_to_shape{$D->{CODE}} = $shapes[$#shapes];  # for fast parent-determination
+            }
 
             STDERR->printf("\rreading shapes: %d", scalar(@shapes)) if (0 == scalar(@shapes) % 10);
         }
@@ -531,7 +581,7 @@ foreach my $S (@shapes) {
     # country.
     my $pid = undef;
     my $ptype = $parentmap{$S->[1]};
-    if ($S->[9] ne '999999') {
+    if (defined($S->[9])) {
         if ($needparent) {
             my $newcode = substr($S->[9], 0, length($S->[9]) - 2);
             if (exists($onscode_to_shape{$newcode})) {
@@ -583,9 +633,23 @@ STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes)
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
 
+# get_postcode_id DBH POSTCODE COORDSYST EASTING NORTHING
+sub get_postcode_id ($$$$$) {
+    my ($dbh, $pc, $c, $E, $N) = @_;
+    my $id;
+    $id = $dbh->selectrow_array('select id from postcode where postcode = ?', {}, $pc);
+    if (defined($id)) {
+        $dbh->do('update postcode set coordsyst = ?, easting = ?, northing = ? where id = ?', {}, $c, $E, $N, $id);
+        return $id;
+    }
+
+    $id = $dbh->selectrow_array(q#select nextval('postcode_id_seq')#);
+    $dbh->do('insert into postcode (id, postcode, coordsyst, easting, northing) values (?, ?, ?, ?, ?)', {}, $id, $pc, $c, $E, $N);
+    return $id;
+}
+
 # Read list of postcodes and coordinates, do point-in-polygon tests for each
 # one.
-my $pcid = 1;
 {
     local $/ = "\r\n";
     my $n = 0;
@@ -623,14 +687,12 @@ my $pcid = 1;
             my @a = grep { defined($areas{$_}) } @$oneof;
             warn join(" ", @a) . " for $pc ($E, $N)\n" if (@a > 1);
         }
-        
-        $dbh->do('insert into postcode (postcode, id, easting, northing) values (?, ?, ?, ?)', {}, $pc, $pcid, $E, $N);
-        
+       
+        my $pcid = get_postcode_id($pc, 'G', $E, $N);
         foreach my $S (grep { defined($_) } values %areas) {
+            $dbh->do('delete from postcode_area where postcode_id = ? and area_id = ?', {}, $pcid, $S->[0]);
             $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->[0]);
         }
-
-        ++$pcid;
 
         ++$n;
         if (0 == ($n % 100)) {
