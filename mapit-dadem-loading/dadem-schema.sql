@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.16 2005-01-28 12:07:21 francis Exp $
+-- $Id: dadem-schema.sql,v 1.17 2005-01-28 12:54:06 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -163,6 +163,7 @@ create table raw_process_status (
     council_id integer not null,
     
     status text not null,
+    error text,
     details text not null
 );
 

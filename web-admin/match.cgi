@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.5 2005-01-28 12:07:22 francis Exp $
+# $Id: match.cgi,v 1.6 2005-01-28 12:54:06 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.5 2005-01-28 12:07:22 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.6 2005-01-28 12:54:06 francis Exp $';
 
 use strict;
 
@@ -150,34 +150,50 @@ sub do_council_info ($) {
     print $q->h1($name . " " . $area_id . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
 
-    my $googlequery = $name . " councillors ward";
+    if ($status_data->{'error'}) {
+        print $q->h2("Errors");
+        print $q->pre(encode_entities($status_data->{'error'}));
+    }
+
+    print $q->h2("Councillor (GE Data)");
+
     print $q->p(
         $q->a({href => build_url($q, $q->url('relative'=>1), 
               {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
-              "Edit raw input data"),
-        " | ",
-        $q->a({href => build_url($q, "http://www.google.com/search", 
-                {'q' => $googlequery}, 1)},
-              "Google '$googlequery'"),
-        " (",
-        $q->a({href => build_url($q, "http://www.google.com/search", 
-                {'q' => $googlequery,'btnI' => "I'm Feeling Lucky"}, 1)},
-              "I'm Feeling Lucky"),
-        ")"
+              "Edit this data"),
+        " |",
+        map { ( $q->a({href => build_url($q, "http://www.google.com/search", 
+                    {'q' => "$name $_"}, 1)},
+                  "Google" . ($_ eq "" ? " alone" : " '$_'")),
+            " (",
+            $q->a({href => build_url($q, "http://www.google.com/search", 
+                    {'q' => "$name $_",'btnI' => "I'm Feeling Lucky"}, 1)},
+                  "IFL"),
+            ")" ) } ("$name", "$name councillors ward")
     );
 
-    print $q->h2("Councillor (GE Data)");
     my @reps = mySociety::CouncilMatch::get_raw_data($area_id, $d_dbh);
     @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
-    my $c = 1;
     my $prevward = "";
+    my $wards_counter; do { $wards_counter->{$_->{ward_name}} =1 } for @reps;
+    my $wards_count = scalar(keys %$wards_counter);
+    my $column = 1;
+    my $w = 0;
+    print $q->start_table(), $q->start_Tr(), $q->start_td();
     foreach my $rep (@reps) {
         if ($rep->{ward_name} ne $prevward) {
+            $w++;
+            if (($column == 1 && $w > ($wards_count / 3))
+            || ($column == 2 && $w > (2 * $wards_count / 3))) {
+                print $q->end_td(), $q->start_td();
+                $column ++;
+            }
             $prevward = $rep->{ward_name};
             print $q->b($rep->{ward_name}), $q->br();
         }
         print $rep->{rep_first} . " " . $rep->{rep_last}, $q->br();
     }
+    print $q->end_td(), $q->end_Tr(), $q->end_table();
  
     print $q->h2("Match Details");
     print $q->pre(encode_entities($status_data->{'details'}));
@@ -300,7 +316,7 @@ try {
             $area_data = $m_dbh->selectrow_hashref(
                     q#select * from area where id = ?#, {}, $area_id);
             $status_data = $d_dbh->selectrow_hashref(
-                    q#select council_id, status, details from raw_process_status
+                    q#select council_id, status, error, details from raw_process_status
                     where council_id = ?#, {},$area_id);
         }
 
