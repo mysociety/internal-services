@@ -5,49 +5,109 @@
 #
 # Call with two arguments:
 #   - name of MaPit Postgresql database;
-#   - CSV file generated from the ward to constituency mapping in SNAC.
+#   - name of SNAC Access database (.mdb file)
 #
-# This proceeds much as in process_codepoint_ni.
-#
-# XXX This doesn't work. Difference between real and CAS wards?
+# Boundary-Line sometimes uses CAS ward codes and sometimes real ward codes. I
+# don't know why. We make an effort to track down either kind, but using
+# mdb-export from mdbtools to pull the relevant tables out of the SNAC
+# database. Note that the table-level structure of SNAC is not documented, so
+# this might break in the next release.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.2 2004-12-02 21:29:09 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.3 2004-12-03 15:11:36 chris Exp $';
 
 use strict;
 
+require 5.8.0; # Shouldn't matter, but IO::Pipe seems to be broken in 5.6.x
+
 use DBI;
 use IO::File;
+use IO::Pipe;
 use Text::CSV_XS;
 
 use Common;
 
 die "arguments are Postgres database name and ONS codes CSV file" unless (@ARGV == 2);
 
-my ($dbname, $onscodesfile) = @ARGV;
+my ($dbname, $snacdbfile) = @ARGV;
 
 my $dbh = connect_to_database($dbname);
 
 my %have_name = ( );
 
-foreach (read_csv_file($onscodesfile, 1)) {
-    while (@$_ > 0) {
-        my $c = shift(@$_);
-        $c =~ s# ##g;   # we ignore the spaces everywhere
-        my $n = shift(@$_);
-        next if (exists($have_name{$c}));
-        my $id = $dbh->selectrow_array('select id from area where ons_code = ?', {}, $c);
-        if (!defined($id)) {
-            warn "no area for $c ($n)\n";
-        } else {
-            $dbh->do(q#delete from area_name where area_id = ? and name_type = 'S'#, {}, $id);
-            $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $n);
-        }
-        $have_name{$c} = 1;
+my $C = new Text::CSV_XS({ binary => 1 });
+
+my (%casward, %realward);
+
+my $p = (new IO::Pipe())->reader('mdb-export', $snacdbfile, 'CAS wards');
+foreach (read_csv_file($p, 1)) {
+    my ($code, $name) = @$_;
+    $code =~ s# ##g;
+    $casward{$code} = $name;
+}
+
+$p = (new IO::Pipe())->reader('mdb-export', $snacdbfile, 'UK WardNames and Codes');
+foreach (read_csv_file($p, 1)) {
+    my ($code, $name) = @$_;
+    $code =~ s# ##g;
+    $realward{$code} = $name;
+}
+
+my $s = $dbh->prepare('select id, ons_code from area where ons_code is not null');
+$s->execute();
+
+my ($only_r, $only_c, $both_differ, $both_same, $neither) = (0, 0, 0, 0, 0);
+
+while (my ($id, $code) = $s->fetchrow_array()) {
+    my $c = $casward{$code};
+    my $r = $realward{$code};
+
+    my $name;
+    if (defined($c) && !defined($r)) {
+        $name = $c;
+        ++$only_c;
+    } elsif (!defined($c) && defined($r)) {
+        $name = $r;
+        ++$only_r;
+    } elsif (!defined($c) && !defined($r)) {
+        # Probably a constituency or something where we don't have an ONS code
+        # from BL.
+        ++$neither;
+    } elsif ($c ne $r) {
+        # This shouldn't happen, I think, but it does; e.g.:
+        #      code = 31UDGH
+        #  CAS name = 'Broughton Astley - Primethorpe'
+        # real name = 'Broughton Astley-Primethorpe'
+        # Assume that the differences are all trivial.
+        print STDERR "$code: CAS name = '$c'; real name = '$r'\n";
+        ++$both_differ;
+        $name = $c;
+    } else {
+        $name = $c;
+        ++$both_same;
+    }
+
+    if (defined($name)) {
+        $dbh->do(q#delete from area_name where area_id = ? and name_type = 'S'#, {}, $id);
+        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'S', ?)#, {}, $id, $name);
     }
 }
 
 $dbh->commit();
+$dbh->disconnect();
+
+print STDERR "\r";
+
+print <<EOF;
+Coverage:
+
+only real ward                      $only_r
+only CAS ward                       $only_c
+both real and CAS, different names  $both_differ
+both real and CAS, same name        $both_same
+neither                             $neither
+EOF
+
