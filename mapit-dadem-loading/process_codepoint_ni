@@ -4,9 +4,11 @@
 # Read CodePoint postcodes, coordinates and ONS ward codes, and use them to
 # generate a mapping from postcodes to electoral geography.
 #
-# Call with three arguments:
+# Call with four arguments:
 #   - name of MaPit Postgresql database;
 #   - CSV file generated from the ward to constituency mapping in SNAC;
+#   - CSV file of ward to electoral area mapping from the District Electoral
+#     Areas (Northern Ireland) Order 1993, or later;
 #   - CSV file of postcodes and other data from CodePoint.
 #
 # All NI postcodes begin BT, so the appropriate file from the CodePoint
@@ -18,10 +20,11 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.5 2004-12-07 00:14:43 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.6 2004-12-07 10:48:16 chris Exp $';
 
 use strict;
 
+use Data::Dumper;
 use DBI;
 use IO::File;
 use Text::CSV_XS;
@@ -33,21 +36,57 @@ use Common;
 # by default, but offers options for a slightly less inept behaviour.
 my $c = new Text::CSV_XS({ binary => 1 });
 
-die "arguments are Postgres database name, ONS codes CSV file, and CodePoint CSV file" unless (@ARGV == 3);
+die "arguments are Postgres database name, ONS codes CSV file, NI electoral areas CSV file, and CodePoint CSV file" unless (@ARGV == 4);
 
-my ($dbname, $onscodesfile, $codepointfile) = @ARGV;
-my $dbh = connect_to_mapit_database($dbname);
+my ($dbname, $onscodesfile, $nieasfile, $codepointfile) = @ARGV;
+my $dbh = connect_to_database($dbname);
 
 # Special case: create a Euro-region.
 my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'F', 'EUR', undef, undef, undef);
     # NIA etc.?
 country($dbh, $euro_area_id, 'N');
 
+# %name
+# Name of anything with an ONS code.
 my %name;
+
+# %ward_to_const
+# ONS ward code to constituency ONS code.
 my %ward_to_const;
+
+# %ward_to_district
+# ONS ward code to district ONS code.
 my %ward_to_district;
 
-my (%aid, %wid, %cid, %eid);
+# %aid, %eaid, %cid, %eid
+# ONS district/ward/constituency code to area ID of district, district
+# electoral area, constituency and assembly electoral area.
+my (%aid, %eaid, %cid, %eid);
+
+# %wardname_to_ea
+# Map from {district}->{ward} to ID of electoral area.
+my %wardname_to_ea;
+
+print STDERR "reading mapping from wards to Electoral Areas... ";
+my ($district, $electoralarea);
+my %e;
+foreach (read_csv_file($nieasfile, 1)) {
+    my ($d, $ea, $w) = @$_;
+    $d = $district if ($d eq '');;
+    $district = $d;
+    die "no district" unless (defined($d));
+
+    $ea = $electoralarea if ($ea eq '');
+    $electoralarea = $ea;
+    die "no electoral area" unless (defined($ea));
+
+    if (!exists($e{$ea})) {
+        country($dbh, $e{$ea} = get_area_id($dbh, $ea, 'F', 'LGE', undef, undef, undef), 'N');
+        
+    }
+    $wardname_to_ea{$d}->{$w} = $e{$ea};
+}
+print STDERR "done.\n";
 
 print STDERR "reading ward/constituency codes... ";
 foreach (read_csv_file($onscodesfile, 1)) {
@@ -63,6 +102,9 @@ foreach (read_csv_file($onscodesfile, 1)) {
     # load Northern Ireland only
     next if ($wcode !~ m/^95/);
 
+    die "no LA/UA '$aname' in electoral areas map" unless (exists($wardname_to_ea{$aname}));
+    warn "no ward '$wname' in LA/UA '$aname' in electoral areas map" unless (exists($wardname_to_ea{$aname}->{$wname}));
+
     die "undefined constituency code in '$_'" if (!defined($ccode));
     die "undefined ward code in '$_'" if (!defined($wcode));
     die "undefined LA/UA code in '$_'" if (!defined($acode));
@@ -74,17 +116,19 @@ foreach (read_csv_file($onscodesfile, 1)) {
     }
 
     if (!exists($name{$wcode})) {
-        country($dbh, $wid{$wcode} = get_area_id($dbh, $wname, 'S', 'LGW', $wcode, undef, undef), 'N');
-        $dbh->do(q#update area set parent_area_id = (select id from area where ons_code = ?) where id = ?#, {}, $acode, $wid{$wcode});
+        $eaid{$wcode} = $wardname_to_ea{$aname}->{$wname};
+        # Fix up parent area of district electoral area.
+        $dbh->do(q#update area set parent_area_id = ? where id = ?#, {}, $aid{$acode}, $eaid{$wcode});
+        print qq#update area set parent_area_id = $aid{$acode} where id = $eaid{$wcode}\n#;
     }
 
     if (!exists($name{$ccode})) {
-        country($dbh, $cid{$ccode} = get_area_id($dbh, $wname, 'S', 'WMC', $ccode, undef, undef), 'N');
+        country($dbh, $cid{$ccode} = get_area_id($dbh, $cname, 'S', 'WMC', $ccode, undef, undef), 'N');
         # Northern Ireland Assembly electoral areas are coterminous with
         # Westminster constituencies; note that they have no identifying codes
         # at all, but in memory index them by the ONS code of the coincident
         # constituency.
-        country($dbh, $eid{$ccode} = get_area_id($dbh, $wname, 'S', 'NIE', undef, undef, undef), 'N');
+        country($dbh, $eid{$ccode} = get_area_id($dbh, $cname, 'S', 'NIE', undef, undef, undef), 'N');
     }
 
     $name{$ccode} ||= $cname;
@@ -95,6 +139,10 @@ foreach (read_csv_file($onscodesfile, 1)) {
     $ward_to_district{$wcode} = $acode;
 }
 print STDERR "done.\n";
+
+$dbh->commit();
+<STDIN>;
+
 
 my %unused = map { $_ => 1 } grep(/^95/, keys %ward_to_const);
 
@@ -239,7 +287,7 @@ foreach (@postcode) {
     my ($pc, $E, $N, $ward) = @$_;
 
     my $pcid = get_postcode_id($dbh, $pc, $E, $N);
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $wid{$ward});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eaid{$ward});
     $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $cid{$ward_to_const{$ward}});
     $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eid{$ward_to_const{$ward}});
     $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $aid{$ward_to_district{$ward}});
