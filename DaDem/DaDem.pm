@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.10 2004-12-13 12:45:51 francis Exp $
+# $Id: DaDem.pm,v 1.11 2004-12-13 13:20:05 francis Exp $
 #
 
 package DaDem;
@@ -257,7 +257,7 @@ sub get_representative_info ($) {
                 fax => $fax
             };
     } else {
-        throw RABX::Exception("Representative $id not found", mySociety::DaDem::REP_NOT_FOUND);
+        throw RABX::Error("Representative $id not found", mySociety::DaDem::REP_NOT_FOUND);
     }
 }
 

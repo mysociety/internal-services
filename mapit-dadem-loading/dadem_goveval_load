@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.7 2004-12-13 12:56:11 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.8 2004-12-13 13:20:06 francis Exp $';
 
 use strict;
 
@@ -66,6 +66,16 @@ while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     $name_to_type{$name} = $type;
 }
 
+# Various forms of null
+sub nullify_if_null($) {
+    $_ = shift;
+    return $_ if !defined($_);
+    return undef if ($_ eq "");
+    return undef if ($_ eq "NULL");
+    return undef if ($_ eq "byelection");
+    return $_;
+}
+
 # Read CSV file, load into dadem
 my $C = new Text::CSV_XS({ binary => 1 });
 <STDIN>;    # header line
@@ -82,9 +92,17 @@ while (my $line = <STDIN>) {
         $finalname = "$first $last";
         $finalparty = $party;
 
-        $finalemail = $email;
-        $finalfax = $fax;
-        $finalmethod = "either";
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+        if (defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "email";
+        } elsif (!defined($finalemail) and defined($finalfax)) {
+            $finalmethod = "fax";
+        } elsif (!defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "unknown";
+        } else {
+            $finalmethod = "either";
+        }
 
     } elsif ($kind eq "mp") {
         my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
@@ -93,23 +111,18 @@ while (my $line = <STDIN>) {
         $finalname = $name;
         $finalparty = $party;
 
-        $finalemail = $email;
-        $finalemail = undef if ($email eq "");
-        $finalemail = undef if ($email eq "NULL");
-        $finalemail = undef if ($email eq "byelection");
-        $finalfax = $fax;
-        $finalfax = undef if ($fax eq "");
-        $finalfax = undef if ($fax eq "NULL");
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
         if (!defined($finalfax)) {
-            $finalfax = $constituencyfax;
-            $finalfax = undef if ($constituencyfax eq "");
-            $finalfax = undef if ($constituencyfax eq "NULL");
+            $finalfax = nullify_if_null($constituencyfax);
         }
 
         if (defined($finalemail)) {
             $finalmethod = "email";
-        } else {
+        } elsif (defined($finalfax)) {
             $finalmethod = "fax"; 
+        } else {
+            $finalmethod = "unknown"; 
         }
 
         if ($email eq "shame") {

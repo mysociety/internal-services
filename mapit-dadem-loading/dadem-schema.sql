@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.4 2004-12-13 12:45:51 francis Exp $
+-- $Id: dadem-schema.sql,v 1.5 2004-12-13 13:20:06 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -15,8 +15,10 @@ create table representative (
     area_type char(3) not null,
     name text not null,
     party text not null,
+    -- either means "fax or email is good, up to queue to decide"
     -- shame means "refuses to be contacted"
-    method varchar(6) not null check (method in('either','fax','email','shame')),
+    -- unknown means "we don't have good data"
+    method varchar(7) not null check (method in('either','fax','email','shame','unknown')),
     email text,
     fax text
 );
