@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.10 2005-01-19 17:22:26 francis Exp $
+-- $Id: dadem-schema.sql,v 1.11 2005-01-21 13:05:45 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -89,5 +89,30 @@ create table electedbody_edited (
     whenedited integer not null,
     note text not null
 );
-
 */
+
+-- original input data from CSV file, only "council" name matched into standard
+-- form, "ward" names could contain anything.
+create table raw_input_data (
+    raw_id serial not null primary key,
+    ge_id int not null,
+
+    council_id integer not null,
+    council_name text not null, -- in canonical 'C' form
+    council_type char(3) not null, 
+
+    ward_name text,
+
+    rep_name text,
+    rep_party text,
+    rep_email text,
+    rep_fax text
+
+);
+
+create unique index raw_input_data_ge_id_idx on raw_input_data(ge_id);
+create index council_id_idx on raw_input_data(countil_id);
+create index council_name_idx on raw_input_data(council_name);
+create index council_type_idx on raw_input_data(council_type);
+
+

@@ -1,4 +1,4 @@
-$Id: NAMETYPES,v 1.2 2005-01-20 20:58:32 francis Exp $
+$Id: NAMETYPES,v 1.3 2005-01-21 13:05:45 francis Exp $
 
 Several types of name may be defined for each area. Each type of name is
 identified by a one-letter code:
@@ -44,5 +44,9 @@ F   Friendly Name
     these resemble the ONS names; that is, they are written in full like the
     ONS or OS names, but unlike the OS names do not include the area type
     in addition to the name.
+
+C   Canonical Name
+    
+    Lowercase and simplified council names.
 
 

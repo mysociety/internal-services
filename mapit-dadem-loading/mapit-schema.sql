@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.12 2004-12-20 22:46:07 francis Exp $
+-- $Id: mapit-schema.sql,v 1.13 2005-01-21 13:05:45 francis Exp $
 --
 
 -- generations, for currency of data
@@ -64,7 +64,7 @@ create table area_name (
     -- 'G'           ... GovEval
     -- 'X'           ... FaxYourMP
     -- 'F'  "friendly" name for our own use
-    name_type char(1) not null check (name_type = 'O' or name_type = 'S' or name_type = 'M' or name_type = 'G' or name_type = 'F' or name_type = 'X'),
+    name_type char(1) not null check (name_type = 'O' or name_type = 'S' or name_type = 'M' or name_type = 'G' or name_type = 'F' or name_type = 'X' or name_type = 'C'),
     name text not null,
     primary key (area_id, name_type)
 );

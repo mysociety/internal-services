@@ -10,7 +10,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.5 2005-01-07 11:08:45 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.6 2005-01-21 13:05:45 francis Exp $';
 
 use strict;
 
@@ -86,8 +86,12 @@ while (my ($area_id) = $s->fetchrow_array()) {
         $friendly = friendly_from_os($names->{O}->{name});
     } elsif (exists($names->{S})) {
         $friendly = $names->{S}->{name};
+    } else {
+        print STDERR "No name to make friendly for $area_id\n";
     }
-    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
+    if ($friendly ne "") {
+        $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
+    }
 #    print $area_id, " ", $friendly, "\n";
 }
 
