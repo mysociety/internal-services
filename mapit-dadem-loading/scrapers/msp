@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.1 2005-02-15 12:53:02 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.2 2005-02-15 14:43:55 chris Exp $';
 
 use strict;
 
@@ -32,6 +32,10 @@ while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
 
     print STDERR "$url\n";
 
+    #
+    # Extract data from MSP's main page.
+    #
+
     my $t = HTML::TreeBuilder->new_from_content($m->content())
         or die "unable to parse $url";
 
@@ -49,21 +53,77 @@ while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
     my $mspname = decode("iso-8859-1", $heading->as_text());
     $mspname =~ s#&nbsp;# #g;
     $mspname =~ s#\s+# #g;
-    print $mspname, "\n";
+    print "representative: $mspname\n";
 
     # Find MSP image
     my $portrait = $contenttable->look_down(_tag => 'img', class => 'pageSectionImage', src => qr/\.jpg$/)
         or die qq#did not find portrait image in $url#;
     my $portraiturl = URI->new_abs($portrait->attr('src'), $url)->as_string();
-    print "  $portraiturl\n";
+    print "  image URL: $portraiturl\n";
 
-    # Now search for various headings we care about.
-    foreach my $h ($contenttable->look_down(_tag => 'span', class => 'smallHeading')) {
-        my $hh = $h->as_text();
-        next unless ($hh =~ m#(Member for:|Party:)#);
-        print "  ", $h->parent()->as_text(), "\n";
+    # Now search for various headings we care about. These look like this:
+    # <p><span class="smallHeading">$heading:</span><br>$content</p>
+    foreach my $h ($contenttable->look_down(
+                                    _tag => 'span',
+                                    class => 'smallHeading',
+                                    sub { $_[0]->parent()->tag() eq 'p' } )) {
+        my $hh = decode("iso-8859-1", $h->parent()->as_text());
+        next unless ($hh =~ m#(Member for:|Party:)\s+(.+)#);
+        if ($1 eq 'Member for:') {
+            print "  area: $2\n";
+        } else {
+            print "  party: $2\n";
+        }
+    }
+
+    #
+    # Now visit the contact details page and extract details from that.
+    #
+    $m->follow_link(text_regex => qr/Contact details/i)
+        or die "unable to find 'contact details' link in $url";
+    $url = $m->uri();
+    print STDERR "$url\n";
+
+    # This page has a three-column table with the contact details in it. The
+    # left-hand column is the constituency details; the right-hand column is
+    # the Parliamentary details; and the middle column is some "design" thing.
+    $t = HTML::TreeBuilder->new_from_content($m->content())
+        or die "unable to parse $url";
+
+    my $contacttable = $t->look_down(_tag => 'table', 'class' => 'pushedTable', summary => qr/Contact details for/i)
+        or die qq#did not find contacts table (<table class="pushedTable" summary="Contact details for..." ...>) in $url#;
+
+    # Extract all cells from this table.
+    my @tt = $contacttable->look_down(_tag => 'td');
+    die "bad table layout (" . scalar(@tt) . " cells, not 9 or more)"
+        unless (@tt >= 9);
+    die "bad table layout (fourth cell is not horizontal gap)"
+        unless ($tt[3]->attr('colspan') eq '3');
+    die "bad table layout (eighth cell is not horizontal gap)"
+        unless ($tt[7]->attr('colspan') eq '3');
+
+    # Extract Holyrood email link.
+    my $a = $tt[8]->look_down(_tag => 'a', 'href' => qr/^mailto:/)
+        or die qq#did not find Holyrood email link (<a href="mailto:..."...> in ninth cell of table)#;
+
+    # $tt[9] and [10] could be constituency email and/or website.
+    # XXX scrape those
+    
+    my $e = $a->attr('href');
+    $e =~ s/^mailto://;
+    print "  Holyrood email: $e\n";
+
+    my $p = decode('iso-8859-1', $tt[6]->as_text());
+    if ($p =~ m#Fax:\s+([\d\s]+)#) {
+        my $fax = $1;
+        $fax =~ s/\s+//g;
+        $fax =~ s/^0/+44/;
+        print "  Holyrood fax: $fax\n";
     }
     
     $m->back();
+    $m->back();
     ++$n;
+
+    print "\n";
 }
