@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.6 2005-01-28 12:54:06 francis Exp $
+# $Id: match.cgi,v 1.7 2005-01-28 13:25:45 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.6 2005-01-28 12:54:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.7 2005-01-28 13:25:45 francis Exp $';
 
 use strict;
 
@@ -205,6 +205,7 @@ sub do_council_info ($) {
 # Form for editing all councillors in a council.
 sub do_council_edit ($) {
     my ($q) = @_;
+    my $newreptext = "Edit this for new rep";
 
     if ($q->param('posted')) {
         if ($q->param('Cancel')) {
@@ -216,12 +217,22 @@ sub do_council_edit ($) {
         my @newdata;
         my $c = 1;
         while ($q->param("key$c")) {
+            if ($q->param("ward_name$c")) {
+                my $rep;
+                foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
+                    $rep->{$fieldname}= $q->param($fieldname . $c);
+                }
+                push @newdata, $rep;
+            } else { print "MOOOO"; }
+            $c++;
+        }
+        # ... add new ward
+        if ($q->param("ward_namenew") ne $newreptext) {
             my $rep;
             foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
-                $rep->{$fieldname}= $q->param($fieldname . $c);
+                $rep->{$fieldname}= $q->param($fieldname . "new");
             }
             push @newdata, $rep;
-            $c++;
         }
     
         # Make alteration
@@ -267,11 +278,11 @@ sub do_council_edit ($) {
 
     print $q->start_table();
     print $q->Tr({}, $q->th({}, [
-        'Ward', 'First', 'Last', 'Party', 'Email', 'Fax'                
+        'Ward (erase to del rep)', 'First', 'Last', 'Party', 'Email', 'Fax'                
     ]));
 
-    $c = 1;
-    while ($q->param("key$c")) {
+    my $printrow = sub {
+        my $c = shift;
         print $q->hidden(-name => "key$c", -size => 30);
         print $q->Tr({}, $q->td([ 
             $q->textfield(-name => "ward_name$c", -size => 30),
@@ -281,6 +292,13 @@ sub do_council_edit ($) {
             $q->textfield(-name => "rep_email$c", -size => 20),
             $q->textfield(-name => "rep_fax$c", -size => 15)
         ]));
+    };
+
+    $q->param("ward_namenew", $newreptext);
+    &$printrow("new");
+    $c = 1;
+    while ($q->param("key$c")) {
+        &$printrow($c);
         $c++;
     }
     
