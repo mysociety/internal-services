@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.34 2005-02-15 15:26:05 francis Exp $
+# $Id: DaDem.pm,v 1.35 2005-02-15 16:48:39 francis Exp $
 #
 
 package DaDem;
@@ -520,15 +520,30 @@ sub get_representative_history ($) {
 =item admin_edit_representative ID DETAILS EDITOR NOTE
 
 Alters data for a representative, updating the override table
-representative_edited. DETAILS is a hash from name, party, method, email and
-fax to their new values, or not defined to delete the representative. Not every
-value has to be present.  Any modification counts as an undeletion.  EDITOR is
-the name of the person who edited the data.  NOTE is any explanation of why /
-where from.
+representative_edited. ID contains the representative id, or undefined
+to make a new one (in which case DETAILS needs to contain area_id and
+area_type).  DETAILS is a hash from name, party, method, email and fax to their
+new values, or not defined to delete the representative. Not every value has to
+be present.  Any modification counts as an undeletion.  EDITOR is the name of
+the person who edited the data.  NOTE is any explanation of why / where from.
+Returns ID, or if ID was undefined the new id.
 
 =cut
 sub admin_edit_representative ($$$$) {
     my ($id, $newdata, $editor, $note) = @_;
+
+    # Create new one
+    if (!$id) {
+        warn $newdata;
+        dbh()->do('insert into representative
+            (area_id, area_type, name, party, method, email, fax, import_key)
+            values (?, ?, ?, ?, ?, ?, ?, ?)', {}, 
+            $newdata->{area_id}, $newdata->{area_type}, 
+            $newdata->{name}, $newdata->{party}, $newdata->{method}, 
+            $newdata->{email}, $newdata->{fax}, undef);
+        $id = dbh()->selectrow_array("select currval('representative_id_seq')");
+        warn Dumper($id);
+    }
 
     # Deletion
     if (!defined($newdata)) {
@@ -573,6 +588,8 @@ sub admin_edit_representative ($$$$) {
     } else {
         throw RABX::Error("Representative $id not found, so can't be edited", mySociety::DaDem::REP_NOT_FOUND);
     }
+
+    return $id;
 }
 
 =item admin_done_user_correction CORRECTION_ID
