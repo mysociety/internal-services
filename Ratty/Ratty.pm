@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.6 2004-11-15 15:38:35 francis Exp $
+# $Id: Ratty.pm,v 1.7 2004-11-15 15:54:14 francis Exp $
 #
 
 package Ratty;
@@ -58,7 +58,7 @@ sub dbh() {
 
 sub get_conditions ($) {
     my ($rule) = @_;
-    return dbh()->selectall_arrayref('select id, field, condition, value from condition where rule_id = ? order by order_id', {}, $rule);
+    return dbh()->selectall_arrayref('select id, field, condition, value from condition where rule_id = ? order by id', {}, $rule);
 }
 
 =item new
@@ -274,7 +274,7 @@ sub admin_update_rule ($$$) {
         $vals->{'rule_id'} = $return;
     }
 
-    warn(Dumper($conds));
+    #warn(Dumper($conds));
     dbh()->do('delete from condition where rule_id = ?', {}, $vals->{'rule_id'});
     foreach my $cond (@$conds) {
         dbh()->do('insert into condition (rule_id, field, condition, value) values (?,?,?,?)',
@@ -316,6 +316,8 @@ sub admin_get_rules ($) {
     $sth->execute();
     my @ret;
     while (my $hash_ref = $sth->fetchrow_hashref()) {
+        my $hits = dbh()->selectrow_array('select count(*) from rule_hit where rule_id = ' .  $hash_ref->{'id'});
+        $hash_ref->{'hits'} = $hits;
         push @ret, $hash_ref;
     }
 
