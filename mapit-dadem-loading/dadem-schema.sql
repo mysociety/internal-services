@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.25 2005-02-08 15:06:55 francis Exp $
+-- $Id: dadem-schema.sql,v 1.26 2005-02-12 01:24:31 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -53,6 +53,8 @@ create table representative_edited (
     -- what the change was for: author's notes
     note text not null
 );
+
+create index representative_edited_representative_id_idx on representative_edited(representative_id);
 
 -- original input data from CSV file (from GovEval), only "council" name
 -- matched into standard form, "ward" names could contain anything.
