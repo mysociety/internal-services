@@ -1,2 +1,2 @@
 #!/bin/sh
-cd ../../DaDem && exec ./server "$@"
+cd ../DaDem && exec ./server "$@"

@@ -1,0 +1,41 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# server:
+# RABX server.
+#
+# To run it you need these lines in an Apache config:
+#     Options +ExecCGI
+#     SetHandler fastcgi-script
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2004-11-10 13:08:00 francis Exp $';
+
+use FCGI;
+use Ratty;
+use RABX;
+
+use mySociety::Config;
+mySociety::Config::set_file('../conf/general');
+
+use mySociety::WatchUpdate;
+my $W = new mySociety::WatchUpdate();
+
+my $req = FCGI::Request();
+use Data::Dumper;
+
+my $R = new Ratty();
+
+while ($req->Accept() >= 0) {
+    RABX::Server::CGI::dispatch(
+            'Ratty.test' => sub {
+                $R->test(@_);
+            }
+        );
+    last if ($W->changed());
+}
+
+Ratty::dbh()->commit();
+Ratty::dbh()->disconnect();

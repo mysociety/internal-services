@@ -1,0 +1,46 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# server:
+# RABX server for DaDem.
+#
+# To run it you need these lines in an Apache config:
+#     Options +ExecCGI
+#     SetHandler fastcgi-script
+#
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2004-11-10 13:07:59 francis Exp $';
+
+use FCGI;
+use mySociety::DaDem;   # client interface
+use mySociety::VotingArea;
+use DaDem;
+use RABX;
+
+use mySociety::Config;
+mySociety::Config::set_file('../conf/general');
+
+use mySociety::WatchUpdate;
+my $W = new mySociety::WatchUpdate();
+
+my $req = FCGI::Request();
+use Data::Dumper;
+
+while ($req->Accept() >= 0) {
+    RABX::Server::CGI::dispatch(
+            'DaDem.get_representatives' => sub {
+                return DaDem::get_representatives($_[0]);
+            },
+            'DaDem.get_representative_info' => sub {
+                return DaDem::get_representative_info($_[0]);
+            },
+            'DaDem.get_representatives_info' => sub {
+                return DaDem::get_representatives_info($_[0]);
+            }
+        );
+    $W->exit_if_changed();
+}
+
