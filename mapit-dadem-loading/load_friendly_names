@@ -1,23 +1,16 @@
 #!/usr/bin/perl -w -I../../perllib
 #
-# load_goveval_names
-# Load in GovEval or similar data, match names to Ordnance Survey ones
-# in the MaPit database, and add in the GovEval names as alternates.
-#
-# Parameters: 
-# $1 - kind of data, currently choose from: mep, mp
-# stdin - the CSV file from GovEval or FaxYourMP
-# make sure ../conf/general is configured for mapit db
-#
-# Example usage:
-# cat ../../../goveval/mep-20041001.csv | ./load_goveval_names mep
-# cat ../../../goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
+# load_friendly_names:
+# From the mySociety, Ordnance Survey, or Office of National Statistics names
+# for areas in the database, construct "friendly" names suitable for display to
+# users. Mainly this consists of stripping the type suffices (e.g. "Boro Const")
+# from the Ordnance Survey names.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.1 2004-12-08 09:32:00 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.2 2004-12-09 19:11:11 chris Exp $';
 
 use strict;
 
@@ -28,16 +21,15 @@ use Data::Dumper;
 use Common;
 
 my $dbh = connect_to_mapit_database();
-# DBI->trace(2);
 
-# Delete existing GovEval name data
+# Nuke any existing friendly names.
 $dbh->do(q#delete from area_name where name_type = 'F'#);
 
-# friendly_constituency_name NAME
+# friendly_from_os NAME
 # Convert the NAME of a constituency into a friendly version, which
 # doesn't have any suffix saying what type it is.  Input should
 # be the OS spelling of the name.
-sub friendly_constituency_name ($) {
+sub friendly_from_os ($) {
     $_ = shift;
 
     # Specific to Europe regions
@@ -68,19 +60,22 @@ sub friendly_constituency_name ($) {
     return $_;
 }
 
-# Load all OS names and make friendly
-my $s = $dbh->prepare(
-        q#select area_id, name from area_name, area
-            where area_name.area_id = area.id and name_type = 'O'#);
+my $s = $dbh->prepare('select area_id from area');  # XXX generations
 $s->execute();
 
-while (my ($area_id, $name) = $s->fetchrow_array()) {
-    # Create canonical version of name and also hash it as lookup
-    $_ = friendly_constituency_name($name);
-    $dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)",
-        {}, $area_id, 'F', $_);
+while (my ($area_id) = $s->fetchrow_array()) {
+    my $names = $dbh->selectall_hashref('select name_type, name from area_name where area_id = ?', 'name_type', {}, $area_id);
+    my $friendly = '';
+    if (exists($names->{M})) {
+        $friendly = $names->{M};
+    } elsif (exists($names->{O})) {
+        $friendly = friendly_from_os($names->{O});
+    } elsif (exists($names->{S})) {
+        $friendly = $names->{S};
+    }
+    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
 }
- 
+
 $dbh->commit();
 $dbh->disconnect();
 
