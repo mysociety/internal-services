@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.9 2004-12-13 12:17:34 francis Exp $
+# $Id: DaDem.pm,v 1.10 2004-12-13 12:45:51 francis Exp $
 #
 
 package DaDem;
@@ -247,8 +247,6 @@ sub get_representative_info ($) {
         $fax = '000' if (defined($fax));
         $email = 'x@x.invalid' if (defined($email));
     
-        # preferred method 0: either; 1: fax; 2: email
-        $method = (qw(either fax email shame))[$method];
         return {
                 voting_area => $area_id,
                 type => $mySociety::VotingArea::type_to_id{$area_type},
