@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.32 2005-02-11 00:38:37 chris Exp $
+# $Id: DaDem.pm,v 1.33 2005-02-15 11:12:16 francis Exp $
 #
 
 package DaDem;
@@ -263,6 +263,25 @@ sub search_representatives ($) {
     return [ map { $_->[0] } (@$y, @$z) ];
 }
 
+=item get_user_corrections
+
+Returns list of user submitted corrections to democratic data.  Each entry
+in the list is a hash of data about the user submitted correction.
+
+=cut
+sub get_user_corrections () {
+    my $s = dbh()->prepare(q#select * from user_corrections 
+        where admin_done = 'f' order by whenentered#);
+    $s->execute();
+    my @corrections;
+    while (my $row = $s->fetchrow_hashref()) {
+        push @corrections, $row;
+    }
+
+    # Return results
+    return \@corrections;
+}
+
 =item get_bad_contacts
 
 Returns list of representatives whose contact details are bad.  That
@@ -387,20 +406,20 @@ sub get_representatives_info ($) {
 }
 
 
-=item store_user_correction ID CHANGE NAME PARTY NOTES EMAIL
+=item store_user_correction VA_ID REP_ID CHANGE NAME PARTY NOTES EMAIL
 
 Records a correction to representative data made by a user on the website.
 CHANGE is either "add", "delete" or "modify".  NAME and PARTY are new values.
 NOTES and EMAIL are fields the user can put extra info in.
 
 =cut
-sub store_user_correction ($$$$$$) {
-    my ($id, $change, $name, $party, $notes, $email) = @_;
+sub store_user_correction ($$$$$$$) {
+    my ($va_id, $rep_id, $change, $name, $party, $notes, $email) = @_;
 
     dbh()->do('insert into user_corrections 
-        (representative_id, alteration, name, party, user_notes, user_email, whenentered)
-        values (?, ?, ?, ?, ?, ?, ?)', {},
-        $id, $change, $name, $party, $notes, $email, time());
+        (voting_area_id, representative_id, alteration, name, party, user_notes, user_email, whenentered)
+        values (?, ?, ?, ?, ?, ?, ?, ?)', {},
+        $va_id, $rep_id, $change, $name, $party, $notes, $email, time());
     dbh()->commit();
 }
 
@@ -521,6 +540,22 @@ sub admin_edit_representative ($$$$) {
         throw RABX::Error("Representative $id not found, so can't be edited", mySociety::DaDem::REP_NOT_FOUND);
     }
 }
+
+=item admin_done_user_correction CORRECTION_ID
+
+Marks user correction as having been dealt with.
+
+=cut
+sub admin_done_user_correction ($) {
+    my ($correction_id) = @_;
+
+    dbh()->do(q#update user_corrections 
+        set admin_done = true where user_correction_id = ?#, {},
+        $correction_id);
+    dbh()->commit();
+}
+
+
 
 1;
 

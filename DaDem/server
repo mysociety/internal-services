@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.9 2005-02-10 16:33:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.10 2005-02-15 11:12:19 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -47,6 +47,9 @@ while ($req->Accept() >= 0) {
             'DaDem.get_bad_contacts' => sub {
                 return DaDem::get_bad_contacts();
             },
+            'DaDem.get_user_corrections' => sub {
+                return DaDem::get_user_corrections();
+            },
             'DaDem.get_representative_info' => sub {
                 return DaDem::get_representative_info($_[0]);
             },
@@ -57,13 +60,16 @@ while ($req->Accept() >= 0) {
                 return DaDem::get_representative_history($_[0]);
             },
             'DaDem.store_user_correction' => sub {
-                return DaDem::store_user_correction($_[0], $_[1], $_[2], $_[3], $_[4], $_[5]);
+                return DaDem::store_user_correction($_[0], $_[1], $_[2], $_[3], $_[4], $_[5], $_[6]);
             },
             'DaDem.admin_get_stats' => sub {
                 return DaDem::admin_get_stats();
             },
             'DaDem.admin_edit_representative' => sub {
                 return DaDem::admin_edit_representative($_[0], $_[1], $_[2], $_[3]);
+            },
+            'DaDem.admin_done_user_correction' => sub {
+                return DaDem::admin_done_user_correction($_[0]);
             }
          );
     $W->exit_if_changed();

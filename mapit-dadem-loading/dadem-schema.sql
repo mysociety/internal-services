@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.26 2005-02-12 01:24:31 francis Exp $
+-- $Id: dadem-schema.sql,v 1.27 2005-02-15 11:12:20 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -147,6 +147,9 @@ create index raw_process_status_status_idx on raw_process_status(status);
 
 -- data that users have entered on the website to correct representatives
 create table user_corrections (
+    user_correction_id serial not null primary key,
+
+    voting_area_id integer,
     representative_id integer,  -- can be null for "add" items
     alteration text not null check (alteration in('modify','delete','add')),
     name text not null,
@@ -154,7 +157,9 @@ create table user_corrections (
 
     user_notes text not null,
     user_email text not null,
-    whenentered integer not null
+    whenentered integer not null,
+
+    admin_done boolean not null default 'f'
 );
 
 
