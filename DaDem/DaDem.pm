@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.36 2005-02-15 18:09:28 francis Exp $
+# $Id: DaDem.pm,v 1.37 2005-02-16 16:37:24 chris Exp $
 #
 
 package DaDem;
@@ -284,8 +284,7 @@ in the list is a hash of data about the user submitted correction.
 
 =cut
 sub get_user_corrections () {
-    my $s = dbh()->prepare(q#select * from user_corrections 
-        where admin_done = 'f' order by whenentered#);
+    my $s = dbh()->prepare(q#select * from user_corrections where admin_done = 'f' order by whenentered#);
     $s->execute();
     my @corrections;
     while (my $row = $s->fetchrow_hashref()) {
@@ -373,44 +372,7 @@ or, on failure, an error code.
 =cut
 sub get_representative_info ($) {
     my ($id) = @_;
-    
-    # Dummy postcode case
-    if (exists($dummy_representatives{$id})) {
-        my $ret = $dummy_representatives{$id};
-        $ret->{'fax'} = mySociety::Config::get("TOMS_FAX") if (defined($ret->{'fax'}) && $ret->{'fax'} eq 'TOMS_FAX');
-        return $ret;
-    }
-
-    # Real data case
-    if (my ($area_id, $area_type, $name, $party, $method, $email, $fax, $deleted) = dbh()->selectrow_array('select area_id, area_type, name, party, method, email, fax, false from representative where id = ?', {}, $id)) {
-        my $edited = 0;
-
-        # Override with any edits
-        if (my ($edited_name, $edited_party, $edited_method,
-        $edited_email, $edited_fax, $edited_deleted) = dbh()->selectrow_array('select name, party, method, email, fax, deleted from representative_edited where representative_id = ? order by order_id desc limit 1', {}, $id)) {
-            $name = $edited_name if (defined $edited_name);
-            $party = $edited_party if (defined $edited_party);
-            $method = $edited_method if (defined $edited_method);
-            $email = $edited_email if (defined $edited_email);
-            $fax = $edited_fax if (defined $edited_fax);
-            $deleted = $edited_deleted if (defined $edited_deleted);
-            $edited = 1;
-        }
-
-        return {
-                voting_area => $area_id,
-                type => $area_type,
-                name => $name,
-                party => $party,
-                method => $method,
-                email => $email,
-                fax => $fax,
-                edited => $edited,
-                deleted => $deleted,
-            };
-    } else {
-        throw RABX::Error("Representative $id not found", mySociety::DaDem::REP_NOT_FOUND);
-    }
+    return get_representatives_info([$id])->{$id};
 }
 
 =item get_representatives_info ARRAY
@@ -421,7 +383,58 @@ given in ARRAY.
 =cut
 sub get_representatives_info ($) {
     my ($ary) = @_;
-    return { (map { $_ => get_representative_info($_) } @$ary) };
+    
+    if (my ($bad) = grep(/^([^\d]|)$/, @$ary)) {
+        throw RABX::Error("Bad representative ID '$bad'", mySociety::DaDem::REP_NOT_FOUND);
+    }
+    
+    my %ret = ( );
+    
+    # Strip out any dummy representatives.
+    if (my @dummy = grep { exists($dummy_representatives{$_}) } @$ary) {
+        foreach (@dummy) {
+            my $x = $dummy_representatives{$_};
+            $x->{fax} = mySociety::Config::get('TOMS_FAX')
+                if (defined($x->{fax}) && $x->{fax} eq 'TOMS_FAX');
+            $ret{$_} = $x;
+        }
+        $ary = [grep { !exists($dummy_representatives{$_}) } @$ary];
+    }
+
+    # Construct miserable SQL query for the rest.
+    if (@$ary) {
+        my $cond = join(' or ', map { "representative.id = $_" } @$ary);
+        my $s = dbh()->prepare(qq#
+                select id, area_id, area_type,
+                    coalesce(representative_edited.name, representative.name) as name,
+                    coalesce(representative_edited.party, representative.party) as party,
+                    coalesce(representative_edited.email, representative.email) as email,
+                    coalesce(representative_edited.fax, representative.fax) as fax,
+                    coalesce(representative_edited.method, representative.method) as method,
+                    coalesce(representative_edited.deleted, false) as deleted
+                from representative left join representative_edited on representative.id = representative_edited.representative_id
+                where (order_id is null
+                       or order_id = (select max(order_id) from representative_edited where representative_id = representative.id)) and ($cond);
+            #);
+        $s->execute();
+        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted) = $s->fetchrow_array()) {
+            $ret{$id} = {
+                    id => $id,
+                    voting_area => $area_id,
+                    area_type => $area_type,
+                    name => $name,
+                    party => $party,
+                    email => $email,
+                    fax => $fax,
+                    method => $method,
+                    deleted => $deleted
+                };
+        }
+
+        $s->finish();
+    }
+ 
+    return \%ret;
 }
 
 
