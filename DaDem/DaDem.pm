@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.12 2004-12-13 14:54:31 francis Exp $
+# $Id: DaDem.pm,v 1.13 2004-12-13 17:48:49 francis Exp $
 #
 
 package DaDem;
@@ -48,7 +48,7 @@ my %dummy_representatives = (
             type => mySociety::VotingArea::CED,
             'voting_area' => 1000002,
             name => 'Jim Tackson',
-            contact_method => 'email',
+            method => 'email',
             email => 'jim.tackson@dummy.mysociety.org'
         },
 
@@ -56,7 +56,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::DIW,
             'voting_area' => 1000004,
             'name' => 'Mefan Stagdalinski',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'mefan.stagdalinksi@dummy.mysociety.org'
         },
         
@@ -64,7 +64,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::DIW,
             'voting_area' => 1000004,
             'name' => 'Manno Itchell',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'manno.itchell@dummy.mysociety.org'
         },
         
@@ -72,7 +72,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::DIW,
             'voting_area' => 1000004,
             'name' => 'Gil Phyford',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'gil.phyford@dummy.mysociety.org'
         },
         
@@ -80,7 +80,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::WMC,
             'voting_area' => 1000006,
             'name' => 'Andrea Bryant',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'Andrea.Bryant@westsussex.gov.uk'
         },
         
@@ -88,7 +88,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Lis Chrightfoot',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'chris-fyrtest@ex-parrot.com'
         },
         
@@ -96,7 +96,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Crames Jonin',
-            'contact_method' => 'fax',
+            'method' => 'fax',
             'fax' => '0000000000'
         },
         
@@ -104,7 +104,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Lom Toosemore',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'lom.toosemore@dummy.mysociety.org'
         },
         
@@ -112,7 +112,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Brike Macken',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'brike.macken@dummy.mysociety.org'
         },
         
@@ -120,7 +120,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Yowena Roung',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'yowena.roung@dummy.mysociety.org'
         },
         
@@ -128,7 +128,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Ancis Frirving',
-            'contact_method' => 'email',
+            'method' => 'email',
             'email' => 'francis@flourish.org'
         },
         
@@ -136,7 +136,7 @@ my %dummy_representatives = (
             'type' => mySociety::VotingArea::EUR,
             'voting_area' => 1000008,
             'name' => 'Stom Teinberg',
-            'contact_method' => 'fax',
+            'method' => 'fax',
             'fax' => 'TOMS_FAX' # don't call config here as this hash is statically initialised
         },
 
@@ -145,7 +145,7 @@ my %dummy_representatives = (
             type => mySociety::VotingArea::EUR,
             voting_area => 1000008,
             name => 'Johnny No-Email',
-            contact_method => 'email',
+            method => 'email',
             email => 'thisaddressbounces@flourish.org'
         },
 
@@ -153,7 +153,7 @@ my %dummy_representatives = (
             type => mySociety::VotingArea::EUR,
             voting_area => 1000008,
             name => 'Freddy No-Fax',
-            contact_method => 'fax',
+            method => 'fax',
             fax => '1471'
         }
 
@@ -211,19 +211,19 @@ the representative is returned.
 
 The representative's name.
 
-=item contact_method
+=item method
 
 How to contact the representative.
 
 =item email
 
-The representative's email address (only specified if contact_method is
-CONTACT_EMAIL).
+The representative's email address (only specified if method is
+'email').
 
 =item fax
 
-The representative's fax number (only specified if contact_method is
-CONTACT_FAX).
+The representative's fax number (only specified if method is
+'fax').
 
 =back
 
