@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2004-11-10 13:08:00 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.2 2004-11-11 18:15:14 francis Exp $';
 
 use FCGI;
 use Ratty;
@@ -32,6 +32,9 @@ while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'Ratty.test' => sub {
                 $R->test(@_);
+            },
+            'Ratty.admin_available_fields' => sub {
+                $R->admin_available_fields(@_);
             }
         );
     last if ($W->changed());

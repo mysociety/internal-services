@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.1 2004-11-10 13:08:00 francis Exp $
+# $Id: Ratty.pm,v 1.2 2004-11-11 18:15:14 francis Exp $
 #
 
 package Ratty;
@@ -47,7 +47,12 @@ Implementation of rate-limiting.
 
 my $dbh;
 sub dbh() {
-    $dbh ||= DBI->connect('dbi:Pg:dbname=ratty', 'ratty', '', { AutoCommit => 0, RaiseError => 1 });
+    $dbh ||= DBI->connect('dbi:Pg:dbname=' .  mySociety::Config::get('RATTY_DB_NAME'),
+                        mySociety::Config::get('RATTY_DB_USER'),
+                        mySociety::Config::get('RATTY_DB_PASS'),
+                        { RaiseError => 1, AutoCommit => 0 });
+
+    #DBI->trace(1);
     return $dbh;
 }
 
@@ -113,6 +118,10 @@ sub compile_rules () {
     my @code = ('sub ($$) {',
                 'my ($V, $data) = @_;',
                 'my $dbh = Ratty::dbh();',
+                'while(my($key, $value) = each(%$V)) {',
+                '   my $num = dbh()->selectrow_array("select count(*) from available_fields where field = ?", {}, "$key");',
+                '   $dbh->do("insert into available_fields (field, example) values (?,?)", {}, "$key", "$value") if $num == 0;',
+                '}',
                 'my $result = undef;');
 
     # We stow all literal strings etc. in the array @data, which is then passed
@@ -207,13 +216,30 @@ sub compile_rules () {
     push(@code, 'return $result;',
                 '}');
 
-    my $subr = eval(join("\n", @code));
+
+    my $codejoined = join("\n", @code);
+    #warn $codejoined;
+    my $subr = eval($codejoined);
     die "evaled code: $@" if ($@);
     my $D = \@data;
 
     return sub ($) {
             return &$subr($_[0], $D);
         };
+}
+
+=item admin_available_fields VARS
+
+I<Instance method.> Returns all the fields Ratty has seen so far, and an
+example value of that field.  Structure is an array of pairs of (field,
+example).
+
+=cut
+sub admin_available_fields ($) {
+    my ($self) = @_;
+    my $result = dbh()->selectall_arrayref('select field, example from available_fields');
+    warn Dumper($result);
+    return $result;
 }
 
 

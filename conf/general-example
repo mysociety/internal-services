@@ -13,12 +13,18 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.1 2004-11-10 12:37:19 francis Exp $
+ * $Id: general-example,v 1.2 2004-11-11 18:15:15 francis Exp $
  * 
  */
 
 // Databases of actual data for DaDem and MaPit
 define('OPTION_DADEM_SQLITE_DB', '/home/francis/toobig/geodata-mysociety/dadem.sqlite');
 define('OPTION_MAPIT_SQLITE_DB', '/home/francis/toobig/geodata-mysociety/mapit.sqlite');
+
+// PostgreSQL database for Ratty
+define('OPTION_RATTY_DB_NAME', 'ratty');
+define('OPTION_RATTY_DB_USER', 'ratty');
+define('OPTION_RATTY_DB_PASS', '');
+
 
 ?>
