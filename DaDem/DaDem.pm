@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.24 2005-01-31 19:58:57 chris Exp $
+# $Id: DaDem.pm,v 1.25 2005-02-03 19:54:59 francis Exp $
 #
 
 package DaDem;
@@ -76,7 +76,8 @@ my %dummy_representatives = (
             'method' => 'email',
             'email' => 'gil.phyford@dummy.mysociety.org'
         },
-        
+
+
         2000005 => {
             'type' => 'WMC',
             'voting_area' => 1000006,
@@ -156,9 +157,15 @@ my %dummy_representatives = (
             'name' => 'Freddy No-Fax',
             'method' => 'fax',
             'fax' => '1471'
-        }
+        },
 
-#            'name' => 'Tu Stily',
+        # Other special tests
+        2000015 => {
+            'type' => 'DIW',
+            'voting_area' => 1000004,
+            'name' => 'Virginie Via',
+            'method' => 'via'
+        }
     );
 
 my %dummy_areas;
