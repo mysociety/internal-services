@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.19 2005-02-09 08:37:05 francis Exp $
+# $Id: match.cgi,v 1.20 2005-02-09 12:08:55 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.19 2005-02-09 08:37:05 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.20 2005-02-09 12:08:55 francis Exp $';
 
 use strict;
 
@@ -191,9 +191,7 @@ sub do_council_info ($) {
         return;
     }
  
-    my $name = $name_data->{'name'} .  " " .
-        $mySociety::VotingArea::type_name{$area_data->{'type'}};
-
+    my $name = $name_data->{'name'};
     print html_head($q, $name . " - Status");
     print $q->h1($name . " " . $area_id . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
@@ -394,8 +392,7 @@ sub do_council_edit ($) {
     my $reps_count = $c-1;
 
     # Display header
-    my $name = $name_data->{'name'} .  " " . 
-        $mySociety::VotingArea::type_name{$area_data->{'type'}};
+    my $name = $name_data->{'name'};
     print html_head($q, $name . " - Edit");
     print $q->h1($name . " $area_id &mdash; Edit $reps_count Reps");
     print $q->p($q->b("Note:"), "Data entered here", $q->b("will"), "be
