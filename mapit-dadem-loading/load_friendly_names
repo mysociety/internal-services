@@ -10,7 +10,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.6 2005-01-21 13:05:45 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.7 2005-02-08 10:36:29 francis Exp $';
 
 use strict;
 
@@ -82,6 +82,11 @@ while (my ($area_id) = $s->fetchrow_array()) {
     my $friendly = '';
     if (exists($names->{M})) {
         $friendly = $names->{M}->{name};
+        # This fixes up the (originally GovEval) names for display
+        $friendly =~ s/ \(BC\)$/ Borough Council/;
+        $friendly =~ s/ \(DC\)$/ District Council/;
+        $friendly =~ s/ \(UC\)$/ Council/;
+        warn "Brackets in name $friendly" if $friendly =~ m/\(|\)/;
     } elsif (exists($names->{O})) {
         $friendly = friendly_from_os($names->{O}->{name});
     } elsif (exists($names->{S})) {
