@@ -1,4 +1,4 @@
-$Id: README,v 1.1 2005-01-21 19:28:03 francis Exp $
+$Id: README,v 1.2 2005-02-04 12:27:39 francis Exp $
 
 NAMETYPES - Types of voting area names in MaPit.
 dadem-schema.sql, mapit-schema.sql - Database schemas.
@@ -13,7 +13,6 @@ Voting Area Name Matching
 -------------------------
 
 load_goveval_names - Add 'G' name aliases to MaPit.
-load_goveval_ward_names - Tries to match GovEval ward names, not functional yet.
 load_ons_names - Adds 'S' name alises to MaPit.
 load_friendly_names - Deletes all 'F' type names and remakes them from 'O' ones.
 
@@ -22,6 +21,14 @@ Representative Info Loading
 
 dadem_goveval_load - Load reps into DaDem from CSV file from GovEval.
 dadem_mysociety_load - Quick hack, just loads WSCC at the moment.
+
+Councillor Matching
+--------------------
+
+raw_data_load - Load raw councillor CSV files from GovEval into database.
+raw_data_process - Command line ward matching for GovEval to OS ward names.
+../web-admin/match.cgi - CGI interface for fixing up ward names
+nicknames - Lots of nicknames e.g. Tim, Timmy --> Timothy
 
 Throwaway Scripts
 -----------------
@@ -41,4 +48,5 @@ Probably Not Needed?
 ni-electoral-areas.csv
 create_new_generation
 
-
+# $Id: README,v 1.2 2005-02-04 12:27:39 francis Exp $
+# for X in `ls -1`; do grep $X README >/dev/null || echo Missing $X; done
