@@ -18,7 +18,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.2 2004-11-25 18:21:39 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.3 2004-11-30 14:52:52 francis Exp $';
 
 use strict;
 
@@ -92,6 +92,9 @@ while (defined($_ = $f->getline())) {
     #   ONS LA/UA code
     #             name
     my ($ccode, $cname, $wcode, $wname, $acode, $aname) = $c->fields();
+
+    # load Northern Ireland only
+    next if ($wcode !~ m/^95/);
 
     die "undefined constituency code in '$_'" if (!defined($ccode));
     die "undefined ward code in '$_'" if (!defined($wcode));
