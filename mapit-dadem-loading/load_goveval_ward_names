@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.10 2005-01-28 02:33:37 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_ward_names,v 1.11 2005-01-28 12:07:21 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -67,7 +67,7 @@ if (defined $runoneid) {
         if ($result->{error}) {
             print "Failed\n";
             print $result->{matchesdump};
-            print $result->{errors};
+            print $result->{error};
         } else {
             print "Success\n";
         }

@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.4 2005-01-27 12:35:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_raw_wards,v 1.5 2005-01-28 12:07:21 francis Exp $';
 
 use strict;
 
@@ -136,7 +136,7 @@ foreach my $id (keys %$councils) {
     # would want when ids and names and types change, because we don't yet
     # know what we want)
     #$d_dbh->do(q#delete from raw_input_data where
-    #        council_id = ? and council_name = ? and council_type = ?#, {}, 
+    #        council_id = ? and council_name = ? and council_type = ? and council_ons_code = ?#, {}, 
     #        $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type});
 
     # Load in each line of data
@@ -144,10 +144,11 @@ foreach my $id (keys %$councils) {
     foreach my $line (@$lines) {
         my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
         $d_dbh->do(q#insert into raw_input_data
-                (ge_id, council_id, council_name, council_type, ward_name, 
+                (ge_id, council_id, council_name, council_type, council_ons_code, ward_name, 
                     rep_first, rep_last, rep_party, rep_email, rep_fax)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
-                $geid, $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type}, $vdiv, 
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
+                $geid, $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type}, 
+                $area_id_data->{$id}->{ons_code}, $vdiv, 
                 $first, $last, $party, $email, $fax);
     }
 }

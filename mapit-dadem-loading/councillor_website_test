@@ -34,23 +34,29 @@ my $samplecouncils = [
 # WCWCCC
 #{id=>2287, url=>"http://www.teignbridge.gov.uk/councillors/index.htm"},
 
+# Problems: 
+#  - Misspelt ward on council website (correct by changing it for one council!)
+#  - Two M Lovatts
 # WCWCCC 
 # Initials
 #{id=>2432, url=>"http://www.staffsmoorlands.gov.uk/whoswho/councillors/councillorsbyward/councillorsbywardlist.htm"},
+
+# Problems, wards are very mangled
+# CWCWCW
+# Initials
+#{id=>2246, url=>"http://www.worcestershire.gov.uk/home/cs-mas-dsu/cs-mas-councillors/cs-mas-your-councillors.htm"}
 
 ### VIRGIN ###
 
 # WCWCCC 
 # Middle initials
-{id=>2626, url=>"http://www.broadland.gov.uk/broadland/members.nsf/CouncillorsByWard?openform&Start=1&Count=1000&ExpandView"},
+#{id=>2626, url=>"http://www.broadland.gov.uk/broadland/members.nsf/CouncillorsByWard?openform&Start=1&Count=1000&ExpandView"},
 
-# CWCWCW
-# Initials
-#{id=>2246, url=>"http://www.worcestershire.gov.uk/home/cs-mas-dsu/cs-mas-councillors/cs-mas-your-councillors.htm"}
-
+# Problems:
+# - :e
 # CWCWCW
 # Surname first
-#{id=>2243, url=>"http://www.warwickshire.gov.uk/corporate%5Ccommitte.nsf/WCalphaWCC?OpenView&expandview&Count=150"},
+{id=>2243, url=>"http://www.warwickshire.gov.uk/corporate%5Ccommitte.nsf/WCalphaWCC?OpenView&expandview&Count=150"},
 
 # CWCWCW 
 # Capital surnames
@@ -58,15 +64,64 @@ my $samplecouncils = [
 
 ];
 
+# trim STRING
+# Remove whitespace from either end.
 sub trim($) {
+    ($_) = @_;
     s/^\s+//;
     s/\s+$//;
     return $_;
 }
 
-sub canonicalise_ward_name ($) {
-    return mySociety::CouncilMatch::canonicalise_council_name($_[0]);
+# merge_spaces STRING
+# Replace contiguous whitespace with a single space
+sub merge_spaces($) {
+    ($_) = @_;
+    s/\s+/ /gs;   
+    return $_;
 }
+
+# canonicalise_person_name NAME
+# Convert name from various formats "Fred Smith", "Smith, Fred",
+# "Fred R Smith", "Smith, Fred RK" to uniform one "fred smith".  Removes
+# initials except first one if there is no first name, puts surname last,
+# lowercases.
+sub canonicalise_person_name ($) {
+    ($_) = @_;
+
+    # Swap Lastname, Firstname
+    s/^([^,]+),([^,]+)$/$2 $1/;  
+
+    # Clear up spaces and punctuation
+    s#[[:punct:]]##g;
+    $_ = trim($_);
+    $_ = merge_spaces($_);
+
+    # Remove fancy words
+    my $titles = "Cllr |Councillor |Dr |Hon |hon |rah |rh |Mrs |Ms |Mr |Miss |Rt Hon |Reverend |The Rev |The Reverend |Sir |Dame |Rev |Prof ";
+    my $honourifics = " MP| CBE| OBE| MBE| QC| BEM| rh| RH| Esq| QPM| JP| FSA| Bt| BEd| Hons";
+    s#^($titles )*##;
+    s#( $honourifics)^##;
+
+    # Split up initials unspaced 
+    s/\b([[:upper:]])([[:upper:]])\b/$1 $2/g;
+    # Remove initials apart from first name/initial
+    s/\b(\S+ )((?:[[:upper:]] )+)/$1/;
+
+    # Remove case
+    $_ = lc($_);
+
+    return $_;
+}
+
+# canonicalise_ward_name WARD
+# Returns Ward name with extra suffixes (e.g. Ward) removed, and in lowercase.
+sub canonicalise_ward_name ($) {
+    ($_) = @_;
+    s# Ward$##;
+    return mySociety::CouncilMatch::canonicalise_council_name($_);
+}
+
 
 sub check_councillors($) {
     my ($spec) = @_;
@@ -77,7 +132,6 @@ sub check_councillors($) {
     my $wardnames = $m_dbh->selectall_hashref(
             q#select * from area_name, area where area_name.area_id = area.id and
             parent_area_id = ?#, 'name', {}, $spec->{id});
-    # .. canonicalise names
     my $wardnamescanon;
     do { $wardnamescanon->{canonicalise_ward_name($_)} = $wardnames->{$_} } for keys %$wardnames;
     # Various lookup tables
@@ -86,7 +140,7 @@ sub check_councillors($) {
     my $cllrsbykey;
     do { $cllrsbykey->{$_->{key}} = $_ } for @raw;
     my $cllrsbywardid;
-    do { push @{$cllrsbywardid->{$wardnames->{$_->{ward_name}}->{id}}}, $_ } for @raw;
+    do { push @{$cllrsbywardid->{$wardnames->{$_->{ward_name}}->{id}}}, $_ if (defined($wardnames->{$_->{ward_name}})) } for @raw;
 
     # Get all HTML from councillor list web page, and tidy
     print "getting\n";
@@ -113,7 +167,6 @@ $content = "";
 
     
     print "got\n";
-    $content =~ s/\s+/ /gs;   # flush all spacing (including NL CR) to just space
     $content =~ s/&amp;/&/g;  # make ampersands normal
     $content =~ s/<!--[^>]*-->//g;  # remove comments
 
@@ -124,6 +177,9 @@ $content = "";
     # the middle of a name.  e.g.
     #  D A Hal</a></span></span></strong><a href="../cllrhall_da.htm">l</a><br>
     $content =~ s/<\/?(?!p|br|tr|td|div|table|hr|li|ol|ul|h[1-9])\b[^>]+>//ig;
+
+    # Flush all spacing (including NL CR) to just space
+    $content = merge_spaces($content);
 
     # Break it up into parts between tags.  Note the only tags left are
     # those in the regular expression above at this point.
@@ -136,7 +192,7 @@ $content = "";
 
         my $error = "";
         my $warddone;
-        do { $warddone->{$wardnames->{$_}->{id}} = 0 } for keys %$wardnames;
+        do { $warddone->{$wardnames->{$_}->{id}} = 0 if $wardnames->{$_}->{id}} for keys %$wardnames;
     
         # Scan for stuff
         my $lastwardid = undef;
@@ -145,23 +201,29 @@ $content = "";
 
             my $matches = 0;
             foreach my $rep (@raw) {
-                my $initials = mySociety::CouncilMatch::make_into_initials($rep->{rep_first});
-                $initials =~ s/ / \?/; # spaces between initials are optional
-    #            print "$initials " . $rep->{rep_last} . " : $lump\n";
+                my $first = $rep->{rep_first};
+                my $last = $rep->{rep_last};
                 # Match representative names various ways
-                if (
-                    $lump =~ m/\b$rep->{rep_first} ?([A-Z] ?)* $rep->{rep_last}\b/i || #First Last#
-                    $lump =~ m/\b$rep->{rep_last}, $rep->{rep_first}\b/i || #First Last#
-                    $lump =~ m/\b$initials ?([A-Z] ?)* $rep->{rep_last}\b/  #F M Last# or #FM Last#
-                ) {
+                my $canon_lump = canonicalise_person_name($lump);
+                my $canon_name = canonicalise_person_name("$first $last");
+#                print "$canon_lump\n";
+                if ($canon_lump =~ m/^[[:alpha:]] /) {
+                    #print "LUMP BEGAN INITIAL\n";
+                    #print "$canon_lump : $canon_name\n";
+                    # If lump begins with an initial, initialise first word of name
+                    $canon_name =~ s/^([[:alpha:]])([[:alpha:]]+) /$1 /;
+                    #print "$canon_lump : $canon_name\n";
+                }
+                if ($canon_lump eq $canon_name) {
                     $lastcllrkey = $rep->{key};
                     $rep->{done} = 1;
                     $matches ++;
                     if ($pattern eq "WCWCCC") {
                         # check ward right
-                        if (!$lastwardid) {
+                        if (!(defined $lastwardid)) {
                             $error .= $spec->{id} . ": councillor " . $rep->{rep_first} . " " . $rep->{rep_last} . " in wrong ward, ge " . $rep->{ward_name} . " none on website\n";
-
+                        } elsif (!(defined $wardnames->{$rep->{ward_name}})) {
+                            $error .= $spec->{id} . ": councillor " . $rep->{rep_first} . " " . $rep->{rep_last} . " has unknown ward " . $rep->{ward_name} . "\n";
                         } elsif ($wardnames->{$rep->{ward_name}}->{id} != $lastwardid) {
                             $error .= $spec->{id} . ": councillor " . $rep->{rep_first} . " " . $rep->{rep_last} . " in wrong ward, ge " . $rep->{ward_name} . " website " . $wardsbyid->{$lastwardid} . "\n";
                         }

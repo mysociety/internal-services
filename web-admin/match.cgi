@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.4 2005-01-27 09:39:06 francis Exp $
+# $Id: match.cgi,v 1.5 2005-01-28 12:07:22 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.4 2005-01-27 09:39:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.5 2005-01-28 12:07:22 francis Exp $';
 
 use strict;
 
@@ -42,6 +42,12 @@ sub html_head($$) {
 <html>
 <head>
 <title>$title - Council Matcher</title>
+<style type="text/css"><!--
+input { font-size: 9pt; margin: 0px; padding: 0px  }
+table { margin: 0px; padding: 0px }
+tr { margin: 0px; padding: 0px }
+td { margin: 0px; padding: 0px }
+//--></style>
 </head>
 <body>
 END
@@ -160,6 +166,19 @@ sub do_council_info ($) {
         ")"
     );
 
+    print $q->h2("Councillor (GE Data)");
+    my @reps = mySociety::CouncilMatch::get_raw_data($area_id, $d_dbh);
+    @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
+    my $c = 1;
+    my $prevward = "";
+    foreach my $rep (@reps) {
+        if ($rep->{ward_name} ne $prevward) {
+            $prevward = $rep->{ward_name};
+            print $q->b($rep->{ward_name}), $q->br();
+        }
+        print $rep->{rep_first} . " " . $rep->{rep_last}, $q->br();
+    }
+ 
     print $q->h2("Match Details");
     print $q->pre(encode_entities($status_data->{'details'}));
 
@@ -191,7 +210,7 @@ sub do_council_edit ($) {
     
         # Make alteration
         mySociety::CouncilMatch::edit_raw_data($area_id, 
-                $name_data->{'name'}, $area_data->{'type'},
+                $name_data->{'name'}, $area_data->{'type'}, $area_data->{'ons_code'},
                 $d_dbh, \@newdata, $q->remote_user() || "*unknown*");
 
         # Regenerate stuff
