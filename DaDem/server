@@ -12,7 +12,10 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2004-11-10 13:07:59 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.2 2004-11-18 18:49:01 chris Exp $';
+
+use strict;
+require 5.8.0;
 
 use FCGI;
 use mySociety::DaDem;   # client interface
