@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.1 2005-02-01 13:23:07 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.2 2005-02-01 15:33:32 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -17,6 +17,10 @@ use Text::CSV;
 use Data::Dumper;
 use mySociety::CouncilMatch;
 
+#print mySociety::CouncilMatch::canonicalise_person_name('Angel Hope CBE DL');
+#print "\n";
+#exit;
+
 use Common;
 
 my $runoneid = shift(@ARGV);
@@ -24,7 +28,7 @@ my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
-my $verbosity = 0;
+my $verbosity = 2;
 
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref(
@@ -67,7 +71,7 @@ if (defined $runoneid) {
         my $result = mySociety::CouncilMatch::process_ge_data($runoneid, $verbosity);
         if ($result->{error}) {
             print "Failed\n";
-            print $result->{matchesdump};
+            print $result->{details};
             print $result->{error};
         } else {
             print "Success\n";

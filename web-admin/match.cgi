@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.8 2005-02-01 13:23:07 francis Exp $
+# $Id: match.cgi,v 1.9 2005-02-01 15:33:32 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.8 2005-02-01 13:23:07 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.9 2005-02-01 15:33:32 francis Exp $';
 
 use strict;
 
@@ -86,11 +86,15 @@ sub build_url($$$;$) {
 my $status_titles = {
     'wards-match' => 'Wards matched OK',
     'wards-mismatch' => 'Ward matching failed',
-    'url-found' => 'Councillor list URL known',
-    'url-missing' => 'Councillor list URL needed',
+    'url-found' => 'Councillors URL OK',
+    'url-missing' => 'Councillors URL needed',
+    'councillors-mismatch' => 'Councillors matching failed',
+    'councillors-match' => 'Councillors match OK'
 };
 my $status_titles_order =  
-    ['wards-mismatch', 'wards-match', 'url-missing', 'url-found'];
+    ['wards-mismatch', 'wards-match', 
+    'url-missing', 'url-found',
+    'councillors-mismatch', 'councillors-match'];
 
 # do_summary CGI
 # Displays page with summary of matching status of all councils.
@@ -149,6 +153,19 @@ sub do_summary ($) {
 sub do_council_info ($) {
     my ($q) = @_;
 
+    # Altered URL
+    if ($q->param('posted_councillors_url') and $q->param) {
+        $d_dbh->do(q#delete
+            from raw_council_extradata where council_id = ?#, {}, $area_id);
+        $d_dbh->do(q#insert
+            into raw_council_extradata (council_id, councillors_url) values (?,?)#, 
+            {}, $area_id, $q->param('councillors_url'));
+        $d_dbh->commit();
+        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
+        print $q->redirect($q->param('r'));
+        return;
+    }
+ 
     my $name = $name_data->{'name'} .  " " .
         $mySociety::VotingArea::type_name{$area_data->{'type'}};
 
@@ -179,26 +196,18 @@ sub do_council_info ($) {
             ")" ) } ("$name", "$name councillors ward", $name_data->{'name'} . " councillors")
     );
 
-    # URL for list of councillors on council website
-    if ($q->param('posted_councillors_url') and $q->param) {
-        $d_dbh->do(q#delete
-            from raw_council_extradata where council_id = ?#, {}, $area_id);
-        $d_dbh->do(q#insert
-            into raw_council_extradata (council_id, councillors_url) values (?,?)#, 
-            {}, $area_id, $q->param('councillors_url'));
-        $d_dbh->commit();
-        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
-    }
-    
+    # Edit box for URL for list of councillors on council website
     my $ret = $d_dbh->selectrow_arrayref(q#select council_id, councillors_url from 
         raw_council_extradata where council_id = ?#, {}, $area_id);
     $q->param('councillors_url', $ret->[1]) if defined ($ret);
+    $q->param('r', $q->self_url());
     print $q->start_form(-method => 'POST');
     print $q->p(
             $q->a({href=>$q->param('councillors_url')}, "Councillors page:"),
             $q->textfield(-name => "councillors_url", -size => 100),
             $q->hidden('page', 'councilinfo'),
             $q->hidden('area_id'),
+            $q->hidden('r'),
             $q->hidden('posted_councillors_url', 'true'),
             $q->submit('Save')
             );
