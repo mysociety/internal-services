@@ -22,7 +22,7 @@
 # weren't when I tested this exhaustively); and (b) there wouldn't be a whole
 # lot we could do even if there were.
 #
-# Call with two or more arguments; the first should be the name of an SQLite
+# Call with two or more arguments; the first should be the name of a Postgres
 # database (with schema already constructed from mapit-schema.sql) and the
 # remainder being directories containing .shp files from Boundary-Line.
 #
@@ -30,16 +30,18 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.6 2004-11-29 15:59:24 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.7 2004-11-29 18:58:45 chris Exp $';
 
 use strict;
 
 use DBI;
-use DBD::SQLite;
+use DBD::Pg;
 use Digest::SHA1;
 use Fcntl;
 use Geo::Shapelib;
 use IO::Handle;
+
+use Common;
 
 #
 # Point-in-polygon tests. Do these in C, so that the performance isn't too
@@ -152,35 +154,6 @@ my %interesting_areas = map { $_ => 1 } (
     )
 );
 
-# get_area_id DBH NAME TYPE ONSCODE UNITID GEOMHASH
-# Form area ID from name information.
-my %idmap;
-sub get_area_id ($$$$$$) {
-    my ($dbh, $name, $type, $onscode, $unitid, $geomhash) = @_;
-    my $id;
-    if (defined($onscode)) {
-        $id = $dbh->selectrow_array('select id from area where ons_code = ? and type = ? for update', {}, $onscode);
-    } elsif (defined($geomhash)) {
-        $id = $dbh->selectrow_array('select id from area where geom_hash = ? and type = ? for update', {}, $geomhash);
-    }
-    if (defined($id)) {
-        my $n = $dbh->selectrow_array('select name from area_name where area_id = ?', {}, $id);
-        if (defined($n) and $n eq $name) {
-            # This is the same area.
-            $dbh->do('update area set generation_high = (select new_generation.id from new_generation) where area.id = ?', {}, $id);
-            return $id;
-        }
-    }
-
-    # No existing area. Create a new one.
-    $id = $dbh->selectrow_array(q#select nextval('area_id_seq')#);
-    $dbh->do('insert into area (id, unit_id, ons_code, geom_hash, type, generation_low) values (?, ?, ?, ?, ?, (select new_generation.id from new_generation))',
-            {}, $id, $unitid, $onscode, $geomhash, $type);
-    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'O', ?)#, {}, $id, $name);
-
-    return $id;
-}
-
 # @shapes
 # List of [ unique ID, area code, shape, min_x, max_x, min_y, max_y, cx, cy, ons_code ] for each
 # area we're interested in.
@@ -191,13 +164,18 @@ die "arguments are Postgres database name and directories containing SHP files" 
 my $dbname = shift(@ARGV);
 
 # Open database.
-my $dbh = DBI->connect("dbi:SQLite:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
 my $generation = $dbh->selectrow_array('select id from new_generation');
 die "no new generation available" if (!defined($generation));
 
 # Pass 1:
 # Process all the directories of shape files, saving their coordinates and
-# recording area names etc. in a database.
+# recording area names etc. in memory.
+
+# We may have several shapes in files with the same unit ID. We amalgamate them
+# before writing them to the database.
+my %unitid_to_shape;
+
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
     foreach (glob("$dir/*.shp")) {
@@ -225,13 +203,14 @@ foreach my $dir (@ARGV) {
 
         for (my $i = 0; $i < $sh->{NShapes}; ++$i) {
             my $s = $sh->get_shape($i);
-        
+
             my $D = { };
             for (my $j = 0; $j < @{$sh->{FieldNames}}; ++$j) {
                 $D->{$sh->{FieldNames}->[$j]} = $sh->{ShapeRecords}->[$i]->[$j];
             }
-            
+
             next unless (defined($D->{AREA_CODE}) and exists($interesting_areas{$D->{AREA_CODE}}));
+            $D->{CODE} = undef if ($D->{CODE} eq '999999');
 
             my @parts = ( );
             my $num_parts = @{$s->{Parts}};
@@ -265,7 +244,7 @@ foreach my $dir (@ARGV) {
                 } else {
                     $en = @$V - 1;
                 }
-                
+
                 my @verts = ( );
                 for (my $k = $st; $k <= $en; ++$k) {
                     push(@verts, [ $V->[$k]->[0], $V->[$k]->[1] ]);
@@ -288,6 +267,7 @@ foreach my $dir (@ARGV) {
 
                 # Now we need to find the first point having coordinates
                 # (maxE, maxN).
+
                 my $k = 0;
                 while ($verts[$k]->[0] == $maxE && $verts[$k]->[1] == $maxN) {
                     ++$k;
@@ -303,11 +283,11 @@ foreach my $dir (@ARGV) {
                 }
                 @verts = @v2;
                 
-                ($x1, $y1) = @{$verts[0]};
+                ($x1, $y1) = @{$verts[0]} if ($j == 0);
 
                 # Obtain the packed version of the data.
                 my $polydata = pack('d*', map { @$_ } @verts);
-                
+
                 my $area = poly_area(length($polydata) / (2 * $doublesize), $polydata);
                 push(@parts, [ $area < 0 ? +1 : -1, $polydata, $area ]);
                 if ($num_parts > 100) {
@@ -317,58 +297,82 @@ foreach my $dir (@ARGV) {
 
             undef $s;
 
-            # Compute the geometry hash of the polygon. Consider parts in order
-            # of area (counting winding), and hash the polydata. Strictly
-            # that's architecture-dependent, but that doesn't matter because
-            # the data have already passed through Shapelib, which treats them
-            # as binary floating-point numbers.
-            my $digest = new Digest::SHA1();
-            foreach (sort { $parts[$a]->[2] <=> $parts[$b]->[2] } (0 .. $#parts)) {
-                $digest->add($parts[$_]->[1]);
-            }
-            $digest = $digest->hexdigest();
+            if (!exists($unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}})) {
+                # New shape. Compute various once-only values and save the
+                # thing on an array.
 
-            # Determine the area ID for this area in the database. If this area
-            # corresponds exactly to an area we already know about, recycle the
-            # ID; otherwise, create a new one.
-            $D->{CODE} = undef if ($D->{CODE} eq '999999');
-            my $id = get_area_id($dbh, $D->{AREA_CODE}, $D->{UNIT_ID}, $D->{NAME}, $D->{CODE}, $hexdigest);
-
-            # Polygon centroid determination doesn't work. We just need to
-            # pick a point which is inside the polygon, so do so at random.
-            my ($cx, $cy);
-            do {
-                $cx = $x1 + rand(20) - 10;
-                $cy = $y1 + rand(20) - 10;
-            } while (!is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1])); # XXX winding assumption
+                # Polygon centroid determination doesn't work. We just need to
+                # pick a point which is inside the polygon, so do so at random.
+                my ($cx, $cy);
+                do {
+                    $cx = $x1 + rand(20) - 10;
+                    $cy = $y1 + rand(20) - 10;
+                } while (!is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1])); # XXX winding assumption
             
-            my $devolved = 'E';
-            if ($D->{AREA_CODE} eq 'EUR') {
-                if ($D->{NAME} =~ m#London#) {
-                    $devolved = 'L';
-                } elsif ($D->{NAME} =~ m#Scotland#) {
-                    $devolved = 'S';
-                } elsif ($D->{NAME} =~ m#Wales#) {
-                    $devolved = 'W';
+                # We determine the areas occupied by devolved assemblies by
+                # looking at Euro-regions, which are coterminous with them.
+                my $devolved;
+                if ($D->{AREA_CODE} eq 'EUR') {
+                    $devolved = 'E';
+                    if ($D->{NAME} =~ m#London#) {
+                        $devolved = 'L';
+                    } elsif ($D->{NAME} =~ m#Scotland#) {
+                        $devolved = 'S';
+                    } elsif ($D->{NAME} =~ m#Wales#) {
+                        $devolved = 'W';
+                    }
                 }
-            }
 
-            #               0    1                2        3      4      5      6      7    8    9           10
-            push(@shapes, [ $id, $D->{AREA_CODE}, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $D->{CODE}, $devolved ]);
-            if (defined($D->{CODE})) {
-                $onscode_to_shape{$D->{CODE}} = $shapes[$#shapes];  # for fast parent-determination
-            }
+                # first element is id, which we don't know yet
+                #           0      1                2        3      4      5      6      7    8    9           10         11             12
+                my $row = [ undef, $D->{AREA_CODE}, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $D->{CODE}, $devolved, $D->{UNIT_ID}, $D->{NAME} ];
+                $onscode_to_shape{$D->{CODE}} = $row if (defined($D->{CODE}));
+                $unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}} = $row;
 
-            STDERR->printf("\rreading shapes: %d", scalar(@shapes)) if (0 == scalar(@shapes) % 10);
+                push(@shapes, $row);
+            } else {
+                # Shape already exists. Form the union of its parts and ours.
+                my $row = $unitid_to_shape{$D->{AREA_CODE} . $D->{UNIT_ID}};
+                warn "unit id $D->{UNIT_ID} appears as $row->[12] and $D->{NAME}" if ($D->{NAME} ne $row->[12]);
+                push(@{$row->[2]}, @parts);
+                $row->[3] = $minx if ($minx < $row->[3]);
+                $row->[4] = $maxx if ($maxx > $row->[4]);
+                $row->[5] = $miny if ($miny < $row->[5]);
+                $row->[6] = $maxy if ($maxy > $row->[6]);
+            }
+            STDERR->printf("\rreading shapes: %d/%d", $i + 1, $sh->{NShapes}) if (0 == scalar(@shapes) % 10);
         }
-
-        undef $sh;
     }
 }
 
-$dbh->commit();
-
 STDERR->printf("\rreading shapes: %d total\n", scalar(@shapes));
+
+# Pass 1.5:
+# Assign IDs to all these areas, and save them in a database.
+my $n = 0;
+foreach my $row (@shapes) {
+    my $parts = $row->[2];
+
+    # Compute the geometry hash of the polygon. Consider parts in order of area
+    # (counting winding), and hash the polydata. Strictly that's
+    # architecture-dependent, but that doesn't matter because the data have
+    # already passed through Shapelib, which treats them as binary
+    # floating-point numbers.
+    my $digest = new Digest::SHA1();
+    foreach (sort { $parts->[$a]->[2] <=> $parts->[$b]->[2] } (0 .. scalar(@$parts) - 1)) {
+        $digest->add($parts->[$_]->[1]);
+    }
+    $digest = $digest->hexdigest();
+
+    # Determine the area ID for this area in the database. If this area
+    # corresponds exactly to an area we already know about, recycle the ID;
+    # otherwise, create a new one.
+    $row->[0] = get_area_id($dbh, $row->[12], $row->[1], $row->[9], $row->[11], $digest);
+    STDERR->printf("\rsaving shapes in database: %d/%d", ++$n, scalar(@shapes));
+}
+
+#$dbh->commit();
+
 
 # Stick the shapes into buckets for a set of grid squares.
 my $tilesize = 1000;   # 1km buckets
@@ -485,7 +489,7 @@ sub find_containing_areas ($$;$) {
 # they are and put the shape in each bucket within a rough convex hull of the
 # polygon's vertices. This must be done separately for each part, since shapes
 # may have several disconnected convex parts (e.g. islands).
-my $n = 0;
+$n = 0;
 foreach my $S (@shapes) {
     # Add the buckets in which vertices of the shape lie.
     foreach my $part (@{$S->[2]}) {
@@ -525,7 +529,7 @@ foreach my $S (@shapes) {
         }
 
         if (!defined($minx) || !defined($maxx)) {
-            print STDERR "\r[2Kshape #$S->[0] has no vertices!\n";
+            print STDERR "\r[2Kshape #$S->[0] has no vertices\n";
             next;
         }
 
@@ -633,21 +637,6 @@ STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes)
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
 
-# get_postcode_id DBH POSTCODE COORDSYST EASTING NORTHING
-sub get_postcode_id ($$$$$) {
-    my ($dbh, $pc, $c, $E, $N) = @_;
-    my $id;
-    $id = $dbh->selectrow_array('select id from postcode where postcode = ?', {}, $pc);
-    if (defined($id)) {
-        $dbh->do('update postcode set coordsyst = ?, easting = ?, northing = ? where id = ?', {}, $c, $E, $N, $id);
-        return $id;
-    }
-
-    $id = $dbh->selectrow_array(q#select nextval('postcode_id_seq')#);
-    $dbh->do('insert into postcode (id, postcode, coordsyst, easting, northing) values (?, ?, ?, ?, ?)', {}, $id, $pc, $c, $E, $N);
-    return $id;
-}
-
 # Read list of postcodes and coordinates, do point-in-polygon tests for each
 # one.
 {
@@ -688,7 +677,7 @@ sub get_postcode_id ($$$$$) {
             warn join(" ", @a) . " for $pc ($E, $N)\n" if (@a > 1);
         }
        
-        my $pcid = get_postcode_id($pc, 'G', $E, $N);
+        my $pcid = get_postcode_id($dbh, $pc, $E, $N);
         foreach my $S (grep { defined($_) } values %areas) {
             $dbh->do('delete from postcode_area where postcode_id = ? and area_id = ?', {}, $pcid, $S->[0]);
             $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->[0]);
