@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.8 2004-12-13 13:20:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_goveval_load,v 1.9 2005-01-06 15:52:37 chris Exp $';
 
 use strict;
 
@@ -31,7 +31,7 @@ use Common;
 use mySociety::Parties;
 #DBI->trace(1);
 
-my $kind = shift(@ARGV);
+my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
 my $types;
 my $name_type_char;
@@ -39,8 +39,10 @@ if ($kind eq "mep") {
     $types = [qw(EUR)];
 } elsif ($kind eq "mp") {
     $types = [qw(WMC)];
+} elsif ($kind eq "msp") {
+    $types = [qw(SPC SPE)];
 } else {
-    die "Please specify 'mep' or 'mp'";
+    die "Please specify 'mp', 'mep', 'msp'";
 }
 
 my $m_dbh = connect_to_mapit_database();
@@ -85,7 +87,7 @@ while (my $line = <STDIN>) {
     map { die "Not valid field in $line" if (!defined $_) } $C->fields();
 
     my ($finalcons, $finalname, $finalparty, $finalmethod, $finalemail, $finalfax);
-    if ($kind eq "mep") {
+    if ($kind eq "mep" or $kind eq "msp") {
         my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
 
         $finalcons = $constituency;
