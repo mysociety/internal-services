@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.20 2005-01-11 12:14:31 chris Exp $
+# $Id: DaDem.pm,v 1.21 2005-01-12 17:40:59 francis Exp $
 #
 
 package DaDem;
@@ -350,6 +350,7 @@ sub get_representative_history ($) {
         $hash_ref->{'order_id'} = 0;
         $hash_ref->{'note'} = "Original data";
         $hash_ref->{'editor'} = 'import';
+        $hash_ref->{'whenedited'} = 0;
         push @ret, $hash_ref;
     }
 
