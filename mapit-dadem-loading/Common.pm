@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.4 2004-12-01 17:15:09 francis Exp $
+# $Id: Common.pm,v 1.5 2004-12-02 16:36:33 chris Exp $
 #
 
 package Common;
@@ -73,6 +73,8 @@ sub get_area_id ($$$$$$) {
             # This is the same area.
             $dbh->do('update area set generation_high = ? where area.id = ?', {}, $gen, $id);
             return $id;
+        } else {
+            die "area id $id '$n' matches on ONS code or geometry hash, but not on name '$name'"
         }
     }
 
