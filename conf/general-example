@@ -2,10 +2,10 @@
 /*
  * general-example
  *
- * Configuration parameters, in PHP syntax. File is also read in by
- * a Perl script, so keep things simple -- in particular, at the moment,
- * mySociety::Config only understands define('...', '...').  So no
- * commenting out variables, or putting them in if statements.
+ * Configuration parameters, in PHP syntax. Configuration parameters are set
+ * using the PHP define('OPTION_...', '...') function. Both perl and PHP code
+ * parse this properly, so you can use comments and conditionals and whatnot,
+ * but unless essential it's better to keep it simple....
  *
  * Copy this file to one called config in the same directory.  Or
  * have multiple config files and use a symlink to change between them.
@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.6 2004-12-16 19:25:17 francis Exp $
+ * $Id: general-example,v 1.7 2005-01-06 16:00:01 chris Exp $
  * 
  */
 
@@ -21,11 +21,17 @@
 define('OPTION_MAPIT_DB_NAME', 'mapit');
 define('OPTION_MAPIT_DB_USER', 'mapit');
 define('OPTION_MAPIT_DB_PASS', '');
+// optionally, define a hostname and port
+//define('OPTION_MAPIT_DB_HOST', 'localhost');
+//define('OPTION_MAPIT_DB_PORT', '5432');
 
 // PostgreSQL database for DaDem
 define('OPTION_DADEM_DB_NAME', 'dadem');
 define('OPTION_DADEM_DB_USER', 'dadem');
 define('OPTION_DADEM_DB_PASS', '');
+// optionally, define a hostname and port
+//define('OPTION_DADEM_DB_HOST', 'localhost');
+//define('OPTION_DADEM_DB_PORT', '5432');
 
 // PostgreSQL database for Ratty
 define('OPTION_RATTY_DB_NAME', 'ratty');
