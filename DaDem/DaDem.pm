@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.27 2005-02-04 12:41:05 chris Exp $
+# $Id: DaDem.pm,v 1.28 2005-02-07 13:46:02 francis Exp $
 #
 
 package DaDem;
@@ -424,7 +424,12 @@ of the person who edited the data. NOTE is any explanation of why / where from.
 sub admin_edit_representative ($$$$) {
     my ($id, $newdata, $editor, $note) = @_;
 
-    if (my ($name, $party, $method, $email, $fax) = dbh()->selectrow_array('select name, party, method, email, fax from representative where id = ?', {}, $id)) {
+    if (my ($name, $party, $method, $email, $fax, $area_type) = dbh()->selectrow_array('select name, party, method, email, fax, area_type from representative where id = ?', {}, $id)) {
+        # Check they are not editing council types (those are handled by raw_input_edited)
+        if (grep { $_ eq $area_type} @{$mySociety::VotingArea::council_child_types} ) {
+            throw RABX::Error("admin_edit_representative: council types such as '$area_type' are not edited here");
+        }
+
         # Make undef (NULL) for any unchanged fields from original
         if ($newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
         if ($newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };

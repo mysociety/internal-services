@@ -21,7 +21,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.16 2005-02-07 10:49:25 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.17 2005-02-07 13:46:10 francis Exp $';
 
 use strict;
 
@@ -31,6 +31,7 @@ use Text::CSV_XS;
 use Data::Dumper;
 
 use Common;
+use mySociety::VotingArea;
 use mySociety::CouncilMatch;
 
 my $kind = lc(shift(@ARGV));
@@ -54,7 +55,7 @@ if ($kind eq "mep") {
     $types = [qw(LAC LAE)];
     $name_type_char = 'G';
 } elsif ($kind eq "ds") {
-    $types = $mySociety::CouncilMatch::council_parent_types;
+    $types = $mySociety::VotingArea::council_parent_types;
     $name_type_char = 'M';
     $canon_function = \&mySociety::CouncilMatch::canonicalise_council_name
 } else {

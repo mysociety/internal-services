@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.2 2005-02-07 10:49:25 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.3 2005-02-07 13:46:10 francis Exp $';
 
 use strict;
 
@@ -20,6 +20,7 @@ use DBI;
 use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
+use mySociety::VotingArea;
 use mySociety::CouncilMatch;
 
 use Common;
@@ -30,7 +31,7 @@ my $d_dbh = connect_to_dadem_database();
 # Delete existing GovEval name data for councils of 'C' type
 $m_dbh->do(
         q#delete from area_name where area_id in (select area_id from area where
-            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::council_parent_types) . q#)) 
+            (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)) 
             and name_type = ?;#, {}, 'C'
 );
 
@@ -42,7 +43,7 @@ my %parent_to_id;
 my $area_id_data = $m_dbh->selectall_hashref(
         q#select * from area
             where 
-            (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::council_parent_types) . q#)#,
+            (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#,
         'id');
 
 # Cache of name-->id map of all the parent area types (District Council,
@@ -51,7 +52,7 @@ my $s = $m_dbh->prepare(
         q#select area_id, name from area_name, area
             where area_name.area_id = area.id
             and (name_type = 'O' or name_type = 'S')
-            and (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::council_parent_types) . q#)#
+            and (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#
     );
 $s->execute();
 
