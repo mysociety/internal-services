@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.7 2005-01-12 09:35:46 chris Exp $
+-- $Id: schema.sql,v 1.8 2005-01-12 13:11:31 chris Exp $
 --
 
 create table rule (
@@ -111,9 +111,13 @@ create index rule_hit_dhash_idx on rule_hit(dhash);
 -- list of available fields, automatically filled in by ratty.
 -- (specify the fields in PHP when you call ratty)
 create table available_fields (
-    field text not null unique,
-    example text not null
+    scope text not null,
+    field text not null,
+    example text not null,
+    primary key (scope, field)
 );
+
+create index available_fields_scope_idx on available_fields(scope);
 
 -- grant all on database ratty to ratty;
 
