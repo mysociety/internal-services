@@ -15,13 +15,13 @@
 # cat ../../../repdata/goveval/msp-sp{c,e}-20041001.csv | ./load_goveval_names msp
 # cat ../../../repdata/goveval/wam-20041001.csv | ./load_goveval_names wam
 # cat ../../../repdata/goveval/gla-20041001.csv | ./load_goveval_names lam
-# cat ../../../repdata/mysociety/democratic-services-rev7.csv | ./load_goveval_names ds
+# cat ../../../repdata/mysociety/democratic-services-rev8.csv | ./load_goveval_names ds
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.17 2005-02-07 13:46:10 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.18 2005-02-09 15:18:27 francis Exp $';
 
 use strict;
 
