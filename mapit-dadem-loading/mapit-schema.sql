@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.14 2005-02-09 12:26:11 chris Exp $
+-- $Id: mapit-schema.sql,v 1.15 2005-02-11 00:56:13 chris Exp $
 --
 
 -- generations, for currency of data
@@ -95,6 +95,6 @@ create table postcode_area (
 );
 
 create index postcode_area_postcode_id_idx on postcode_area(postcode_id);
--- Hmmm, maybe excessive index (for reverse postcode lookups for admin)
--- create index postcode_area_area_id_idx on postcode_area(area_id);
+-- Needed to make reverse lookups take a sane amount of time, sadly.
+create index postcode_area_area_id_idx on postcode_area(area_id);
 
