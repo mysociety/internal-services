@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.22 2005-02-04 10:59:33 francis Exp $
+-- $Id: dadem-schema.sql,v 1.23 2005-02-04 18:56:10 francis Exp $
 --
 
 -- data about each democratic reperesentative
@@ -20,9 +20,13 @@ create table representative (
     -- unknown means "we don't have good data"
     method text not null check (method in('either','fax','email','shame','unknown','via')),
     email text,
-    fax text
+    fax text,
+
+    -- such as GovEval id, etc.
+    import_key text,
 );
 create index representative_area_id_idx on representative(area_id);
+create unique index representative_import_key_idx on representative(import_key);
 
 -- data edited from web interface
 -- NULL values mean leave unchanged
@@ -115,12 +119,15 @@ create index raw_input_data_edited_council_id_idx on raw_input_data_edited(counc
 
 create sequence raw_input_data_edited_newrow_seq;
 
--- how well the data in raw_input_data has been name matched and/or
--- read into the main representatives table
+-- extra info about council that user has put in match interface
 create table raw_council_extradata (
     council_id integer not null,
-    
-    councillors_url text not null
+
+    -- council web page with list of all councillors on it
+    councillors_url text not null,
+
+    -- whether to make council live
+    make_live boolean not null default (false)
 );
 
 

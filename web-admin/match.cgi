@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.15 2005-02-03 11:22:39 francis Exp $
+# $Id: match.cgi,v 1.16 2005-02-04 18:56:10 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.15 2005-02-03 11:22:39 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.16 2005-02-04 18:56:10 francis Exp $';
 
 use strict;
 
@@ -92,12 +92,15 @@ my $status_titles = {
     'url-found' => 'Councillors URL OK',
     'url-missing' => 'Councillors URL needed',
     'councillors-mismatch' => 'Councillors matching failed',
-    'councillors-match' => 'Councillors match OK'
+    'councillors-match' => 'Councillors match OK',
+    'failed-live' => 'Failed to make live',
+    'made-live' => 'Has refreshed live data',
 };
 my $status_titles_order =  
     ['wards-mismatch', 'wards-match', 
     'url-missing', 'url-found',
-    'councillors-mismatch', 'councillors-match'];
+    'councillors-mismatch', 'councillors-match',
+    'failed-live', 'made-live'];
 
 # do_summary CGI
 # Displays page with summary of matching status of all councils.
@@ -176,12 +179,12 @@ sub do_council_info ($) {
     my ($q) = @_;
 
     # Altered URL
-    if ($q->param('posted_councillors_url') and $q->param) {
+    if ($q->param('posted_extra_data') and $q->param) {
         $d_dbh->do(q#delete
             from raw_council_extradata where council_id = ?#, {}, $area_id);
         $d_dbh->do(q#insert
-            into raw_council_extradata (council_id, councillors_url) values (?,?)#, 
-            {}, $area_id, $q->param('councillors_url'));
+            into raw_council_extradata (council_id, councillors_url, make_live) values (?,?,?)#, 
+            {}, $area_id, $q->param('councillors_url'), defined($q->param('make_live')) ? 't' : 'f');
         $d_dbh->commit();
         my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
         print $q->redirect($q->param('r'));
@@ -195,7 +198,13 @@ sub do_council_info ($) {
     print $q->h1($name . " " . $area_id . " &mdash; Status");
     print $q->p($status_titles->{$status_data->{status}});
 
-    #print MaPit::get_example_postcode($area_id);
+    if ($status_data->{status} eq "made-live") {
+        my $example_postcode = MaPit::get_example_postcode($area_id);
+        print $q->p("Example postcode to test on WriteToThem.com: ",
+            $q->a({href => build_url($q, "http://www.writetothem.com/",
+                    { 'pc' => $example_postcode}) }, 
+                $example_postcode));
+    }
 
     if ($status_data->{'error'}) {
         print $q->h2("Errors");
@@ -221,18 +230,29 @@ sub do_council_info ($) {
     );
 
     # Edit box for URL for list of councillors on council website
-    my $ret = $d_dbh->selectrow_arrayref(q#select council_id, councillors_url from 
+    my $ret = $d_dbh->selectrow_arrayref(q#select council_id, councillors_url, make_live from 
         raw_council_extradata where council_id = ?#, {}, $area_id);
-    $q->param('councillors_url', $ret->[1]) if defined ($ret);
+    if (defined($ret)) {
+        $q->param('councillors_url', $ret->[1]);
+        if ($ret->[2]) {
+            $q->param('make_live', 'on');
+        } else {
+            $q->delete('make_live');
+        }
+    }
     $q->param('r', $q->self_url());
     print $q->start_form(-method => 'POST');
     print $q->p(
+            $q->b("Make live:"),
+            $q->checkbox(-name => 'make_live', -label => ' Copy data to live database when wards match'),
+            $q->br(),
             $q->a({href=>$q->param('councillors_url')}, "Councillors page:"),
             $q->textfield(-name => "councillors_url", -size => 100),
             $q->hidden('page', 'councilinfo'),
             $q->hidden('area_id'),
             $q->hidden('r'),
-            $q->hidden('posted_councillors_url', 'true'),
+            $q->hidden('posted_extra_data', 'true'),
+            $q->br(),
             $q->submit('Save')
             );
     print $q->end_form();
@@ -261,8 +281,8 @@ sub do_council_info ($) {
     }
     print $q->end_td(), $q->end_Tr(), $q->end_table();
 
-    # Details about matches made
-    print $q->h2("Match Details");
+    # Details about matches made and so on
+    print $q->h2("Action Details");
     print $q->pre(encode_entities($status_data->{'details'}));
 
     # History
@@ -277,7 +297,7 @@ sub do_council_info ($) {
         push @history, $row;
     } 
     $sth = $d_dbh->prepare(q#select * from raw_input_data_edited where council_id = ? 
-            order by order_id desc#);
+            order by order_id#);
     $sth->execute($area_id);
     while (my $row = $sth->fetchrow_hashref()) { 
         push @history, $row;

@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.6 2005-02-02 19:26:58 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.7 2005-02-04 18:56:10 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -43,7 +43,7 @@ my $area_id_data = $m_dbh->selectall_hashref(
             (# . join(' or ', map { "type = '$_'" } @$mySociety::CouncilMatch::parent_types) . q#)#,
         'id');
 
-if ($param1 eq "london" or $param1 eq "top" or $param1 =~ m/^\d+$/) {
+if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m/^\d+$/)) {
     if ($param1 eq "london" or $param1 eq "top") {
         print "Processing London councils\n";
         my $specialcouncils;
@@ -89,7 +89,7 @@ if ($param1 eq "london" or $param1 eq "top" or $param1 =~ m/^\d+$/) {
     my $count = 0;
     foreach my $id (keys %$area_id_data) {
         my $current_status =  mySociety::CouncilMatch::get_process_status($id);
-        next if (($param1 eq "status") and ($current_status ne $param2));
+        next if ((defined $param1) and ($param1 eq "status") and ($current_status ne $param2));
 
         printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id;
 
