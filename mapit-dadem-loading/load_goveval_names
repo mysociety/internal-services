@@ -1,56 +1,90 @@
 #!/usr/bin/perl -w -I../../perllib
 #
-# load_goveval_euroregion_names
-# Load in GovEval MEP data, match names to Ordnance Survey once in the
-# MaPit database, and add in the GovEval names as alternates.
+# load_goveval_names
+# Load in GovEval or similar data, match names to Ordnance Survey ones
+# in the MaPit database, and add in the GovEval names as alternates.
 #
-# Parameters:  Pipe the mep.csv file from GovEval into standard input.
+# Parameters: 
+# $1 - kind of data, currently choose from: mep, mp
+# stdin - the CSV file from GovEval or FaxYourMP
+# make sure ../conf/general is configured for mapit db
+#
+# Example usage:
+# cat ../../../goveval/mep-20041001.csv | ./load_goveval_names mep
+# cat ../../../goveval/faxyourmp-mp-20041207.csv | ./load_goveval_names mp
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_euroregion_names,v 1.3 2004-12-07 16:33:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.9 2004-12-07 21:59:53 francis Exp $';
 
 use strict;
 
 use DBI;
 use DBD::Pg;
-use Text::CSV;
+use Text::CSV_XS;
 use Data::Dumper;
 
 use Common;
 
-my $runoneid = shift(@ARGV);
+my $kind = shift(@ARGV);
+die "specify what kind of CSV file" if (!defined($kind));
+my $types;
+my $name_type_char;
+if ($kind eq "mep") {
+    $types = [qw(EUR)];
+    $name_type_char = 'G';
+} elsif ($kind eq "mp") {
+    $types = [qw(WMC)];
+    $name_type_char = 'X';
+} else {
+    die "Please specify 'mep' or 'mp'";
+}
 
 my $dbh = connect_to_mapit_database();
 # DBI->trace(2);
-my $types = [qw(EUR)];
 
 # Delete existing GovEval name data
 $dbh->do(
         q#delete from area_name where area_id in (select area_id from area where
             (# . join(' or ', map { "type = '$_'" } @$types) . q#)) 
-            and name_type = 'G';#
+            and name_type = ?;#, {}, $name_type_char
 );
 
-# canonicalise_euroregion_name NAME
-# Convert the NAME of a Euro region into a "canonical" version of the
+# canonicalise_constituency_name NAME
+# Convert the NAME of a constituency into a "canonical" version of the
 # name.  That is, one with all the parts which often vary between
-# spellings reduced to the simplest form.
-sub canonicalise_euroregion_name ($) {
+# spellings reduced to the simplest form.  This simple form can then
+# be used with exact matching.
+sub canonicalise_constituency_name ($) {
     $_ = shift;
 
+    # Specific to Europe regions
     s#^Greater ##i;
     s# Euro Region$##;
     s#N\. Ireland#Northern Ireland#;
 
-    $_ = lc;
+    # Specific to Westminster constituencies
+    s# Burgh Const$##;
+    s# Co Const$##;
+    s# Boro Const$##;
+    s# The$##;
+    s#^The##;
+    s# City of$##;
+    s#^City of##;
+    s#ô#o#g;
 
+    # General
+    $_ = lc;
     s#&#and#g;
     s#-# #g;
     s#'##g;
     s#,##g;
+    s#\.##g;
+    s#\s+# #g;
+    s#^\s+##g;
+    s#\s+$##g;
     
     return $_;
 }
@@ -70,14 +104,14 @@ $s->execute();
 
 while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
-    $_ = canonicalise_euroregion_name($name);
+    $_ = canonicalise_constituency_name($name);
     die "Already have id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n" if (exists($parent_to_id{$_}));
 
     $parent_to_id{$_} = $area_id;
 }
  
 # Load the GovEval data.
-my $C = new Text::CSV;
+my $C = new Text::CSV_XS({ binary => 1 });
 <STDIN>;    # header line
 
 # %newnames
@@ -87,10 +121,20 @@ my %newnames;
 while (my $line = <STDIN>) {
     chomp($line);
     $C->parse($line);
-    my ($first, $last, $cons, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+    my $cons;
+
+    if ($kind eq "mep") {
+        my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+        $cons = $constituency;
+    } elsif ($kind eq "mp") {
+        my ($name, $constituency, $email, $fax, $phone, $constituencyfax) = map { trim_spaces($_) } $C->fields();
+        $cons = $constituency;
+    } else {
+        die "Missing kind in code";
+    }
 
     die "constituency not defined for line '$line'\n" unless (defined($cons));
-    $_ = canonicalise_euroregion_name($cons);
+    $_ = canonicalise_constituency_name($cons);
     die "no constituency in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
     my $id = $parent_to_id{$_};
 
@@ -108,7 +152,8 @@ while (my $line = <STDIN>) {
 # Add name alises to the database
 foreach my $name (keys %newnames) {
     my $id = $newnames{$name};
-    $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'G', ?)", {}, $id, $name);
+    print "$id $name\n";
+    $dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)", {}, $id, $name_type_char, $name);
 }
 
 $dbh->commit();

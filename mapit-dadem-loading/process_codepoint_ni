@@ -1,11 +1,10 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../perllib
 #
 # process_codepoint_ni:
 # Read CodePoint postcodes, coordinates and ONS ward codes, and use them to
 # generate a mapping from postcodes to electoral geography.
 #
-# Call with four arguments:
-#   - name of MaPit Postgresql database;
+# Call with three arguments:
 #   - CSV file generated from the ward to constituency mapping in SNAC;
 #   - CSV file of ward to electoral area mapping from the District Electoral
 #     Areas (Northern Ireland) Order 1993, or later;
@@ -16,11 +15,17 @@
 # available in the ONS SNAC ("Standard Names and Codes") product, from
 #   http://www.statistics.gov.uk/geography/snac.asp
 #
+# If you want to undo what this script puts into MaPit so you can run it
+# again, you might find these commands helpful:
+#   delete from postcode_area where (select postcode from postcode where postcode_id = id) like 'BT%';
+#   delete from postcode where postcode like 'BT%';
+#   delete from area_name where (select country from area where area_id = id) = 'N';
+#   delete from area where country = 'N';
+#
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
-#
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.6 2004-12-07 10:48:16 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.7 2004-12-07 21:59:53 francis Exp $';
 
 use strict;
 
@@ -36,10 +41,10 @@ use Common;
 # by default, but offers options for a slightly less inept behaviour.
 my $c = new Text::CSV_XS({ binary => 1 });
 
-die "arguments are Postgres database name, ONS codes CSV file, NI electoral areas CSV file, and CodePoint CSV file" unless (@ARGV == 4);
+die "arguments are ONS codes CSV file, NI electoral areas CSV file, and CodePoint CSV file" unless (@ARGV == 3);
 
-my ($dbname, $onscodesfile, $nieasfile, $codepointfile) = @ARGV;
-my $dbh = connect_to_database($dbname);
+my ($onscodesfile, $nieasfile, $codepointfile) = @ARGV;
+my $dbh = connect_to_mapit_database();
 
 # Special case: create a Euro-region.
 my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'F', 'EUR', undef, undef, undef);
