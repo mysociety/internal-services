@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.15 2005-04-15 12:44:06 francis Exp $
+# $Id: EvEl.pm,v 1.16 2005-04-15 13:09:12 francis Exp $
 #
 
 package EvEl::Error;
@@ -517,7 +517,7 @@ sub construct_email ($) {
                             unpack('h*', random_bytes(5)),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
                         );
-    $hdr{'Date'} ||= time2str("%a, %d %h %T %z", time);
+    $hdr{'Date'} ||= time2str("%a, %d %h %Y %T %z", time);
 
     foreach (keys(%$p)) {
         $hdr{$_} = $p->{$_} if ($_ ne '_data_' && !exists($hdr{$_}));
