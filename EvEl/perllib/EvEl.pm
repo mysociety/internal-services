@@ -6,7 +6,7 @@
 # Copyright (c) 2005 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
 #
-# $Id: EvEl.pm,v 1.16 2005-04-15 13:09:12 francis Exp $
+# $Id: EvEl.pm,v 1.17 2005-04-21 18:09:20 chris Exp $
 #
 
 package EvEl::Error;
@@ -405,6 +405,11 @@ associative array containing elements as follows:
 
 Text of the message to send, as a UTF-8 string with "\n" line-endings.
 
+=item _unwrapped_body_
+
+Text of the message to send, as a UTF-8 string with "\n" line-endings. It will
+be word-wrapped before sending.
+
 =item _template_, _parameters_
 
 Templated body text and an associative array of template parameters. _template
@@ -445,15 +450,24 @@ interpreted as the literal value of a header with the same name.
 
 If no Message-ID is given, one is generated. If no To is given, then the string
 "Undisclosed-Recipients: ;" is used. If no From is given, a generic no-reply
-address is used. It is an error to fail to give a body, templated body, or
-Subject.
+address is used. It is an error to fail to give a body, unwrapped body or a
+templated body; or a Subject.
 
 =cut
 sub construct_email ($) {
     my $p = shift;
 
-    if (!exists($p->{_body_}) && (!exists($p->{_template_}) || !exists($p->{_parameters_}))) {
-        throw EvEl::Error("Must specify field '_body_' or both '_template_' and '_parameters_'");
+    if (!exists($p->{_body_}) && !exists($p->{_unwrapped_body_})
+        && (!exists($p->{_template_}) || !exists($p->{_parameters_}))) {
+        throw EvEl::Error("Must specify field '_body_' or '_unwrapped_body_', or both '_template_' and '_parameters_'");
+    }
+
+    if (exists($p->{_unwrapped_body_})) {
+        throw EvEl::Error("Fields '_body_' and '_unwrapped_body_' both specified") if (exists($p->{_body_}));
+        local($Text::Wrap::columns = 72);
+        local($Text::Wrap::huge = 'overflow');
+        $p->{_body_} = Text::Wrap::wrap('', '', $p->{_unwrapped_body_});
+        delete($p->{_unwrapped_body_});
     }
 
     if (exists($p->{_template_})) {
