@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.18 2005-04-22 09:29:10 matthew Exp $
+# $Id: EvEl.pm,v 1.19 2005-04-22 16:33:59 francis Exp $
 #
 
 package EvEl::Error;
@@ -171,7 +171,7 @@ sub run_queue () {
         }
 
         # Convert links if to a most-likely AOL email address
-        if ($d->{address} =~ /@aol\./) {
+        if ($d->{address} =~ /\@aol\./) {
             print_log('debug', "message is to AOL user; converting links");
             $d->{data} =~ s/((http(s?):\/\/)([a-zA-Z\d\_\.\+\,\;\?\%\~\-\/\#\='\*\$\!\(\)\&]+)([a-zA-Z\d\_\?\%\~\-\/\#\='\*\$\!\(\)\&]))/<a href="$1">$1<\/a>/g;
         }
