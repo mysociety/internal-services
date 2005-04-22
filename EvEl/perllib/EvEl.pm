@@ -3,10 +3,10 @@
 # EvEl.pm:
 # Implementation of EvEl.
 #
-# Copyright (c) 2005 Chris Lightfoot. All rights reserved.
-# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.17 2005-04-21 18:09:20 chris Exp $
+# $Id: EvEl.pm,v 1.18 2005-04-22 09:29:10 matthew Exp $
 #
 
 package EvEl::Error;
@@ -168,6 +168,12 @@ sub run_queue () {
                 throw EvEl::Error("unable to connect to $smtpserver: $!");
             $nsent = 0;
             print_log('debug', "connected to SMTP server $smtpserver"); 
+        }
+
+        # Convert links if to a most-likely AOL email address
+        if ($d->{address} =~ /@aol\./) {
+            print_log('debug', "message is to AOL user; converting links");
+            $d->{data} =~ s/((http(s?):\/\/)([a-zA-Z\d\_\.\+\,\;\?\%\~\-\/\#\='\*\$\!\(\)\&]+)([a-zA-Z\d\_\?\%\~\-\/\#\='\*\$\!\(\)\&]))/<a href="$1">$1<\/a>/g;
         }
 
         # Split message text into lines.
