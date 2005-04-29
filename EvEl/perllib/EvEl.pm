@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.20 2005-04-29 14:27:42 chris Exp $
+# $Id: EvEl.pm,v 1.21 2005-04-29 14:28:25 chris Exp $
 #
 
 package EvEl::Error;
@@ -536,7 +536,7 @@ sub construct_email ($) {
                             unpack('h*', random_bytes(5)),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
                         );
-    $hdr{'Date'} ||= POSIX::strftime("%a, %d %h %Y %T %z", localtime(time());
+    $hdr{'Date'} ||= POSIX::strftime("%a, %d %h %Y %T %z", localtime(time()));
 
     foreach (keys(%$p)) {
         $hdr{$_} = $p->{$_} if ($_ ne '_data_' && !exists($hdr{$_}));
