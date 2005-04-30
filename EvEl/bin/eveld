@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.3 2005-04-01 10:40:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.4 2005-04-30 15:25:55 chris Exp $';
 
 use strict;
 
@@ -41,10 +41,11 @@ my $foad;
 # Periodic queue-running process.
 sub run_queue_process () {
     my $niter = 0;
+    my $delay = mySociety::Config::get('EVEL_DAEMON_QUEUE_RUN_INTERVAL', 10);
     while (!$foad && $niter < 1000) {
         print_log('debug', "running queue");
         my $N = EvEl::run_queue();
-        sleep(60) if ($N == 0);
+        sleep($delay) if ($N == 0);
         ++$niter;
     }
     print_log('debug', "queue-running process shutting down after $niter iterations");
@@ -159,5 +160,5 @@ Copyright (c) 2005 UK Citizens Online Democracy
 
 =head1 VERSION
 
-$Id: eveld,v 1.3 2005-04-01 10:40:06 francis Exp $
+$Id: eveld,v 1.4 2005-04-30 15:25:55 chris Exp $
 
