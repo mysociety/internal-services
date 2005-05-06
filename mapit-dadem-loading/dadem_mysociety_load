@@ -5,7 +5,7 @@
 # and loads them into DaDem.
 # Parameters: 
 # $1 - kind of data, currently choose from: mep, mp
-# stdin - the CSV file from GovEval or FaxYourMP
+# stdin - the CSV file from mySociety
 # make sure ../conf/general is configured for mapit db
 #
 # Example usage:
@@ -16,7 +16,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_mysociety_load,v 1.1 2004-12-14 16:24:44 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_mysociety_load,v 1.2 2005-05-06 01:02:48 francis Exp $';
 
 use strict;
 
