@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.12 2004-12-04 12:18:58 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.13 2005-05-10 13:06:01 chris Exp $';
 
 use strict;
 
@@ -620,11 +620,11 @@ foreach my $S (@shapes) {
         }
 
         # XXX I am assuming that ONS codes which begin '00N' are all in Wales,
-        # and those which begin '00Q' are all in Scotland. This is true of SNAC
-        # 2003, and I assume will be in future too.
+        # and those which begin '00Q' or '00R' are all in Scotland. This is
+        # true of SNAC 2003, and I assume will be in future too.
         if ($S->[9] =~ m#^00N#) {
             $country = 'W';
-        } elsif ($S->[9] =~ m#^00Q#) {
+        } elsif ($S->[9] =~ m#^00[QR]#) {
             $country = 'S';
         } else {
             $country = 'E';
