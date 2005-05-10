@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.18 2005-02-16 12:52:20 francis Exp $
+# $Id: MaPit.pm,v 1.19 2005-05-10 14:42:34 chris Exp $
 #
 
 package MaPit;
@@ -179,6 +179,21 @@ sub get_voting_areas ($) {
                         ', {}, $pcid, $generation, $generation)
                     })
             };
+
+        # Horrible new Scottish constituencies fixup.
+        if (dbh()->selectrow_array('select country from area where id = ?', {}, $ret->{WMC}) eq 'S') {
+            my $wmc_id = dbh()->selectrow_array('
+                                select constituency_area_id
+                                from new_scottish_constituencies_fixup
+                                where ward_area_id = ?', {},
+                                $ret->{UTW});
+            $wmc_id ||= dbh()->selectrow_array('
+                                select constituency_area_id
+                                from new_scottish_constituencies_fixup
+                                where council_area_id = ?', {},
+                                $ret->{UTA});
+            die "no fixup mapping for new Scottish constituency" if (!defined($wmc_id));
+        }
     }
 
     # Add fictional enclosing areas.
@@ -266,6 +281,7 @@ Given an area ID, returns one postcode that maps to it.
 sub get_example_postcode ($);
 sub get_example_postcode ($) {
     my ($area_id) = @_;
+        # XXX this will break with the new Scottish constituencies stuff
     # Have to catch special cases here.
     if (exists($special_cases{$area_id})) {
         if ($area_id >= DUMMY_ID) {
