@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.20 2005-05-10 15:46:42 chris Exp $
+# $Id: MaPit.pm,v 1.21 2005-05-10 15:55:16 chris Exp $
 #
 
 package MaPit;
@@ -192,6 +192,7 @@ sub get_voting_areas ($) {
                                 from new_scottish_constituencies_fixup
                                 where council_area_id = ?', {},
                                 $ret->{UTA});
+            $ret->{WMC} = $wmc_id;
             die "no fixup mapping for new Scottish constituency" if (!defined($wmc_id));
         }
     }
