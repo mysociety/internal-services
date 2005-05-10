@@ -1,0 +1,100 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# new_scottish_constituencies:
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.1 2005-05-10 13:26:01 chris Exp $';
+
+use strict;
+
+use Data::Dumper;
+use Text::CSV_XS;
+
+use Common;
+
+my $c = new Text::CSV_XS({ binary => 1 });
+
+die "single argument is CSV file giving new Scottish constituency mapping" unless (@ARGV == 1);
+
+my %council_name;
+my %ward_name;
+
+# council name -> constituency for leftover bits of that council
+my %council_to_constituency;
+# council name -> ward name -> constituency for that ward
+my %ward_to_constituency;
+
+my ($last_constituency, $last_council);
+foreach (read_csv_file($ARGV[0], 1)) {
+    my ($constituency, $council, $ward) = @$_;
+
+    die "no constituency at top of file" unless ($constituency || $last_constituency);
+    die "no council at top of file" unless ($council || $last_council);
+
+    $constituency ||= $last_constituency;
+    $council ||= $last_council;
+
+    $council_name{$council} = 1;
+    $ward_name{$council}->{$ward} = 1;
+
+    $ward_to_constituency{$council} ||= { };
+
+    if ($ward eq '*') {
+        die "constituency '$constituency': council '$council' already has a residue constituency, '$council_to_constituency{$council}'" if (exists($council_to_constituency{$council}));
+        $council_to_constituency{$council} = $constituency;
+    } else {
+        die "constituency '$constituency': ward '$ward' in council '$council' is already assigned to constituency '$ward_to_constituency{$council}->{$ward}'"
+            if (exists($ward_to_constituency{$council}->{$ward}));
+        $ward_to_constituency{$council}->{$ward} = $constituency;
+    }
+    
+    $last_constituency = $constituency;
+    $last_council = $council;
+}
+
+my $dbh = connect_to_mapit_database();
+
+# Match up council names to their names in the database.
+my %database_councils = map {
+        $_->[0] => $_->[1]
+    } @{$dbh->selectall_arrayref(q(
+                    select id, name
+                    from area, area_name
+                    where area_name.area_id = area.id and area.country = 'S'
+                        and area_name.name_type = 'O' and area.type = 'UTA'
+                ))};
+
+my %council_to_id;
+my %ward_to_id;
+
+foreach my $council (sort keys %council_name) {
+    my ($match) = sort { $b->[0] <=> $a->[0] } map { [placename_match_metric($council, $database_councils{$_}), $_] } keys %database_councils;
+    die "no match for '$council'" unless (defined($match));
+    $council_to_id{$council} = $match->[1];
+    delete $database_councils{$match->[1]};
+}
+
+foreach my $council (sort keys %ward_name) {
+    my %database_wards = map {
+            $_->[0] => $_->[1]
+        } @{$dbh->selectall_arrayref(q(
+                        select id, name
+                        from area, area_name
+                        where area_name.area_id = area.id
+                            and parent_area_id = ?
+                            and area.type = 'UTW'
+                            and area_name.name_type = 'O'
+                    ), {}, $council_to_id{$council})};
+
+    foreach my $ward (sort keys %{$ward_name{$council}}) {
+        my ($match) = sort { $b->[0] <=> $a->[0] } map { [placename_match_metric($ward, $database_wards{$_}), $_] } keys %database_wards;
+        die "no match for '$ward' in '$council'" unless (defined($match));
+        $ward_to_id{$council}->{$ward} = $match->[1];
+        delete $database_wards{$match->[1]};
+    }
+}
+
+$dbh->disconnect();
