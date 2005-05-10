@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.1 2005-05-10 13:26:01 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.2 2005-05-10 14:04:09 chris Exp $';
 
 use strict;
 
@@ -22,6 +22,8 @@ die "single argument is CSV file giving new Scottish constituency mapping" unles
 my %council_name;
 my %ward_name;
 
+my %constituency_name;
+
 # council name -> constituency for leftover bits of that council
 my %council_to_constituency;
 # council name -> ward name -> constituency for that ward
@@ -36,6 +38,8 @@ foreach (read_csv_file($ARGV[0], 1)) {
 
     $constituency ||= $last_constituency;
     $council ||= $last_council;
+
+    $constituency_name{$constituency} = 1;
 
     $council_name{$council} = 1;
     $ward_name{$council}->{$ward} = 1;
@@ -96,5 +100,65 @@ foreach my $council (sort keys %ward_name) {
         delete $database_wards{$match->[1]};
     }
 }
+
+#$dbh->begin();
+
+my %constituency_to_id;
+
+# This is where things start to go wrong. Just do the whole thing as a
+# once-only script.
+foreach my $constituency (sort(keys(%constituency_name))) {
+    my $friendly = $constituency;
+    $friendly =~ s#(Burgh|County) Constituency$##;
+    my $id = $dbh->selectrow_array("select nextval('area_id_seq')");
+    $constituency_to_id{$constituency} = $id;
+    $dbh->do(q(
+            insert into area (id, type, country, generation_low, generation_high)
+                values (?, 'WMC', 'S', 1, 1) -- XXX HACK!
+        ), {}, $id);
+    $dbh->do(q(
+            insert into area_name (area_id, name_type, name)
+                values (?, 'L', ?)
+        ), {}, $id, $constituency);
+    $dbh->do(q(
+            insert into area_name (area_id, name_type, name)
+                values (?, 'F', ?)
+        ), {}, $id, $friendly);
+}
+
+foreach my $council (keys(%ward_to_constituency)) {
+    my $ww = $ward_to_constituency{$council};
+    foreach my $ward (keys(%$ww)) {
+        print "map ward '$ward' #$ward_to_id{$council}->{$ward} to constituency '$ww->{$ward}' #$constituency_to_id{$ww->{$ward}}\n";
+        $dbh->do('
+                insert into new_scottish_constituencies_fixup
+                    (ward_area_id, constituency_area_id)
+                values (?, ?)', {},
+                $ward_to_id{$council}->{$ward}, $constituency_to_id{$ww->{$ward}});
+    }
+}
+
+foreach my $council (keys(%council_to_constituency)) {
+    print "map residue of council '$council' #$council_to_id{$council} to constituency '$council_to_constituency{$council}'\n";
+    $dbh->do('
+            insert into new_scottish_constituencies_fixup
+                (council_area_id, constituency_area_id)
+            values (?, ?)', {},
+            $council_to_id{$council}, $constituency_to_id{$council_to_constituency{$council}});
+}
+
+# Sanity check. We must ensure that every ward in Scotland is associated with a
+# new constituency.
+my $st = $dbh->prepare(q(select id, parent_area_id from area where type = 'UTW' and country = 'S'));
+$st->execute();
+while (my ($id, $parent_id) = $st->fetchrow_array()) {
+    # ugh. Should do this in the db with one select, but I'm feeling lazy.
+    my $c_id = $dbh->selectrow_array('select constituency_area_id from new_scottish_constituencies_fixup where ward_area_id = ?', {}, $id);
+    $c_id ||= $dbh->selectrow_array('select constituency_area_id from new_scottish_constituencies_fixup where council_area_id = ?', {}, $parent_id);
+    die "ward '" . scalar($dbh->selectrow_array('select name from area_name where area_id = ?', {}, $id)) . "' #$id has no constituency fixup mapping"
+        unless (defined($c_id));
+}
+
+$dbh->commit();
 
 $dbh->disconnect();
