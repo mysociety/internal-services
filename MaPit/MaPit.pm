@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.19 2005-05-10 14:42:34 chris Exp $
+# $Id: MaPit.pm,v 1.20 2005-05-10 15:46:42 chris Exp $
 #
 
 package MaPit;
@@ -15,7 +15,6 @@ use strict;
 
 use DBI;
 use DBD::Pg;
-use Data::Dumper;
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
@@ -181,7 +180,8 @@ sub get_voting_areas ($) {
             };
 
         # Horrible new Scottish constituencies fixup.
-        if (dbh()->selectrow_array('select country from area where id = ?', {}, $ret->{WMC}) eq 'S') {
+        my $country = dbh()->selectrow_array('select country from area where id = ?', {}, $ret->{WMC});
+        if ($country eq 'S') {
             my $wmc_id = dbh()->selectrow_array('
                                 select constituency_area_id
                                 from new_scottish_constituencies_fixup
