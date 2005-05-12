@@ -11,13 +11,14 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.10 2005-02-09 19:56:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.11 2005-05-12 14:41:02 francis Exp $';
 
 use strict;
 
 use DBI;
 use DBD::Pg;
 use Data::Dumper;
+use mySociety::StringUtils qw(trim merge_spaces string_diff);
 
 use Common;
 
@@ -29,6 +30,7 @@ my $dbh = connect_to_mapit_database();
 # be the OS spelling of the name.
 sub friendly_from_os ($) {
     $_ = shift;
+    $_ = trim(merge_spaces($_));
 
     # Specific to Europe regions
     s#^Greater ##i;
@@ -39,6 +41,8 @@ sub friendly_from_os ($) {
     s# Burgh Const$##;
     s# Co Const$##;
     s# Boro Const$##;
+    s# County Constituency$##;
+    s# Burgh Constituency$##;
 
     # Scottish Constituency/Electoral Region
     s# P Const$##;
@@ -72,7 +76,7 @@ sub friendly_from_os ($) {
     return $_;
 }
 
-my $s = $dbh->prepare('select id from area');  # XXX generations
+my $s = $dbh->prepare('select id from area order by id');  # XXX generations
 $s->execute();
 
 while (my ($area_id) = $s->fetchrow_array()) {
@@ -86,7 +90,7 @@ while (my ($area_id) = $s->fetchrow_array()) {
         $friendly =~ s/ \(UC\)$/ Council/;
         warn "Brackets in name $friendly" if $friendly =~ m/\(|\)/;
     } elsif (exists($names->{L})) {
-        $friendly = $names->{L}->{name};
+        $friendly = friendly_from_os($names->{L}->{name});
     } elsif (exists($names->{O})) {
         $friendly = friendly_from_os($names->{O}->{name});
     } elsif (exists($names->{S})) {
@@ -95,10 +99,11 @@ while (my ($area_id) = $s->fetchrow_array()) {
         print STDERR "No name to make friendly for $area_id\n";
     }
     if (defined($friendly)) {
+        $friendly = trim(merge_spaces($friendly));
         $dbh->do(q#delete from area_name where area_id = ? and name_type = 'F'#, {}, $area_id);
         $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
     }
-#    print $area_id, " ", $friendly, "\n";
+    print $area_id, " ", $friendly, "\n";
 }
 
 $dbh->commit();
