@@ -1,0 +1,152 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# ukparse_xml_to_csv
+# Load in MPs from UKParse format XML file, and write out CSV file.
+#
+# Parameters: 
+# $1 - all-member.xml file from UKParse
+# $2 - people.xml file from UKParse
+# $3 - output CSV file of all current members
+# $4 - output CSV file of deleted members
+# $5 - optional CSV file of extra fax numbers for new members
+# make sure ../conf/general is configured for mapit db
+#
+# Example use:
+#./ukparse_xml_to_csv ~/devel/publicwhip/members/all-members.xml ~/devel/publicwhip/members/people.xml ~/devel/repdata/mysociety/mps-post-election2005.csv ~/devel/repdata/mysociety/mps-deleted-election2005.csv ~/devel/repdata/mysociety/newmps-emails-election2005.csv
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: ukparse_xml_to_csv,v 1.1 2005-05-12 09:53:44 francis Exp $';
+
+use strict;
+
+use Data::Dumper;
+use XML::Twig;
+use Text::CSV_XS;
+
+use Common;
+use mySociety::VotingArea;
+use mySociety::CouncilMatch;
+
+my $all_members_xml = shift(@ARGV);
+die "specify all-members.xml from Public Whip" if (!defined($all_members_xml));
+my $people_xml = shift(@ARGV);
+die "specify people.xml from Public Whip" if (!defined($people_xml));
+my $file_output_all = shift(@ARGV);
+die "specify output CSV" if (!defined($file_output_all));
+my $file_output_deleted = shift(@ARGV);
+die "specify output CSV for deleted members" if (!defined($file_output_deleted));
+my $extra_emails_file = shift(@ARGV);
+if (defined($extra_emails_file)) {
+    open(EXTRA, "<$extra_emails_file") or die "failed to open $extra_emails_file";
+}
+
+# Load person ids in
+my $twig = new XML::Twig( output_filter => 'safe' );
+$twig->parsefile($people_xml);
+my $peopleroot = $twig->root;
+my @people = $peopleroot->children('person');
+my $membertoperson = {};
+foreach my $person (@people) {
+    my $personid = $person->{'att'}->{'id'};
+    my @offices = $person->children('office');
+    foreach my $office (@offices) {
+        my $officeid = $office->{'att'}->{'id'};
+        $membertoperson->{$officeid} = $personid;
+    }
+}
+
+# Count how many members for each person, and store current members attributes
+$twig = new XML::Twig( output_filter => 'safe' );
+$twig->parsefile($all_members_xml);
+my $memberroot= $twig->root;
+my @members = $memberroot->children('member');
+my $nowc = 0;
+my $personcount;
+my $peoplenow;
+my @membersnow;
+my @membersdeleted;
+foreach my $member (@members) {
+    my $member_id = $member->{'att'}->{'id'};
+    my $person_id = $membertoperson->{$member_id};
+    $personcount->{$person_id}++;
+
+    # Current parliament after 5th May 2005
+    if ($member->{'att'}->{'fromdate'} eq "2005-05-05") {
+        $nowc++;
+        push @membersnow, $member->{'att'};
+        $peoplenow->{$person_id} = 1;
+    }
+
+}
+die if $nowc != 645;  # one missing due to candidate death during election campaign
+
+# Load in extra emails / fax
+my $C = new Text::CSV_XS({ binary => 1 });
+my $extra;
+<EXTRA>;    # header line
+while (my $line = <EXTRA>) {
+    chomp($line);
+    $C->parse($line);
+    map { die "Not valid field in $line" if (!defined $_) } $C->fields();
+    my ($first, $last, $cons, $email, $fax) = map { trim_spaces($_) } $C->fields();
+    $extra->{"$first $last $cons"} = [$email, $fax];
+}
+
+# Print out all MPs to CSV
+my $csv = new Text::CSV_XS({ binary => 1 });
+open(CSV, ">$file_output_all");
+print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
+foreach my $mematt (@membersnow) {
+    my $fullname = $mematt->{'firstname'} . " " . $mematt->{'lastname'};
+    my $party = $mematt->{'party'};
+    my $constituency = $mematt->{'constituency'};
+    my $member_id = $mematt->{'id'};
+    my $person_id = $membertoperson->{$member_id};
+    my $count = $personcount->{$person_id};
+    my $email = undef;
+    my $fax = undef;
+    if ($extra) {
+        my $extra_data = $extra->{"$fullname $constituency"}; 
+        if (defined($extra_data)) {
+            $email = $extra_data->[0];
+            $fax = $extra_data->[1];
+            delete $extra->{"$fullname $constituency"}; 
+        }
+    }
+    $csv->print(\*CSV, [$fullname, $constituency, $email, $fax, undef, undef, $party]);
+    print CSV "\n";
+}
+# Check we used all the extra data
+my $failed = 0;
+foreach my $broken (keys %$extra) {
+    print STDERR "Failed to use extra data line '$broken' from $extra_emails_file\n";
+    $failed = 1;
+}
+die if $failed;
+
+# Print out deleted MPs
+open(DELETED, ">$file_output_deleted");
+print DELETED "name, constituency, party\n";
+my $beforec = 0;
+foreach my $member (@members) {
+    my $member_id = $member->{'att'}->{'id'};
+    my $person_id = $membertoperson->{$member_id};
+
+    # Parliament before dissolution before 2005 General Election
+    if ($member->{'att'}->{'todate'} eq "2005-04-11") {
+        $beforec++;
+        if (!defined($peoplenow->{$person_id})) {
+            my $mematt = $member->{'att'};
+            my $fullname = $mematt->{'firstname'} . " " . $mematt->{'lastname'};
+            my $party = $mematt->{'party'};
+            my $constituency = $mematt->{'constituency'};
+            $csv->print(\*DELETED, [$fullname, $constituency, $party]);
+            print DELETED "\n";
+        }
+    }
+}
+die if $beforec != 659;  
+
