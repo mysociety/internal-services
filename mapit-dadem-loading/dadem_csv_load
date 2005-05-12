@@ -28,7 +28,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.2 2005-05-12 15:36:37 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.3 2005-05-12 18:05:58 francis Exp $';
 
 use strict;
 
@@ -273,6 +273,7 @@ while (my $line = <MAIN>) {
                 # This change is fine
                 print "Note: Party changed " . $existing_repinfo->{party} . " to $finalparty\n";
                 $updates_required = 1;
+                die "Please test this carefully on staging server, that when party changes it doesn't break contact details";
             } else {
                 die "Party changed " . $existing_repinfo->{party} . " to $finalparty" 
             }
@@ -286,8 +287,8 @@ while (my $line = <MAIN>) {
             #$updates_required = 1;
         } else {
             $finalmethod = $existing_repinfo->{method};
-            $finalfax = undef;
-            $finalemail = undef;
+            $finalfax = $existing_repinfo->{fax};
+            $finalemail = $existing_repinfo->{email};
         }
 
         # Make any updates
