@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.1 2005-05-12 11:54:34 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.2 2005-05-12 15:36:37 francis Exp $';
 
 use strict;
 
@@ -75,7 +75,10 @@ my %parent_to_id;
 my $s = $dbh->prepare(
         q#select area_id, name from area_name, area
             where area_name.area_id = area.id
-            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)
+            and generation_low <= (select id from current_generation) and 
+                (select id from current_generation) <= generation_high
+            #
     );
 $s->execute();
 
@@ -107,16 +110,16 @@ while (my $line = <STDIN>) {
 
     if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam") {
         # GovEval-format file.
-        my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+        my ($first, $last, $constituency, @dummy) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
         next if $kind eq "lam" and $cons eq "Proportionally Elected Member";
     } elsif ($kind eq "mp") {
-        # Dump from FYMP
-        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
+        # Dump from FYMP, ukparse_xml_to_csv
+        my ($name, $constituency, @dummy) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;
     } elsif ($kind eq "ds") {
         # Out own mySociety data collected by Steiny with patience and pinache
-        my ($council, $email, $fax, $web) = map { trim_spaces($_) } $C->fields();
+        my ($council, @dummy) = map { trim_spaces($_) } $C->fields();
         $cons = $council;
     } else {
         die "Missing kind in code";
@@ -148,7 +151,7 @@ foreach my $name (keys %newnames) {
     $dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)", {}, $id, $name_type_char, $name);
 }
 
-#$dbh->commit();
+$dbh->commit();
 
 $dbh->disconnect();
 

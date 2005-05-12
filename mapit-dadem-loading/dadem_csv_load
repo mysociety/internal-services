@@ -8,14 +8,16 @@
 # load_goveval_name first to do that.
 #
 # Parameters: 
-# $1 - kind of data, currently choose from: mep, mp, msp, wam, lam, ds
-# $2 - the CSV file from GovEval or FaxYourMP
-# $3 - optionally, CSV file containing representatives you expect to be deleted
+# $1 - 'test' for dry run, 'commit' to actually do it
+# $2 - kind of data, currently choose from: mep, mp, msp, wam, lam, ds
+# $3 - the CSV file from GovEval or FaxYourMP
+# $4 - optionally, CSV file containing representatives you expect to be deleted
 #      (we know this information from UKParse's all-members.xml file for MPs)
 # make sure ../conf/general is configured for mapit db
 #
 # Example usages:
 # ./dadem_csv_load mep ../../../repdata/goveval/mep-20041001.csv
+# ./dadem_csv_load mp ~/devel/repdata/mysociety/mps-post-election2005.csv ~/devel/repdata/mysociety/mps-deleted-election2005.csv
 # ./dadem_csv_load mp ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv
 # ./dadem_csv_load msp ../../../repdata/goveval/msp-sp{c,e}-20041001.csv
 # ./dadem_csv_load wam ../../../repdata/goveval/wam-20041001.csv
@@ -26,7 +28,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.1 2005-05-12 11:54:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.2 2005-05-12 15:36:37 francis Exp $';
 
 use strict;
 
@@ -39,6 +41,10 @@ use mySociety::VotingArea;
 use mySociety::CouncilMatch;
 use DaDem;
 #DBI->trace(1);
+
+my $action = shift(@ARGV);
+die "specify 'test' or 'commit' as first parameter" if ((!$action) || ($action ne "test" && $action ne "commit"));
+my $commit = ($action eq 'commit');
 
 my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
@@ -80,11 +86,11 @@ my $d_dbh = connect_to_dadem_database();
 my %name_to_id;
 my %name_to_type;
 my %id_to_name;
-my $s = $m_dbh->prepare(
-        q#select area_id, name, type from area_name, area
+my $s = $m_dbh->prepare(q#select area_id, name, type from area_name, area
             where area_name.area_id = area.id
-            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
-    );
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)
+            and generation_low <= (select id from current_generation) and 
+                (select id from current_generation) <= generation_high#);
 $s->execute();
 while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     #print "$area_id $name $type\n";
@@ -96,6 +102,13 @@ while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
 
     $name_to_id{$name} = $area_id;
     $name_to_type{$name} = $type;
+}
+# Cache of id-->name for all (even other generations)
+$s = $m_dbh->prepare(q#select area_id, name, type from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
+$s->execute();
+while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     $id_to_name{$area_id} = $name;
 }
 
@@ -251,13 +264,15 @@ while (my $line = <MAIN>) {
     if (defined($existing_repinfo)) {
         # Member already exists for this area
         print "Already have $finalname, $finalcons\n";
+        my $updates_required = 0;
 
         # Check to see if details are the same, or only have expected changes
         if ($existing_repinfo->{party} ne $finalparty) {
             if (($existing_repinfo->{party} eq "Labour / Co-operative" && $finalparty eq "Labour")
                 or ($existing_repinfo->{party} eq "Deputy Speaker") ) {
                 # This change is fine
-                print "Note: Party changed " . $existing_repinfo->{party} . " to $finalparty\n" 
+                print "Note: Party changed " . $existing_repinfo->{party} . " to $finalparty\n";
+                $updates_required = 1;
             } else {
                 die "Party changed " . $existing_repinfo->{party} . " to $finalparty" 
             }
@@ -265,20 +280,26 @@ while (my $line = <MAIN>) {
         die "Name changed " . $existing_repinfo->{name} . " to $finalname" if $existing_repinfo->{name} ne $finalname;
         if ($finalmethod ne "unknown") {
             die "Method changed" if $existing_repinfo->{method} ne $finalmethod;
-            die "Fax changed" if $existing_repinfo->{fax} ne $finalfax;
-            die "Email changed" if $existing_repinfo->{email} ne $finalemail;
+            die "Fax changed" if ($existing_repinfo->{fax} || "NONE") ne ($finalfax || "NONE");
+            die "Email changed" if ($existing_repinfo->{email} || "NONE") ne ($finalemail || "NONE");
+            #print "Method being updated for $finalname, $finalcons to $finalmethod, $finalfax, $finalemail\n";
+            #$updates_required = 1;
         } else {
-            $finalmethod = undef;
+            $finalmethod = $existing_repinfo->{method};
             $finalfax = undef;
             $finalemail = undef;
         }
 
         # Make any updates
-        my $dadem_rep_id = undef;
-        my $new_data = { area_id => $area_id, area_type => $area_type,
-              name => $finalname, party => $finalparty, 
-              method => $finalmethod, email => $finalemail, fax => $finalfax };
-        #DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Updated by script dadem_csv_load");
+        if ($updates_required) {
+            my $dadem_rep_id = $existing_repinfo->{id};
+            my $new_data = { area_id => $area_id, area_type => $area_type,
+                  name => $finalname, party => $finalparty, 
+                  method => $finalmethod, email => $finalemail, fax => $finalfax };
+            if ($commit) {
+                DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Updated by script dadem_csv_load");
+            }
+        }
  
         # Mark got representative
         $existing_repinfo->{got} = 1;
@@ -291,7 +312,9 @@ while (my $line = <MAIN>) {
               name => $finalname, party => $finalparty, 
               method => $finalmethod, email => $finalemail, fax => $finalfax };
         
-        #DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Added by script dadem_csv_load");
+        if ($commit) {
+            DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Added by script dadem_csv_load");
+        }
     }
 
     $already_done->{$area_id} = 1;
@@ -306,23 +329,27 @@ if ($deleted_file) {
         chomp($line);
         $C->parse($line);
         map { die "Not valid field in $line" if (!defined $_) } $C->fields();
-        my ($deleted_cons, $deleted_name) = map { trim_spaces($_) } $C->fields();
+        my ($deleted_name, $deleted_cons, @dummy) = map { trim_spaces($_) } $C->fields();
 
         my $deleted_canon_name = mySociety::CouncilMatch::canonicalise_person_name($deleted_name);
-        my $deleted_area_id = $name_to_id{$deleted_cons};
-        $expected_deleted->{$deleted_area_id}->{$deleted_canon_name} = 1;
+        my $deleted_canon_cons = mySociety::CouncilMatch::canonicalise_constituency_name($deleted_cons);
+
+        $expected_deleted->{$deleted_canon_cons}->{$deleted_canon_name} = 1;
     }
 }
 
 # Loop through all the members we had to start with, looking for deleted ones
-foreach my $area_id (@{keys %$canon_repnames}){
+foreach my $area_id (keys %$canon_repnames){
     foreach my $repinfo (values %{$canon_repnames->{$area_id}}) {
         # If we didn't get them above
         if (!defined($repinfo->{got})) {
             my $canon_repname = mySociety::CouncilMatch::canonicalise_person_name($repinfo->{name});
+            my ($cons) = $m_dbh->selectrow_array("select name from area_name where area_id = ?
+                    and name_type = 'F'", {}, $area_id);
+            my $canon_cons = mySociety::CouncilMatch::canonicalise_constituency_name($cons);
             if ($deleted_file) {
-                if (!defined($expected_deleted->{$area_id}->{$canon_repname})) {
-                    die "Wanting to delete " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " but doesn't appear in $deleted_file CSV of expected deletions\n";
+                if (!defined($expected_deleted->{$canon_cons}->{$canon_repname})) {
+                    print STDERR "Wanting to delete " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " but not in CSV of expected deletions\n";
                 }
             }
 
@@ -331,25 +358,34 @@ foreach my $area_id (@{keys %$canon_repnames}){
             
             my $dadem_rep_id = $repinfo->{id};
             my $new_data = undef;
-            #DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Update by script dadem_csv_load ");
+            if ($commit) {
+                DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Update by script dadem_csv_load ");
+            }
 
             # Remember we have deleted it
-            delete $expected_deleted->{$area_id}->{$canon_repname};
+            delete $expected_deleted->{$canon_cons}->{$canon_repname};
         }
     }
 }
 
 # Print out items we expected to delete but didn't
 if ($deleted_file) {
-    foreach my $area_id (@{keys %$expected_deleted}){
-        foreach my $repinfo (values %{$expected_deleted->{$area_id}}) {
-            die "CSV expected need to delete " . $repinfo->{name} . ", " .  $id_to_name{$repinfo->{voting_area}} . " from database, but it didn't\n";
+    foreach my $canon_cons (keys %$expected_deleted){
+        foreach my $canon_repname (keys %{$expected_deleted->{$canon_cons}}) {
+            print STDERR "CSV expected need to delete $canon_repname, $canon_cons from database, but it didn't\n";
         }
     }
 }
  
  
 $m_dbh->disconnect();
-#$d_dbh->commit();
+if ($commit) {
+    # Note, most stuff is committed in calls to MaPit above (admin_edit_representative), this
+    # commit probably does nothing.
+    $d_dbh->commit();
+    print "All committed\n";
+} else {
+    print "Dry run completed\n";
+}
 $d_dbh->disconnect();
 

@@ -1,4 +1,5 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../perllib
+
 #
 # create_new_generation:
 #
@@ -6,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.1 2004-11-29 16:18:12 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.2 2005-05-12 15:36:37 francis Exp $';
 
 use strict;
 

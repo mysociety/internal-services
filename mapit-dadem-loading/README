@@ -1,4 +1,4 @@
-$Id: README,v 1.4 2005-05-12 11:54:33 francis Exp $
+$Id: README,v 1.5 2005-05-12 15:36:37 francis Exp $
 
 NAMETYPES - Types of voting area names in MaPit.
 dadem-schema.sql, mapit-schema.sql - Database schemas.
@@ -8,6 +8,10 @@ Postcode / Boundary Loading
 
 process_boundary_line - Create postcode to voting area mappings for GB.
 process_codepoint_ni - Create postcode to voting area mappings for NI.
+
+new_scottish_constituencies new-scottish-constituencies-council-wards.csv
+new-scottish-constituencies-update-generations.sql - These are all for boundary
+changes in effect in Scotland for 2005 General Election.
 
 Voting Area Name Matching
 -------------------------
@@ -49,5 +53,5 @@ Probably Not Needed?
 ni-electoral-areas.csv
 create_new_generation
 
-# $Id: README,v 1.4 2005-05-12 11:54:33 francis Exp $
+# $Id: README,v 1.5 2005-05-12 15:36:37 francis Exp $
 # for X in `ls -1`; do grep $X README >/dev/null || echo Missing $X; done
