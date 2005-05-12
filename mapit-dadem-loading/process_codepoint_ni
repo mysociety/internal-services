@@ -25,7 +25,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.9 2005-02-09 12:44:30 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.10 2005-05-12 12:00:33 chris Exp $';
 
 use strict;
 
@@ -103,9 +103,10 @@ foreach (read_csv_file($onscodesfile, 1)) {
     #   ONS LA/UA code
     #             name
     my ($ccode, $cname, $wcode, $wname, $acode, $aname) = @$_;
-
     # load Northern Ireland only
     next if ($wcode !~ m/^95/);
+
+#    $wcode =~ s/ //;
 
     die "no LA/UA '$aname' in electoral areas map" unless (exists($wardname_to_ea{$aname}));
     warn "no ward '$wname' in LA/UA '$aname' in electoral areas map" unless (exists($wardname_to_ea{$aname}->{$wname}));
