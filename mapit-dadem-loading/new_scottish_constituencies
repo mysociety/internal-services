@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.3 2005-05-12 11:03:25 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.4 2005-05-12 16:45:12 chris Exp $';
 
 use strict;
 
@@ -119,7 +119,7 @@ foreach my $constituency (sort(keys(%constituency_name))) {
     $constituency_to_id{$constituency} = $id;
     $dbh->do(q(
             insert into area (id, type, country, generation_low, generation_high)
-                values (?, 'WMC', 'S', 1, 1) -- XXX HACK!
+                values (?, 'WMC', 'S', 2, 2) -- XXX HACK!
         ), {}, $id);
     $dbh->do(q(
             insert into area_name (area_id, name_type, name)
