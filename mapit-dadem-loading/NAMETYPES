@@ -1,4 +1,4 @@
-$Id: NAMETYPES,v 1.4 2005-02-09 12:27:11 chris Exp $
+$Id: NAMETYPES,v 1.5 2005-05-12 11:54:33 francis Exp $
 
 Several types of name may be defined for each area. Each type of name is
 identified by a one-letter code:
@@ -36,7 +36,8 @@ G   GovEval Name
 X   FaxYourMP Name
 
     These are names as used in the dataset exported from FaxYourMP. So
-    it only applies for House of Commons constituencies.
+    it only applies for House of Commons constituencies.  Also applies to
+    data from Public Whip XML file.
 
 L   Legislation Name
 

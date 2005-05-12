@@ -6,12 +6,13 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.15 2005-01-07 11:10:46 chris Exp $
+# $Id: Common.pm,v 1.16 2005-05-12 11:54:33 francis Exp $
 #
 
 package Common;
 
 use strict;
+use mySociety::CouncilMatch;
 use mySociety::Config;
 mySociety::Config::set_file("../conf/general");
 
@@ -219,24 +220,6 @@ sub trim_spaces ($) {
     return $_[0];
 }
 
-# move_compass_to_start STRING
-# Move compass directions (North, South, East, West) to start of string
-# and to have that order.  Requires a lowercase string, and ignores
-# spaces.
-sub move_compass_to_start {
-    my ($match) = @_;
-
-    # Move compass points to start
-    my $compass = "";
-    foreach my $dir ("north", "south", "east", "west") {
-        while ($match =~ m/($dir)/) {
-            $match =~ s/^(.*)($dir)(.*)$/$1$3/;
-            $compass .= "$dir";
-        }
-    }
-    return $compass . $match;
-}
-
 # placename_match_metric A B
 # Return the number of common characters between the strings A and B, once they
 # have been stripped of non-alphabetic characters and had any compass
@@ -252,8 +235,8 @@ sub placename_match_metric ($$) {
     $match2 = lc($match2);
 
     # Move compass points to start
-    $match1 = move_compass_to_start($match1);
-    $match2 = move_compass_to_start($match2);
+    $match1 = mySociety::CouncilMatch::move_compass_to_start($match1);
+    $match2 = mySociety::CouncilMatch::move_compass_to_start($match2);
 
     # Then find common substrings
     my $ixes = String::Ediff::ediff($match1, $match2);

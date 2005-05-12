@@ -1,0 +1,355 @@
+#!/usr/bin/perl -w -I../../perllib -I../DaDem
+#
+# dadem_csv_load
+# Takes CSV files containing contact details for representatives from
+# GovEval or similar, and syncs them into DaDem.  Entries are added
+# to representatives_edit to modify, add or delete the representatives.
+# Requires that GovEval names are already in the area_name table in MaPit, use
+# load_goveval_name first to do that.
+#
+# Parameters: 
+# $1 - kind of data, currently choose from: mep, mp, msp, wam, lam, ds
+# $2 - the CSV file from GovEval or FaxYourMP
+# $3 - optionally, CSV file containing representatives you expect to be deleted
+#      (we know this information from UKParse's all-members.xml file for MPs)
+# make sure ../conf/general is configured for mapit db
+#
+# Example usages:
+# ./dadem_csv_load mep ../../../repdata/goveval/mep-20041001.csv
+# ./dadem_csv_load mp ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv
+# ./dadem_csv_load msp ../../../repdata/goveval/msp-sp{c,e}-20041001.csv
+# ./dadem_csv_load wam ../../../repdata/goveval/wam-20041001.csv
+# ./dadem_csv_load lam ../../../repdata/goveval/gla-20041001.csv
+# ./dadem_csv_load ds ../../../repdata/mysociety/democratic-services-rev7.csv
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.1 2005-05-12 11:54:33 francis Exp $';
+
+use strict;
+
+use DBI;
+use Text::CSV_XS;
+use Data::Dumper;
+use Common;
+use mySociety::Parties;
+use mySociety::VotingArea;
+use mySociety::CouncilMatch;
+use DaDem;
+#DBI->trace(1);
+
+my $kind = lc(shift(@ARGV));
+die "specify what kind of CSV file" if (!defined($kind));
+
+my $types;
+my $name_type_char;
+my $allow_multiples = 1;
+if ($kind eq "mep") {
+    $types = [qw(EUR)];
+} elsif ($kind eq "mp") {
+    $types = [qw(WMC)];
+    $allow_multiples = 0;
+} elsif ($kind eq "msp") {
+    $types = [qw(SPC SPE)];
+} elsif ($kind eq "wam") {
+    $types = [qw(WAC WAE)];
+} elsif ($kind eq "lam") {
+    $types = [qw(LAC LAE)];
+} elsif ($kind eq "ds") {
+    $types = $mySociety::VotingArea::council_parent_types;
+    $allow_multiples = 0;
+} else {
+    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
+}
+
+my $main_file = shift(@ARGV);
+die "specify main CSV file" if (!defined($main_file));
+open(MAIN, "<$main_file") or die "failed to open $main_file";
+my $deleted_file = shift(@ARGV);
+if (defined($deleted_file)) {
+    open(DELETED, "<$deleted_file") or die "failed to open $deleted_file";
+}
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+
+# %name_to_id
+# Cache of name-->id map of all the areas
+my %name_to_id;
+my %name_to_type;
+my %id_to_name;
+my $s = $m_dbh->prepare(
+        q#select area_id, name, type from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#
+    );
+$s->execute();
+while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
+    #print "$area_id $name $type\n";
+
+    # "Durham" without specifcying "County" or "City" is no use
+    next if ($kind eq "ds" and $name eq "Durham");
+
+    die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
+
+    $name_to_id{$name} = $area_id;
+    $name_to_type{$name} = $type;
+    $id_to_name{$area_id} = $name;
+}
+
+# Special case, should perhaps have function in MaPit instead of the select
+# above, which includes the special cases there.
+if ($kind eq "lam") {
+    $name_to_id{"London Assembly"} = mySociety::VotingArea::LAE_AREA_ID;
+    $name_to_type{"London Assembly"} = "LAE";
+}
+
+# Various forms of null
+sub nullify_if_null($) {
+    $_ = shift;
+    return $_ if !defined($_);
+    return undef if ($_ eq "");
+    return undef if ($_ eq "NULL");
+    return undef if ($_ eq "byelection");
+    return $_;
+}
+
+# Get all areas
+my @area_ids;
+$s = $m_dbh->prepare(q#select id from area
+            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
+$s->execute();
+while (my ($area_id) = $s->fetchrow_array()) {
+    push(@area_ids, $area_id);
+}
+
+# Find out all current reps
+my @curr_reps;
+my $count;
+for my $area_id (@area_ids){
+    my @reps = DaDem::get_representatives($area_id);
+    my @folded = @{$reps[0]};
+    $count += scalar(@folded);
+    push(@curr_reps, @folded);
+}
+#die if $count != 659;
+my $reps_info = DaDem::get_representatives_info(\@curr_reps);
+
+# Map from canonicalised version of rep names
+my $canon_repnames;
+$count = 0;
+for my $rep_info (values %$reps_info) {
+    $count++;
+    my $canon_repname = mySociety::CouncilMatch::canonicalise_person_name($rep_info->{'name'});
+    $canon_repnames->{$rep_info->{'voting_area'}}->{$canon_repname} = $rep_info;
+}
+#die if $count != 659;
+#print Dumper($canon_repnames);
+
+# Read CSV file, load into dadem
+my $C = new Text::CSV_XS({ binary => 1 });
+my $already_done;
+<MAIN>;    # header line
+while (my $line = <MAIN>) {
+    chomp($line);
+    $C->parse($line);
+    map { die "Not valid field in $line" if (!defined $_) } $C->fields();
+
+    my ($finalcons, $finalname, $finalparty, $finalmethod, $finalemail, $finalfax);
+    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam") {
+        my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $constituency;
+        $finalname = "$first $last";
+        $finalparty = $party;
+
+        $finalcons = "London Assembly" if $kind eq "lam" and $finalcons eq "Proportionally Elected Member";
+        die "Ken Livingstone is not a LAE type" if ($kind eq "lam" and $finalname eq "Ken Livingstone");
+
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+        if (defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "email";
+        } elsif (!defined($finalemail) and defined($finalfax)) {
+            $finalmethod = "fax";
+        } elsif (!defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "unknown";
+        } else {
+            $finalmethod = "either";
+        }
+
+    } elsif ($kind eq "mp") {
+        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $constituency;
+        $finalname = $name;
+        $finalparty = $party;
+
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+        if (!defined($finalfax)) {
+            $finalfax = nullify_if_null($constituencyfax);
+        }
+
+        if (defined($finalemail)) {
+            $finalmethod = "email";
+        } elsif (defined($finalfax)) {
+            $finalmethod = "fax"; 
+        } else {
+            $finalmethod = "unknown"; 
+        }
+
+        if ($email eq "shame") {
+            $finalemail = undef;
+            $finalfax = undef;
+            $finalmethod = "shame";
+        }
+
+    } elsif ($kind eq "ds") {
+        my ($council, $email, $fax, $web) = map { trim_spaces($_) } $C->fields();
+
+        $finalcons = $council;
+        $finalname = "Democratic Services";
+        $finalparty = "NOT A PERSON";
+
+        $finalemail = nullify_if_null($email);
+        $finalfax = nullify_if_null($fax);
+
+        # We can accept either fax or email if present in CSV, as
+        # Tom paintsakingly found it all, so all data is good.
+        if (defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "email";
+        } elsif (!defined($finalemail) and defined($finalfax)) {
+            $finalmethod = "fax";
+        } elsif (!defined($finalemail) and !defined($finalfax)) {
+            $finalmethod = "unknown";
+        } else {
+            $finalmethod = "either";
+        }
+
+    } else {
+        die "Missing kind in code";
+    }
+
+    die "unmatched CSV name '$finalcons', not in database" unless (exists($name_to_id{$finalcons}));
+    my $area_id = $name_to_id{$finalcons};
+    my $area_type = $name_to_type{$finalcons};
+
+    $finalparty = $mySociety::Parties::canonical{$finalparty};
+    die "party not known for '$line'" if (!defined($finalparty));
+
+    if ((!$allow_multiples) && exists($already_done->{$area_id})) {
+        die "got area $area_id '$finalcons' twice";
+    }
+
+    # Make appropriate addition or alteration
+    my $canon_finalname = mySociety::CouncilMatch::canonicalise_person_name($finalname);
+    
+    my $existing_repinfo = $canon_repnames->{$area_id}->{$canon_finalname};
+    if (defined($existing_repinfo)) {
+        # Member already exists for this area
+        print "Already have $finalname, $finalcons\n";
+
+        # Check to see if details are the same, or only have expected changes
+        if ($existing_repinfo->{party} ne $finalparty) {
+            if (($existing_repinfo->{party} eq "Labour / Co-operative" && $finalparty eq "Labour")
+                or ($existing_repinfo->{party} eq "Deputy Speaker") ) {
+                # This change is fine
+                print "Note: Party changed " . $existing_repinfo->{party} . " to $finalparty\n" 
+            } else {
+                die "Party changed " . $existing_repinfo->{party} . " to $finalparty" 
+            }
+        }
+        die "Name changed " . $existing_repinfo->{name} . " to $finalname" if $existing_repinfo->{name} ne $finalname;
+        if ($finalmethod ne "unknown") {
+            die "Method changed" if $existing_repinfo->{method} ne $finalmethod;
+            die "Fax changed" if $existing_repinfo->{fax} ne $finalfax;
+            die "Email changed" if $existing_repinfo->{email} ne $finalemail;
+        } else {
+            $finalmethod = undef;
+            $finalfax = undef;
+            $finalemail = undef;
+        }
+
+        # Make any updates
+        my $dadem_rep_id = undef;
+        my $new_data = { area_id => $area_id, area_type => $area_type,
+              name => $finalname, party => $finalparty, 
+              method => $finalmethod, email => $finalemail, fax => $finalfax };
+        #DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Updated by script dadem_csv_load");
+ 
+        # Mark got representative
+        $existing_repinfo->{got} = 1;
+    } else {
+        # Member needs adding
+        print "Adding new $finalname, $finalcons\n";
+
+        my $dadem_rep_id = undef;
+        my $new_data = { area_id => $area_id, area_type => $area_type,
+              name => $finalname, party => $finalparty, 
+              method => $finalmethod, email => $finalemail, fax => $finalfax };
+        
+        #DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Added by script dadem_csv_load");
+    }
+
+    $already_done->{$area_id} = 1;
+}
+
+# Load in CSV file of expected deleted representatives, if available
+my $expected_deleted;
+if ($deleted_file) {
+    my $C = new Text::CSV_XS({ binary => 1 });
+    <DELETED>;    # header line
+    while (my $line = <DELETED>) {
+        chomp($line);
+        $C->parse($line);
+        map { die "Not valid field in $line" if (!defined $_) } $C->fields();
+        my ($deleted_cons, $deleted_name) = map { trim_spaces($_) } $C->fields();
+
+        my $deleted_canon_name = mySociety::CouncilMatch::canonicalise_person_name($deleted_name);
+        my $deleted_area_id = $name_to_id{$deleted_cons};
+        $expected_deleted->{$deleted_area_id}->{$deleted_canon_name} = 1;
+    }
+}
+
+# Loop through all the members we had to start with, looking for deleted ones
+foreach my $area_id (@{keys %$canon_repnames}){
+    foreach my $repinfo (values %{$canon_repnames->{$area_id}}) {
+        # If we didn't get them above
+        if (!defined($repinfo->{got})) {
+            my $canon_repname = mySociety::CouncilMatch::canonicalise_person_name($repinfo->{name});
+            if ($deleted_file) {
+                if (!defined($expected_deleted->{$area_id}->{$canon_repname})) {
+                    die "Wanting to delete " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " but doesn't appear in $deleted_file CSV of expected deletions\n";
+                }
+            }
+
+            # Then delete them
+            print "Deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . "\n";
+            
+            my $dadem_rep_id = $repinfo->{id};
+            my $new_data = undef;
+            #DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Update by script dadem_csv_load ");
+
+            # Remember we have deleted it
+            delete $expected_deleted->{$area_id}->{$canon_repname};
+        }
+    }
+}
+
+# Print out items we expected to delete but didn't
+if ($deleted_file) {
+    foreach my $area_id (@{keys %$expected_deleted}){
+        foreach my $repinfo (values %{$expected_deleted->{$area_id}}) {
+            die "CSV expected need to delete " . $repinfo->{name} . ", " .  $id_to_name{$repinfo->{voting_area}} . " from database, but it didn't\n";
+        }
+    }
+}
+ 
+ 
+$m_dbh->disconnect();
+#$d_dbh->commit();
+$d_dbh->disconnect();
+

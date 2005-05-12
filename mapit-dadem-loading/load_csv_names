@@ -1,8 +1,8 @@
 #!/usr/bin/perl -w -I../../perllib
 #
-# load_goveval_names
-# Load in GovEval or similar data, match names to Ordnance Survey ones
-# in the MaPit database, and add in the GovEval names as alternates.
+# load_csv_names
+# Load in CSV files match names to Ordnance Survey ones in the MaPit database,
+# and add in the GovEval/FaxYourMP/PublicWhip names as alternates.
 #
 # Parameters: 
 # $1 - kind of data, currently choose from: mep, mp
@@ -10,18 +10,19 @@
 # make sure ../conf/general is configured for mapit db
 #
 # Example usage:
-# cat ../../../repdata/goveval/mep-20041001.csv | ./load_goveval_names mep
-# cat ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv | ./load_goveval_names mp
-# cat ../../../repdata/goveval/msp-sp{c,e}-20041001.csv | ./load_goveval_names msp
-# cat ../../../repdata/goveval/wam-20041001.csv | ./load_goveval_names wam
-# cat ../../../repdata/goveval/gla-20041001.csv | ./load_goveval_names lam
-# cat ../../../repdata/mysociety/democratic-services-rev8.csv | ./load_goveval_names ds
+# cat ../../../repdata/goveval/mep-20041001.csv | ./load_csv_names mep
+# cat  ~/devel/repdata/mysociety/mps-post-election2005.csv  | ./load_csv_names mp
+# cat ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv | ./load_csv_names mp
+# cat ../../../repdata/goveval/msp-sp{c,e}-20041001.csv | ./load_csv_names msp
+# cat ../../../repdata/goveval/wam-20041001.csv | ./load_csv_names wam
+# cat ../../../repdata/goveval/gla-20041001.csv | ./load_csv_names lam
+# cat ../../../repdata/mysociety/democratic-services-rev8.csv | ./load_csv_names ds
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_goveval_names,v 1.18 2005-02-09 15:18:27 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.1 2005-05-12 11:54:34 francis Exp $';
 
 use strict;
 
@@ -65,13 +66,6 @@ if ($kind eq "mep") {
 my $dbh = connect_to_mapit_database();
 # DBI->trace(2);
 
-# Delete existing GovEval name data
-$dbh->do(
-        q#delete from area_name where area_id in (select area_id from area where
-            (# . join(' or ', map { "type = '$_'" } @$types) . q#)) 
-            and name_type = ?;#, {}, $name_type_char
-);
-
 # %parent_to_id
 # Hash of voting area canonical name to voting area ID from existing
 # MaPit data.
@@ -86,12 +80,14 @@ my $s = $dbh->prepare(
 $s->execute();
 
 while (my ($area_id, $name) = $s->fetchrow_array()) {
-    # "Durham" without specifcying "County" or "City" is no use
+    # "Durham" without specifying "County" or "City" is no use
     next if ($kind eq "ds" and $name eq "Durham");
 
     # Create canonical version of name and also hash it as lookup
     $_ = &$canon_function($name);
-    die "$area_id: Already have different id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n" if (exists($parent_to_id{$_}) and $parent_to_id{$_} != $area_id);
+    if (exists($parent_to_id{$_}) and $parent_to_id{$_} != $area_id) {
+        die "$area_id: Already have different id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n"
+    }
 
     $parent_to_id{$_} = $area_id;
 }
@@ -146,10 +142,13 @@ while (my $line = <STDIN>) {
 foreach my $name (keys %newnames) {
     my $id = $newnames{$name};
     print "$id $name\n";
+    # Delete existing 'G' name data
+    $dbh->do(q#delete from area_name where area_id = ? and name_type = ?#, {}, $id, $name_type_char);
+    # Insert updated / new name data
     $dbh->do("insert into area_name (area_id, name_type, name) values (?, ?, ?)", {}, $id, $name_type_char, $name);
 }
 
-$dbh->commit();
+#$dbh->commit();
 
 $dbh->disconnect();
 
