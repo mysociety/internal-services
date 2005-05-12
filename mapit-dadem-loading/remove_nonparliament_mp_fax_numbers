@@ -1,0 +1,97 @@
+#!/usr/bin/perl -w -I../../perllib -I../DaDem
+#
+# remove_nonparliament_mp_fax_numbers
+# Looks at all active MPs, if any have fax numbers which begin 0207219,
+# edit them to remove them.
+#
+# Parameters: 
+# $1 - 'test' for dry run, 'commit' to actually do it
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: remove_nonparliament_mp_fax_numbers,v 1.1 2005-05-12 17:16:32 francis Exp $';
+
+use strict;
+
+use DBI;
+use Text::CSV_XS;
+use Data::Dumper;
+use Common;
+use mySociety::Parties;
+use mySociety::VotingArea;
+use mySociety::CouncilMatch;
+use DaDem;
+#DBI->trace(1);
+
+my $action = shift(@ARGV);
+die "specify 'test' or 'commit' as first parameter" if ((!$action) || ($action ne "test" && $action ne "commit"));
+my $commit = ($action eq 'commit');
+
+my $types = [qw(WMC)];
+my $allow_multiples = 0;
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+
+# Get all areas
+my @area_ids;
+my $s = $m_dbh->prepare(q#select id from area
+            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
+$s->execute();
+while (my ($area_id) = $s->fetchrow_array()) {
+    push(@area_ids, $area_id);
+}
+
+# Find out all current reps
+my @curr_reps;
+my $count;
+for my $area_id (@area_ids){
+    my @reps = DaDem::get_representatives($area_id);
+    my @folded = @{$reps[0]};
+    $count += scalar(@folded);
+    push(@curr_reps, @folded);
+}
+#die if $count != 659;
+my $reps_info = DaDem::get_representatives_info(\@curr_reps);
+
+# Loop through all the members we had to start with, looking for deleted ones
+for my $rep_info (values %$reps_info) {
+    # If we didn't get them above
+    if (!defined($rep_info->{got})) {
+        my $fax = $rep_info->{fax};
+        my $method = $rep_info->{method};
+        next if !$fax;
+        $fax =~ s/^\+44/0/;
+        next if $fax =~ m/^0207219/;
+
+        if ($method eq "fax") {
+            $method = "unknown";
+        } elsif ($method eq "either") {
+            $method = "email";
+        } else {
+            next;
+        }
+        
+        my $dadem_rep_id = $rep_info->{id};
+        print "Removing fax for $dadem_rep_id " . $rep_info->{name} . " fax: " . $rep_info->{fax} . " $fax\n";
+        my $new_data = $rep_info;
+        $new_data->{'method'} = $method;
+        if ($commit) {
+            DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Possibly out of date fax removed by script remove_nonparliament_mp_fax_numbers");
+        }
+    }
+}
+
+$m_dbh->disconnect();
+if ($commit) {
+    # Note, most stuff is committed in calls to MaPit above (admin_edit_representative), this
+    # commit probably does nothing.
+    $d_dbh->commit();
+    print "All committed\n";
+} else {
+    print "Dry run completed\n";
+}
+$d_dbh->disconnect();
+
