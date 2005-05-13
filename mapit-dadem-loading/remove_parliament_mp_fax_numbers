@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: remove_parliament_mp_fax_numbers,v 1.1 2005-05-13 10:33:30 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: remove_parliament_mp_fax_numbers,v 1.2 2005-05-13 10:36:59 francis Exp $';
 
 use strict;
 
@@ -79,7 +79,7 @@ for my $rep_info (values %$reps_info) {
         my $new_data = $rep_info;
         $new_data->{'method'} = $method;
         if ($commit) {
-            DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Possibly out of date fax method stopped by script remove_nonparliament_mp_fax_numbers");
+            DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Possibly out of date fax method stopped by script remove_parliament_mp_fax_numbers");
         }
     }
 }
