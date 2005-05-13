@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w -I../../perllib -I../DaDem
 #
-# remove_nonparliament_mp_fax_numbers
+# remove_parliament_mp_fax_numbers
 # Looks at all active MPs, if any have fax numbers which begin 0207219,
 # edit them to remove them.
 #
@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: remove_nonparliament_mp_fax_numbers,v 1.2 2005-05-12 17:21:07 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: remove_parliament_mp_fax_numbers,v 1.1 2005-05-13 10:33:30 francis Exp $';
 
 use strict;
 
@@ -64,7 +64,7 @@ for my $rep_info (values %$reps_info) {
         my $method = $rep_info->{method};
         next if !$fax;
         $fax =~ s/^\+44/0/;
-        next if $fax =~ m/^0207219/;
+        next if $fax !~ m/^0207219/;
 
         if ($method eq "fax") {
             $method = "unknown";
