@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.22 2005-05-13 08:31:55 chris Exp $
+# $Id: MaPit.pm,v 1.23 2005-05-17 11:21:31 chris Exp $
 #
 
 package MaPit;
@@ -304,7 +304,20 @@ warn "area $area_id has no children...\n";
     my $pc = scalar(dbh()->selectrow_array("select postcode from postcode, postcode_area
         where postcode.id = postcode_area.postcode_id and area_id = ?
         limit 1", {}, $area_id));
-    throw RABX::Error("Voting area not found id $area_id") unless defined $pc;
+
+    if (!defined($pc)
+        && scalar(dbh()->selectrow_array('select type from area where id = ?',
+                    {}, $area_id)) eq 'WMC') {
+        # This could be because it's a new Scottish constituency.
+        my ($council_area_id, $ward_area_id) = dbh()->selectrow_array('select council_area_id, ward_area_id from new_scottish_constituencies_fixup where constituency_id = ?', {}, $area_id);
+        if (defined($council_area_id)) {
+            return get_example_postcode($council_area_id);
+        } elsif (defined($ward_area_id)) {
+            return get_example_postcode($ward_area_id);
+        } else {
+            throw RABX::Error("Voting area not found id $area_id");
+        }
+    }
 
     return $pc;
 }
