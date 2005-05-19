@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.21 2005-04-29 14:28:25 chris Exp $
+# $Id: EvEl.pm,v 1.22 2005-05-19 11:12:42 chris Exp $
 #
 
 package EvEl::Error;
@@ -584,10 +584,10 @@ sub send ($@) {
                     insert into message (id, data, whensubmitted)
                     values (?, ?, ?)');
     $s->bind_param(1, $msg);
-    $s->bind_param(2, $data);
+    $s->bind_param(2, $data, { pg_type => DBD::Pg::PG_BYTEA });
     $s->bind_param(3, time());
     $s->execute();
-    
+
     foreach (@$recips) {
         dbh()->do('
                     insert into message_recipient (message_id, recipient_id)
