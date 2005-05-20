@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.22 2005-05-19 11:12:42 chris Exp $
+# $Id: EvEl.pm,v 1.23 2005-05-20 16:45:36 francis Exp $
 #
 
 package EvEl::Error;
@@ -163,7 +163,7 @@ sub run_queue () {
                 $smtp->quit();
             }
             my $smtpserver = mySociety::Config::get('EVEL_MAIL_HOST', 'localhost');
-            $smtp = new Net::SMTP($smtpserver, Timeout => 10) or
+            $smtp = new Net::SMTP($smtpserver, Timeout => 15) or
                 throw EvEl::Error("unable to connect to $smtpserver: $!");
             $nsent = 0;
             print_log('debug', "connected to SMTP server $smtpserver"); 
