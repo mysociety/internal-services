@@ -1,0 +1,58 @@
+#!/usr/bin/perl -w -I../../perllib -I../DaDem 
+#
+# Dump info on current MPs in database
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.1 2005-05-29 23:19:19 francis Exp $';
+
+use strict;
+
+use DBI;
+use Data::Dumper;
+use Common;
+use mySociety::Parties;
+use mySociety::VotingArea;
+use mySociety::CouncilMatch;
+use DaDem;
+#DBI->trace(1);
+
+my $types = [qw(WMC)];
+my $allow_multiples = 0;
+
+my $m_dbh = connect_to_mapit_database();
+my $d_dbh = connect_to_dadem_database();
+
+# Get all areas
+my @area_ids;
+my $s = $m_dbh->prepare(q#select id from area
+            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
+$s->execute();
+while (my ($area_id) = $s->fetchrow_array()) {
+    push(@area_ids, $area_id);
+}
+
+# Find out all current reps
+my @curr_reps;
+my $count;
+for my $area_id (@area_ids){
+    my @reps = DaDem::get_representatives($area_id);
+    my @folded = @{$reps[0]};
+    $count += scalar(@folded);
+    push(@curr_reps, @folded);
+}
+#die if $count != 659;
+print "Count $count\n";
+my $reps_info = DaDem::get_representatives_info(\@curr_reps);
+
+# Loop through all the members we have
+for my $rep_info (values %$reps_info) {
+#    print $rep_info->{name} . "\n";
+    my ($cons) = $m_dbh->selectrow_array(q#select name from area_name
+        where name_type = 'F' and area_id = ?#, {}, $rep_info->{voting_area});
+    print $cons . "\n";
+
+}
+
