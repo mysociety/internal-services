@@ -1,0 +1,405 @@
+#!/usr/bin/perl -w
+#
+# parsentf:
+# Dump NTF geometry data.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: parsentf,v 1.1 2005-06-02 11:12:08 chris Exp $';
+
+use strict;
+use IO::File;
+
+package LineParser;
+
+sub new {
+    my $class = shift;
+    my $h = new IO::File(@_) or die "$_[0]: $!";
+    return bless({
+            h => $h,
+            name => $_[0],
+            line => undef,
+            num => 0
+        }, $class);
+}
+
+sub close ($) {
+    my ($self) = @_;
+    $self->{h}->close();
+}
+
+sub do ($;$) {
+    my ($self, $peek) = @_;
+
+    if (!defined($self->{line})) {
+        if (defined($self->{line} = $self->{h}->getline())) {
+            $self->{line} =~ s#\r##g;
+            chomp($self->{line});
+            ++$self->{num};
+        } elsif (!$self->{h}->eof()) {
+            die "$self->{name}: $!";
+        }
+    }
+    
+    my $x = $self->{line};
+    $self->{line} = undef unless($peek);
+    return $x;
+}
+
+sub get ($) {
+    my $self = shift;
+    return $self->do(0);
+}
+
+sub peek ($) {
+    my $self = shift;
+    return $self->do(1);
+}
+
+sub name ($) {
+    my $self = shift;
+    return $self->{name};
+}
+
+sub num ($) {
+    my $self = shift;
+    return $self->{num};
+}
+
+sub msg ($@) {
+    my ($self, @x) = @_;
+    return sprintf('%s:%d: %s', $self->name(), $self->num(), join('', @x));
+}
+
+package main;
+
+use strict;
+
+my $debug = 0;
+
+die "specify a filename\n" unless (@ARGV >= 1);
+
+my $h = new LineParser($ARGV[0]);
+
+# parse_01 OBJECT RECORD
+# Parse Volume Header Record.
+sub parse_01 ($$) {
+    my ($obj, $rec) = @_;
+}
+
+# parse_02 OBJECT RECORD
+# Parse Database Header Record.
+sub parse_02 ($$) {
+    my ($obj, $rec) = @_;
+    # Boundary-Line       DEFAULT_02.00       19920515                    00000000A20N_FC             20021001                    00000000000
+    # 20------------------20------------------8-------20------------------8-------20------------------8-------20------------------8-------2-1
+    die "bad Database Header Record \"$rec\"" unless ($rec =~ m#^(.{20})(.{20})(\d{8}) {20}0{8}(.{20})(.{8}) {20}0{8}000$#);
+    $debug && print <<EOF;
+Database Header:
+    Product name: $1
+    Specification date: $5
+EOF
+}
+
+# parse_05 OBJECT RECORD
+# Parse Feature Classification Record.
+sub parse_05 ($$) {
+    my ($obj, $rec) = @_;
+}
+
+# parse_07 OBJECT RECORD
+# Parse Section Header Record.
+sub parse_07 ($$) {
+    my ($obj, $rec) = @_;
+
+    # Cheshire C2100008200000001000000000000001000000000000000000000000000000000000032487900003389940000401781000038793000000000002002092000000000200209200
+    # 10--------115----110--------5----110--------10--------10--------10--------10--------10--------10--------10--------5----5----8-------8-------8-------1
+    die "bad Section Header Record \"$rec\""
+        unless ($rec =~ m/^(.{10})
+                            2
+                            1
+                            00008
+                            2
+                            0000000100
+                            0{5}
+                            0
+                            0000001000
+                            0{10}
+                            0{10}
+                            0{10}
+                            (\d{10})
+                            (\d{10})
+                            (\d{10})
+                            (\d{10})
+                            0{5}
+                            0{5}
+                            (\d{8})
+                            0{8}
+                            (\d{8})
+                            0$/x);
+
+    $debug && print <<EOF;
+Section Header:
+    Section reference: $1
+    Min/max X: $2 / $4
+    Min/max Y: $3 / $5
+    Administrative boundaries date: $6
+    Copyright date: $7
+EOF
+}
+
+# parse_14 OBJECT RECORD
+# Parse Attribute Record.
+sub parse_14 ($$) {
+    my ($obj, $rec) = @_;
+
+    # There are various sorts of attribute records. We only care about the ones
+    # which apply to "collections".
+}
+
+# parse_21 OBJECT RECORD
+# Parse Two-dimensional Geometry Record.
+sub parse_21 ($$) {
+    my ($obj, $rec) = @_;
+
+    my $num = substr($rec, 7, 4);    
+
+    die "bad Two-dimensional Geometry Record \"$rec\""
+        unless ($rec =~ m/^(\d{6})      # geometry ID
+                            2
+                            \d{4}       # number of coordinates
+                            
+                            ((?:\d{8}\d{8}\ )+)
+                                         # points
+
+                            (|\d{6})     # attribute ID
+                            0$/x);
+    my $geomid = $1;
+    my $attrid = $3;
+    my @coords = grep { $_ ne '' } split(/(\d{8})(\d{8}) /, $2);
+    
+    die "Two-dimensional Geometry Record has odd number (" . scalar(@coords) . ") of coordinates" if (@coords & 1);
+    die "Two-dimensional Geometry Record has wrong number of coordinates (" . scalar(@coords) . " vs. " . 2 * $num . ")" if (@coords != 2 * $num);
+    
+    $debug && print <<EOF;
+Two-dimensional Geometry:
+    Geometry ID: $geomid
+    Number of points: $num
+    Attribute ID: $attrid
+EOF
+    $obj->{geometries}->{$geomid} = [ ];
+    for (my $i = 0; $i < @coords; $i += 2) {
+        push(@{$obj->{geometries}->{$geomid}}, [$coords[$i], $coords[$i + 1]]);
+    }
+}
+
+# parse_23 OBJECT RECORD
+# Parse Line Record.
+sub parse_23 ($$) {
+    my ($obj, $rec) = @_;
+
+    die "bad Line Record \"$rec\"" unless ($rec =~ m/^(\d{6}) \1 01 \1 0$/x);
+
+    my $lineid = $1;
+
+    $debug && print <<EOF;
+Line:
+    Line ID: $lineid
+EOF
+}
+
+# parse_24 OBJECT RECORD
+# Parse Chain Record.
+sub parse_24 ($$) {
+    my ($obj, $rec) = @_;
+
+    my $num = substr($rec, 6, 4);
+    die "bad Chain Record \"$rec\"" unless ($rec =~ m/^(\d{6}) $num ((?:\d{6}[12]){$num})  0$/x);
+
+    my $chainid = $1;
+    my @parts = grep { $_ ne '' } split(/(\d{6})([12])/, $2);
+
+    die "Chain Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
+    die "Chain Record has wrong number of parts (" . scalar(@parts) . " vs. " . 2 * $num . ")" if (@parts != 2 * $num);
+
+    die "Chain Record refers to non-existent polygon" unless (exists($obj->{polygons}->{$chainid}));
+
+    $debug && print <<EOF;
+Chain:
+    Chain ID: $chainid
+    Number of parts: $num
+EOF
+
+    $obj->{chains}->{$chainid} = [ ];
+    for (my $i = 0; $i < @parts; $i += 2) {
+        push(@{$obj->{chains}->{$chainid}}, [$parts[$i], $parts[$i + 1]]);
+    }
+}
+
+# parse_31 OBJECT RECORD
+# Parse Polygon Record.
+sub parse_31 ($$) {
+    my ($obj, $rec) = @_;
+
+    die "bad Polygon Record \"$rec\"" unless ($rec =~ m/^(\d{6}) \1 0{6} 01 (\d{6}) 0$/x
+                                              or $rec =~ m/^(\d{6}) \1 0$/x);
+
+    my $polyid = $1;
+    my $attrid = $2;
+
+    $obj->{polygons}->{$polyid} = { };
+
+    $debug && print <<EOF;
+Polygon:
+    Polygon ID: $polyid
+EOF
+    if (defined($attrid)) {
+        $obj->{polygons}->{$polyid}->{attrid} = $attrid;
+        $debug && print <<EOF;
+    Attribute ID: $attrid
+EOF
+    }
+}
+
+# parse_33 OBJECT RECORD
+# Parse Complex Polygon Record.
+sub parse_33 ($$) {
+    my ($obj, $rec) = @_;
+
+    my $num = substr($rec, 6, 4);
+
+    die "bad Complex Polygon Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:\d{6}[+-]){$num}) 0{6} 01 (\d{6}) 0$/x);
+
+    my $complexid = $1;
+    my @parts = grep { $_ ne '' } split(/(\d{6})([+-])/, $2);
+    my $attrid = $3;
+
+    die "Complex Polygon Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
+    die "Complex Polygon Record has wrong number of parts (" . scalar(@parts) . " vs. " . 2 * $num . ")" if (@parts != 2 * $num);
+
+    print <<EOF;
+Complex Polygon:
+    Complex Polygon ID: $complexid
+    Number of parts: $num
+EOF
+
+    $obj->{complexes}->{$complexid} = [ ];
+    for (my $i = 0; $i < @parts; $i += 2) {
+        push(@{$obj->{complexes}->{$complexid}}, [$parts[$i], $parts[$i + 1]]);
+    }
+}
+
+# parse_34 OBJECT RECORD
+# Parse Collection of Features Record.
+sub parse_34 ($$) {
+    my ($obj, $rec) = @_;
+
+
+}
+
+# parse_40 OBJECT RECORD
+# Parse Attribute Description Record.
+sub parse_40 ($$) {
+    my ($obj, $rec) = @_;
+
+    die "bad Attribute Description Record \"$rec\"" unless ($rec =~ m#^(..)(\d{3}| {3})(.{5})([^\\]+)\\0#);
+
+    $debug && print <<EOF;
+Attribute Description:
+    Mnemonic: $1
+    Width: $2
+    Format: $3
+    Name: $4
+EOF
+}
+
+# parse_42 OBJECT RECORD
+# Parse Code List Record
+sub parse_42 ($$) {
+    my ($obj, $rec) = @_;
+
+    die "bad Code List Record \"$rec\"" unless ($rec =~ m#^ {10}(AC|TY|NB)(A2|A3) {3}(\d{3})# or $rec !~ m#0$#);
+
+
+    $debug && print <<EOF;
+Code List:
+    Value type: $1
+    Code value type: $2
+    Number of codes in list: $3
+EOF
+
+    my $num = $3;
+    $rec =~ s#0$##;
+    my @ll = split(/\\/, $rec);
+    die "Code List Record has odd number (" . scalar(@ll) . ") of variable-length records" if (@ll & 1);
+    die "Code List Record has wrong number of variable-length records (" . scalar(@ll) . " vs. " . 2 * int($num) . ")" unless (@ll / 2 == $num);
+
+    for (my $i = 0; $i < @ll; $i += 2) {
+        $debug && print <<EOF;
+        Value: $ll[$i]
+        Description: $ll[$i + 1]
+EOF
+    }
+}
+
+my %recordtypes = (
+        '01' => ['Volume Header', \&parse_01],
+        '02' => ['Database Header', \&parse_02],
+        '05' => ['Feature Classification', \&parse_05],
+        '07' => ['Section Header', \&parse_07],
+        '14' => ['Attribute'],
+        '21' => ['Two-dimensional Geometry', \&parse_21],
+        '23' => ['Line', \&parse_23],
+        '24' => ['Chain', \&parse_24],
+        '31' => ['Polygon', \&parse_31],
+        '33' => ['Complex Polygon', \&parse_33],
+        '34' => ['Collection of Features'],
+        '40' => ['Attribute Description', \&parse_40],
+        '42' => ['Code List', \&parse_42],
+        '99' => ['Volume Termination']
+    );
+
+# accumulate complete records
+my $self = { };
+while (defined(my $record = $h->get())) {
+    while ($record =~ m#1%$#) {
+        $record =~ s#1%$##;
+        my $x = $h->get();
+        die $h->msg("bad continuation line (doesn't begin \"00\")") unless ($x =~ m#^00#);
+        $x =~ s#^00##;
+        $record .= $x;
+    }
+
+    die $h->msg("bad record format") unless ($record =~ m#^(\d{2})(.+)%#);
+    my $code = $1;
+    $record = $2;
+
+    die $h->msg("bad record type \"$code\"") if (!exists($recordtypes{$code}));
+
+    $debug && print "type: $recordtypes{$code}->[0]\n";
+
+    &{$recordtypes{$code}->[1]}($self, $record) if ($recordtypes{$code}->[1]);
+}
+$h->close();
+
+printf STDERR "%d polygons\n", scalar(keys(%{$self->{polygons}}));
+printf STDERR "%d complex polygons\n", scalar(keys(%{$self->{complexes}}));
+
+foreach (keys(%{$self->{polygons}})) {
+    my $f = new IO::File("polygon-$_", O_WRONLY | O_CREAT | O_TRUNC) or die "polygon-$_: $!";
+    foreach my $part (@{$self->{chains}->{$_}}) {
+        my ($geomid, $dir) = @$part;
+        if ($dir == 1) {
+            foreach my $xy (@{$self->{geometries}->{$geomid}}) {
+                $f->printf("%f %f\n", $xy->[0] / 10, $xy->[1] / 10);
+            }
+        } else {
+            foreach my $xy (reverse @{$self->{geometries}->{$geomid}}) {
+                $f->printf("%f %f\n", $xy->[0] / 10, $xy->[1] / 10);
+            }
+        }
+    }
+}
+
