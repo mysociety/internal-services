@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.29 2005-06-03 16:04:03 francis Exp $
+-- $Id: dadem-schema.sql,v 1.30 2005-06-03 17:02:03 francis Exp $
 --
 
 -- data about status of an area in relation to its representatives
@@ -139,7 +139,7 @@ create table raw_council_extradata (
     councillors_url text not null,
 
     -- whether to make council live
-    make_live boolean not null default (false),
+    make_live boolean not null default (false)
 );
 
 
