@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: parsentf,v 1.1 2005-06-02 11:12:08 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: parsentf,v 1.2 2005-06-03 15:44:53 chris Exp $';
 
 use strict;
 use IO::File;
@@ -77,7 +77,7 @@ package main;
 
 use strict;
 
-my $debug = 0;
+my $debug = 1;
 
 die "specify a filename\n" unless (@ARGV >= 1);
 
@@ -157,6 +157,48 @@ sub parse_14 ($$) {
 
     # There are various sorts of attribute records. We only care about the ones
     # which apply to "collections".
+    if ($rec !~ /^\d{6}AI/) {
+        $debug && print "Attribute Record ignored for non-collection object\n";
+        return;
+    }
+
+    die "Bad Attribute Record \"$rec\""
+        unless ($rec =~ m/^(\d{6})      # attribute ID
+                            AI
+                            (\d{6})     # admin area ID
+                            NA
+                            (\d{12})    # non-inland area
+                            OP
+                            (.{7})      # census code
+                            TY
+                            (..)        # type: AA, administrative; VA, voting;
+                                        # FA, non-area; TA, sea
+                            AC
+                            (...)       # type, i.e. DIS, CTY etc.
+                            NM
+                            ([^\\]*)    # name
+                            \\
+                            (
+                                (?:
+                                NB
+                                ...     # optional non-type-codes
+                                )*
+                            )?
+                            0$/x);
+
+    $debug && print <<EOF;
+Collection of Features Attribute record:
+    Attribute ID: $1
+    Admin Area ID: $2
+    ONS code: $4
+    Type: $5
+    Area Type: $6
+    Name: "$7"
+EOF
+    if ($8) {
+        my @types = grep(/.../, split(/NB/, $8));
+        print "    Non-Type-Code: ", join(", ", @types), "\n";
+    }
 }
 
 # parse_21 OBJECT RECORD
@@ -296,7 +338,32 @@ EOF
 sub parse_34 ($$) {
     my ($obj, $rec) = @_;
 
+    my $num = substr($rec, 6, 4);
 
+    die "bad Collection of Features Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:3[134]\d{6}){$num}) 01 (\d{6}) 0$/x);
+
+    my $collectid = $1;
+    my @parts = grep { $_ ne '' } split(/(3[134])(\d{6})/, $2);
+    my $attrid = $3;
+
+    die "Collection of Features Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
+    die "Collection of Features Record has wrong number of parts (" . scalar(@parts) . " vs. " . 2 * $num . ")" if (@parts != 2 * $num);
+
+    print <<EOF;
+Collection of Features Record:
+    Collection of Features ID: $collectid
+    Attribute ID: $attrid
+    Number of parts: $num
+EOF
+
+    $obj->{collections}->{$collectid} = [ ];
+    my %tymap = qw( 31 polygons 33 complexes 34 collections );
+    for (my $i = 0; $i < @parts; $i += 2) {
+        my ($ty, $id) = ($parts[$i], $parts[$i + 1]);
+        die "Collection of Features Record refers to non-existent object #$id"
+            unless (exists($obj->{$tymap{$ty}}->{$id}));
+        push(@{$obj->{collections}->{$collectid}}, [$ty, $id]);
+    }
 }
 
 # parse_40 OBJECT RECORD
@@ -349,13 +416,13 @@ my %recordtypes = (
         '02' => ['Database Header', \&parse_02],
         '05' => ['Feature Classification', \&parse_05],
         '07' => ['Section Header', \&parse_07],
-        '14' => ['Attribute'],
+        '14' => ['Attribute', \&parse_14],
         '21' => ['Two-dimensional Geometry', \&parse_21],
         '23' => ['Line', \&parse_23],
         '24' => ['Chain', \&parse_24],
         '31' => ['Polygon', \&parse_31],
         '33' => ['Complex Polygon', \&parse_33],
-        '34' => ['Collection of Features'],
+        '34' => ['Collection of Features', \&parse_34],
         '40' => ['Attribute Description', \&parse_40],
         '42' => ['Code List', \&parse_42],
         '99' => ['Volume Termination']
@@ -386,6 +453,7 @@ $h->close();
 
 printf STDERR "%d polygons\n", scalar(keys(%{$self->{polygons}}));
 printf STDERR "%d complex polygons\n", scalar(keys(%{$self->{complexes}}));
+printf STDERR "%d collections of features\n", scalar(keys(%{$self->{collections}}));
 
 foreach (keys(%{$self->{polygons}})) {
     my $f = new IO::File("polygon-$_", O_WRONLY | O_CREAT | O_TRUNC) or die "polygon-$_: $!";
