@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.11 2005-02-21 12:22:12 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.12 2005-06-03 16:04:03 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -40,6 +40,9 @@ while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'DaDem.get_representatives' => sub {
                 return DaDem::get_representatives($_[0]);
+            },
+            'DaDem.get_area_status' => sub {
+                return DaDem::get_area_status($_[0]);
             },
             'DaDem.search_representatives' => sub {
                 return DaDem::search_representatives($_[0]);
@@ -71,8 +74,11 @@ while ($req->Accept() >= 0) {
             'DaDem.admin_done_user_correction' => sub {
                 return DaDem::admin_done_user_correction($_[0]);
             },
-            'Dadem.admin_mark_failing_contact' => sub {
+            'DaDem.admin_mark_failing_contact' => sub {
                 return DaDem::admin_mark_failing_contact($_[0], $_[1], $_[2], $_[3]);
+            },
+            'DaDem.admin_set_area_status' => sub {
+                return DaDem::admin_set_area_status($_[0], $_[1]);
             }
          );
     $W->exit_if_changed();

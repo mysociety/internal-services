@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.40 2005-02-23 14:07:30 chris Exp $
+# $Id: DaDem.pm,v 1.41 2005-06-03 16:04:03 francis Exp $
 #
 
 package DaDem;
@@ -201,9 +201,7 @@ foreach (keys %dummy_representatives) {
 }
 
 
-=item get_representatives ID
-
-=item get_representatives ARRAY
+=item get_representatives ID_OR_ARRAY
 
 Given the ID of an area (or an ARRAY of IDs of several areas), return a list of
 the representatives returned by that area, or, on failure, an error code.
@@ -231,9 +229,25 @@ sub get_representatives ($) {
 
     if (!$y) {
         throw RABX::Error("Area $id not found", mySociety::DaDem::UNKNOWN_AREA);
-    } else {
-        return [ map { $_->[0] } grep { !($_->[1]) } @$y ];
-    }
+    } 
+    
+    return [ map { $_->[0] } grep { !($_->[1]) } @$y ];
+}
+
+=item get_area_status AREA_ID
+
+Get the electoral status of area AREA_ID.  Can be any of these:
+    none - no special status
+    pending_election - representative data invalid due to forthcoming election
+    recent_election - representative data invalid because we haven't updated since election
+
+=cut 
+sub get_area_status($) {
+    my ($area_id) = @_;
+    my ($status) = dbh()->selectrow_array(q#
+        select status from area_status where area_id = ?#, {}, $area_id);
+    return 'none' if (!$status);
+    return $status;
 }
 
 =item search_representatives QUERY
@@ -652,6 +666,20 @@ sub admin_mark_failing_contact ($$$$) {
     dbh()->commit();
 }
 
+=item admin_set_area_status AREA_ID NEW_STATUS
+
+Set the electoral status of an area given by AREA_ID.  NEW_STATUS can have
+any of the values described for get_area_status.
+
+=cut 
+sub admin_set_area_status($$) {
+    my ($area_id, $new_status) = @_;
+    throw RABX::Error("NEW_STATUS must be 'none', 'pending_election' or 'recent_election'")
+        unless ($new_status eq 'none' || $new_status eq 'pending_election' || $new_status eq 'recent_election');
+    dbh()->do("delete from area_status where area_id = ?", {}, $area_id);
+    dbh()->do("insert into area_status (area_id, status) values (?, ?)", {}, $area_id, $new_status);
+    dbh()->commit();
+}
 
 1;
 

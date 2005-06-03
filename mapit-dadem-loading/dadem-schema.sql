@@ -5,8 +5,15 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.28 2005-02-15 15:26:08 francis Exp $
+-- $Id: dadem-schema.sql,v 1.29 2005-06-03 16:04:03 francis Exp $
 --
+
+-- data about status of an area in relation to its representatives
+-- for example, invalid because of election
+create table area_status (
+    area_id integer not null,
+    status text not null check (status in('none','pending_election','recent_election')) default 'none'
+);
 
 -- data about each democratic reperesentative
 create table representative (
@@ -132,7 +139,7 @@ create table raw_council_extradata (
     councillors_url text not null,
 
     -- whether to make council live
-    make_live boolean not null default (false)
+    make_live boolean not null default (false),
 );
 
 
