@@ -1,0 +1,101 @@
+#!/usr/bin/perl -w -I../../perllib -I../DaDem
+#
+# email_user_corrections
+#
+# Generate report for GovEval of user-submitted corrections.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.1 2005-06-08 22:34:22 francis Exp $';
+
+use strict;
+$| = 1; # flush STDOUT afer each write
+
+use DBI;
+use DBD::Pg;
+use Text::CSV;
+use Data::Dumper;
+use Text::Wrap;
+
+use Common;
+use mySociety::VotingArea;
+use mySociety::CouncilMatch;
+use mySociety::StringUtils qw(trim merge_spaces string_diff);
+use DaDem;
+
+my $d_dbh = connect_to_dadem_database();
+my $m_dbh = connect_to_mapit_database();
+
+# Cache of area_id->type etc.
+my $area_id_data = $m_dbh->selectall_hashref( q#select * from area#, 'id');
+my $friendly_names = $m_dbh->selectall_hashref( q#select * from area_name where name_type = 'F'#, 'area_id');
+
+# Get user corrections
+my $s = $d_dbh->prepare(q#select * from user_corrections where admin_done = 'f' order by whenentered#);
+$s->execute();
+my $corrections;
+while (my $row = $s->fetchrow_hashref()) {
+    my $user_correction_id = $row->{user_correction_id};
+    my $area_id = $row->{voting_area_id};
+    my $parent_id = $area_id_data->{$area_id}->{parent_area_id};
+    $corrections->{$parent_id}->{$area_id}->{$user_correction_id} = $row;
+}
+
+foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names->{$b}->{name} } keys %$corrections) {
+    my $parent_name = $friendly_names->{$parent_id}->{name};
+    print "$parent_name\n";
+    print "=" x (length($parent_name)) . "\n\n";
+    my $parent_hash = $corrections->{$parent_id};
+    foreach my $child_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names->{$b}->{name} } keys %$parent_hash) {
+        my $child_name = $friendly_names->{$child_id}->{name};
+        my $child_type = $area_id_data->{$child_id}->{type};
+        $child_name .= " " . $mySociety::VotingArea::type_name{$child_type};
+        print "$child_name\n";
+        print "-" x (length($child_name)) . "\n\n";
+
+        my $child_hash = $parent_hash->{$child_id};
+        foreach my $user_correction_id (keys %$child_hash) {
+            my $c = $child_hash->{$user_correction_id};
+            my $rep_id = $c->{representative_id};
+            my $orig_info;
+            if ($rep_id) {
+                $orig_info = DaDem::get_representative_info($rep_id);
+            }
+
+            print "   "; # . $user_correction_id . ". ";
+            if ($c->{alteration} eq "delete") {
+                print "Delete '$orig_info->{name}'\n";
+            } elsif ($c->{alteration} eq "add") {
+                print "Add '$c->{name}' party '$c->{party}'\n";
+            } elsif ($c->{alteration} eq "modify") {
+                print "Change ";
+                if ($c->{name} && ($c->{name} ne $orig_info->{name})) {
+                    print "name '$orig_info->{name}' to '$c->{name}' ";
+                }
+                if ($c->{party} && ($c->{party} ne $orig_info->{party})) {
+                    print "party '$orig_info->{party}' to '$c->{party}' ";
+                }
+                print "\n";
+            } else {
+                die "unknown alteration type " . $c->{alteration};
+            }
+
+            if ($c->{user_notes}) {
+                local($Text::Wrap::columns) = 60;
+                local($Text::Wrap::huge) = 'overflow';      # user may include URLs which shouldn't be wrapped
+                print "      ";
+                print trim(Text::Wrap::wrap('      ', '      ', 'Comment: '. trim($c->{user_notes})));
+                print "\n";
+            }
+
+#                   'whenentered' => '1109002342',
+#                   'user_email' => '',
+        }
+        print "\n";
+    }
+    print "\n";
+}
+
+

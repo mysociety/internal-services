@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.6 2005-06-08 15:50:38 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.7 2005-06-08 22:34:22 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -103,6 +103,7 @@ while (my $line = <STDIN>) {
     my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
+    warn "invalid geid $geid\nline $line_number: $line\n" unless $geid =~ m/^[1-9][0-9]+$/;
 
     # Special case for areas with elected mayors.
     next if $vdiv eq "Elected Mayor";
@@ -143,20 +144,37 @@ foreach my $parent (@pk) {
 }
 
 # Load data into raw table in DaDem
+my $edited_councils_count = 0;
+my $councils_count = 0;
 foreach my $id (keys %$councils) {
-    # print $councils->{$id}->{canonname} . " " . $area_id_data->{$id}->{type} . "\n";
+    $councils_count++;
+
+    # Count how many edits and so on
+    my ($edits_count) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
+        where council_id =?#, {}, $id);
+    my ($edits_count_modify) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
+        where council_id =? and alteration='modify' and ge_id is not null#, {}, $id);
+    my ($edits_count_new) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
+        where council_id =? and alteration='modify' and newrow_id is not null#, {}, $id);
+    my ($edits_count_delete) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
+        where council_id =? and alteration='delete'#, {}, $id);
+    $edited_councils_count++ if ($edits_count > 0);
+
+    # Display
+    print $councils->{$id}->{canonname} . " " . $area_id_data->{$id}->{type} . " id:$id edits:$edits_count = $edits_count_modify mod, $edits_count_new new, $edits_count_delete del\n";
 
     # Vague but doomed attempt to delete existing data (doesn't behave as we
     # would want when ids and names and types change, because we don't yet
     # know what we want)
-    #$d_dbh->do(q#delete from raw_input_data where
-    #        council_id = ? and council_name = ? and council_type = ? and council_ons_code = ?#, {}, 
-    #        $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type});
+$d_dbh->do(q#delete from raw_input_data where
+        council_id = ? #, {}, $id);
 
     # Load in each line of data
     my $lines = $councils->{$id}->{lines};
     foreach my $line (@$lines) {
         my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
+        $geid =~ s/[^0-9]//g;
+        die "digit part of geid too short\nline $line_number: $line\n" unless scalar($geid) > 3;
 
         # Fax and email data isn't good enough to load yet
         $fax = "";
@@ -172,8 +190,10 @@ foreach my $id (keys %$councils) {
     }
 }
 
+print "Edits: $edited_councils_count / $councils_count councils\n";
+
 #$m_dbh->commit();
 #$d_dbh->commit();
-$m_dbh->disconnect();
-$d_dbh->disconnect();
+#$m_dbh->disconnect();
+#$d_dbh->disconnect();
 
