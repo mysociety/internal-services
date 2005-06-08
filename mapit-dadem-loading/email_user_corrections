@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.1 2005-06-08 22:34:22 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.2 2005-06-08 23:16:12 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -18,6 +18,7 @@ use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
 use Text::Wrap;
+use POSIX qw(strftime);
 
 use Common;
 use mySociety::VotingArea;
@@ -28,12 +29,29 @@ use DaDem;
 my $d_dbh = connect_to_dadem_database();
 my $m_dbh = connect_to_mapit_database();
 
+# Report header
+my $date = strftime("%e %b %Y at %H:%M:%S", localtime);
+print <<END;
+WriteToThem User-Submitted Corrections
+======================================
+
+Reported generated on $date.  Contains corrections 
+to councillor data submitted by users to the WriteToThem.com website.
+These are sorted alphabetically by council and then by ward.  They are
+not filtered or edited; double check the information before using it.
+
+
+END
+
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref( q#select * from area#, 'id');
 my $friendly_names = $m_dbh->selectall_hashref( q#select * from area_name where name_type = 'F'#, 'area_id');
 
 # Get user corrections
-my $s = $d_dbh->prepare(q#select * from user_corrections where admin_done = 'f' order by whenentered#);
+my $s = $d_dbh->prepare(q#select * from user_corrections 
+    where admin_done = 'f' 
+        and when_goveval is null
+    order by whenentered#);
 $s->execute();
 my $corrections;
 while (my $row = $s->fetchrow_hashref()) {
@@ -43,6 +61,7 @@ while (my $row = $s->fetchrow_hashref()) {
     $corrections->{$parent_id}->{$area_id}->{$user_correction_id} = $row;
 }
 
+# Print them out
 foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names->{$b}->{name} } keys %$corrections) {
     my $parent_name = $friendly_names->{$parent_id}->{name};
     print "$parent_name\n";
@@ -71,11 +90,16 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
                 print "Add '$c->{name}' party '$c->{party}'\n";
             } elsif ($c->{alteration} eq "modify") {
                 print "Change ";
-                if ($c->{name} && ($c->{name} ne $orig_info->{name})) {
+                my $name_change = ($c->{name} && ($c->{name} ne $orig_info->{name}));
+                my $party_change = ($c->{party} && ($c->{party} ne $orig_info->{party}));
+                if ($name_change) {
                     print "name '$orig_info->{name}' to '$c->{name}' ";
                 }
-                if ($c->{party} && ($c->{party} ne $orig_info->{party})) {
+                if ($party_change) {
                     print "party '$orig_info->{party}' to '$c->{party}' ";
+                    if (!$name_change) {
+                        print "for '$orig_info->{name}' ";
+                    }
                 }
                 print "\n";
             } else {
@@ -90,12 +114,20 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
                 print "\n";
             }
 
-#                   'whenentered' => '1109002342',
-#                   'user_email' => '',
+            # Other fields in $c which we might want to use:
+            #  'whenentered' => '1109002342',
+            #  'user_email' => '',
+
+            # Store we have done it
+            $d_dbh->do("update user_corrections set when_goveval = ? where user_correction_id = ?", 
+                {}, time(), $user_correction_id);
         }
         print "\n";
     }
     print "\n";
 }
 
+$d_dbh->commit();
+$m_dbh->disconnect();
+$d_dbh->disconnect();
 
