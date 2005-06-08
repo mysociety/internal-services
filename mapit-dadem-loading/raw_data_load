@@ -5,14 +5,14 @@
 # in the MaPit database, and use appropriate IDs.  Loads the canonical names of
 # councils into MaPit.
 #
-# Parameters:  Pipe the councillors.csv file from GovEval into standard
+# Parameters:  Pipe the councillorsWithID.csv file from GovEval into standard
 # input.
 #
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.5 2005-02-28 17:49:21 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.6 2005-06-08 15:50:38 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -75,7 +75,9 @@ while (my ($area_id, $name) = $s->fetchrow_array()) {
  
 # Load the GovEval data.
 my $C = new Text::CSV;
+my $line_number = 0;
 <STDIN>;    # header line
+$line_number++;
 
 # $councils
 # Reference to hash of council ID to reference to hash of information about the
@@ -85,12 +87,22 @@ my $C = new Text::CSV;
 my $councils;
 
 while (my $line = <STDIN>) {
+    $line_number++;
+
+    # Remove bad control characteres
     chomp($line);
+    $line =~ s/\xA0//g; # appears twice after "Castle Baynard"
+    $line =~ s/\x0B//g; # appears after some email addresse
+    $line =~ s/\x14ina/Tina/g; # strangely broken "T"
+    $line =~ s/\x00//g; # appears on the last line
+    next if $line =~ m/^\s*$/;
+
+    # Extract good stuff
     $C->parse($line);
     my @line = map { trim_spaces($_) } $C->fields();
     my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
 
-    die "council not defined for line '$line'\n" unless (defined($council));
+    die "council not defined\nline $line_number: $line\n" unless (defined($council));
 
     # Special case for areas with elected mayors.
     next if $vdiv eq "Elected Mayor";
@@ -98,7 +110,7 @@ while (my $line = <STDIN>) {
     my $canon = mySociety::CouncilMatch::canonicalise_council_name($council);
     #print "gename $council canon $canon\n";
 
-    die "no council in database matches canonical name '$canon'\n" unless (exists($parent_to_id{$canon}));
+    die "no council in database matches canonical name '$canon'\nline $line_number: $line" unless (exists($parent_to_id{$canon}));
 
     my $id = $parent_to_id{$canon};
     
@@ -160,8 +172,8 @@ foreach my $id (keys %$councils) {
     }
 }
 
-$m_dbh->commit();
-$d_dbh->commit();
+#$m_dbh->commit();
+#$d_dbh->commit();
 $m_dbh->disconnect();
 $d_dbh->disconnect();
 
