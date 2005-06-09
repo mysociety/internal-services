@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.1 2005-06-09 09:08:18 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.2 2005-06-09 15:33:20 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -15,9 +15,61 @@ package Geo::OSBoundaryLine::Error;
 
 package Geo::OSBoundaryLine::Attribute;
 
+=head1 NAME
+
+Geo::OSBoundaryLine::Attribute
+
+=head1 DESCRIPTION
+
+Object representing attributes of administrative and voting areas in
+Boundary-Line. These objects are constructed during the parsing process and
+should be regarded as read-only by callers.
+
+=head1 METHODS
+
+=over 4
+
+=item admin_area_id
+
+Administrative area ID.
+
+=item ons_code
+
+ONS (Office of National Statistics) code for the area, or undef if none is
+specified.
+
+=item area_type
+
+Type of area (e.g. 'WMC', 'CED', etc.).
+
+=item name
+
+Name of area.
+
+=item non_type_codes
+
+Any other type codes applicable to the area.
+
+=back
+
+=head1 DATA
+
+=over 4
+
+=item %area_types
+
+Hash of area type to [type name, type of area code]. Type of area codes are
+'AA', for administrative areas (e.g. counties); 'VA', for voting areas (e.g.
+Westminster constituencies); and 'FA' for other areas (e.g. non-civil
+parishes).
+
+=back
+
+=cut
+
 my $debug = 0;
 
-my %area_types = (
+%Geo::OSBoundaryLine::Attribute::area_types = (
         CED => ['County electoral division', 'VA'],
         CPC => ['Civil parish or community', 'AA'],
         CTY => ['County', 'AA'],
@@ -74,7 +126,93 @@ foreach (keys %checks) {
     eval 'sub ' . $_ . ' ($) { my $self = shift; return $self->{' . $_ . '}';
 }
 
-package Geo::OSBoundaryLine::File;
+package Geo::OSBoundaryLine::Polygon;
+
+use fields qw(ntf id);
+
+sub new ($$$) {
+    my ($class, $ntf, $id) = @_;
+    my $self = fields::new($class);
+    die "no polygon with id '$id' in NTF file"
+        unless (exists($ntf->{chains}->{$id}));
+    $self->{ntf} = $ntf;
+    $self->{id} = $id;
+    return $self;
+}
+
+=item vertices
+
+In scalar context, return the number of vertices the polygon has. In list
+context, return a list of the vertex coordinates as [x, y] pairs.
+
+=cut
+sub vertices ($) {
+    my $self = shift;
+    my $n = wantarray() ? undef : 0;
+    my @verts = ( );
+    my $ntf = $self->{ntf};
+    foreach (@{$ntf->{chains}->{$self->{id}}}) {
+        my ($geom_id, $dir) = @$_;
+        if (defined($n)) {
+            $n += @{$ntf->{geometries}->{$geom_id}};
+        } else {
+            if ($dir == 1) {
+                push(@verts, @{$ntf->{geometries}->{$geom_id}});
+            } else {
+                push(@verts, reverse(@{$ntf->{geometries}->{$geom_id}}));
+            }
+        }
+    }
+    return wantarray() ? $n : @verts;
+}
+
+package Geo::OSBoundaryLine::ComplexPolygon;
+
+use fields qw(ntf id);
+
+sub new ($$$) {
+    my ($class, $ntf, $id) = @_;
+    my $self = fields::new($class);
+    die "no complex polygon with id '$id' in NTF file"
+        unless (exists($ntf->{complexes}->{$id}));
+    $self->{ntf} = $ntf;
+    $self->{id} = $id;
+    return $self;
+}
+
+=item parts
+
+In scalar context, return the number of parts this complex polygon has. In
+list context, return a list of the parts and their sense (positive meaning
+"included", negative meaning "excluded").
+
+=cut
+sub parts ($) {
+    my $self = shift;
+    my $ntf = $self->{ntf};
+    if (wantarray()) {
+        return map { [new Geo::OSBoundaryLine::Polygon($ntf, $_->[0]), $_->[1] eq '+' ? +1 : -1] } @{$self->{ntf}->{complexes}->{$self->{id}}};
+    } else {
+        return @{$ntf->{complexes}->{$self->{id}}};
+    }
+}
+
+=item part INDEX
+
+Return in list context the polygonal part identified by the given INDEX
+(starting at zero) and its sense (positive or negative).
+
+=cut
+sub part ($$) {
+    my ($self, $i) = @_;
+    my $ntf = $self->{ntf};
+    if ($i >= @{$self->{ntf}->{complexes}->{$self->{id}}}) {
+        die "index '$i' out of range for complex polygon id '$self->{id}'";
+    }
+    return (new Geo::OSBoundaryLine::Polygon($ntf, $ntf->{complexes}->{$self->{id}}->[$i]->[0]), $ntf->{complexes}->{$self->{id}}->[$i]->[0]);
+}
+
+package Geo::OSBoundaryLine::NTFFile;
 
 use strict;
 
@@ -304,6 +442,8 @@ sub parse_24 ($$) {
     die "bad Chain Record \"$rec\"" unless ($rec =~ m/^(\d{6}) $num ((?:\d{6}[12]){$num})  0$/x);
 
     my $chainid = $1;
+    # Each part specifies a geometry record, and whether it is to be used
+    # start-to-end (1) or end-to-start (2).
     my @parts = grep { $_ ne '' } split(/(\d{6})([12])/, $2);
 
     die "Chain Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
