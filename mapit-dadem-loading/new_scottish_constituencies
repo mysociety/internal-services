@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.4 2005-05-12 16:45:12 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.5 2005-06-09 10:36:15 chris Exp $';
 
 use strict;
 
@@ -108,6 +108,8 @@ foreach my $council (sort keys %ward_name) {
 
 #$dbh->begin();
 
+$dbh->do('delete from new_scottish_constituencies_fixup');
+
 my %constituency_to_id;
 
 # This is where things start to go wrong. Just do the whole thing as a
@@ -164,6 +166,7 @@ while (my ($id, $parent_id) = $st->fetchrow_array()) {
         unless (defined($c_id));
 }
 
-$dbh->commit();
+#$dbh->commit();
+$dbh->rollback();
 
 $dbh->disconnect();
