@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.5 2005-06-09 10:36:15 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.6 2005-06-09 11:05:36 chris Exp $';
 
 use strict;
 
@@ -83,10 +83,12 @@ foreach my $council (sort keys %council_name) {
     my ($match) = sort { $b->[0] <=> $a->[0] } map { [placename_match_metric($council, $database_councils{$_}), $_] } keys %database_councils;
     die "no match for '$council'" unless (defined($match));
     $council_to_id{$council} = $match->[1];
+    print "identify council '$council' with database council '$database_councils{$match->[1]}' #$match->[1]\n";
     delete $database_councils{$match->[1]};
 }
 
 foreach my $council (sort keys %ward_name) {
+    print "in council '$council'...\n";
     my %database_wards = map {
             $_->[0] => $_->[1]
         } @{$dbh->selectall_arrayref(q(
@@ -98,11 +100,33 @@ foreach my $council (sort keys %ward_name) {
                             and area_name.name_type = 'O'
                     ), {}, $council_to_id{$council})};
 
-    foreach my $ward (sort keys %{$ward_name{$council}}) {
+    my %r_database_wards = reverse(%database_wards);
+
+    foreach my $ward (sort { length($b) <=> length($a) } keys %{$ward_name{$council}}) {
+        next if ($ward eq '*');
+
+        # If there is an exact match, then use that.
+        if (exists($r_database_wards{"$ward Ward"})) {
+            print "  ward '$ward' exactly matches database ward '$ward Ward' #", $r_database_wards{"$ward Ward"}, "\n";
+            $ward_to_id{$council}->{$ward} = $r_database_wards{"$ward Ward"};
+            delete $r_database_wards{"$ward Ward"};
+            delete $database_wards{$ward_to_id{$council}->{$ward}};
+            next;
+        }
+        
         my ($match) = sort { $b->[0] <=> $a->[0] } map { [placename_match_metric($ward, $database_wards{$_}), $_] } keys %database_wards;
         die "no match for '$ward' in '$council'" unless (defined($match));
         $ward_to_id{$council}->{$ward} = $match->[1];
+        print "  identify ward '$ward' with database ward '$database_wards{$match->[1]}' #$match->[1]\n";
+        delete $r_database_wards{$database_wards{$match->[1]}};
         delete $database_wards{$match->[1]};
+    }
+
+    if (scalar(keys(%database_wards)) > 0) {
+        print "residue of '$council'...\n";
+        foreach (sort { $database_wards{$a} cmp $database_wards{$b} } keys %database_wards) {
+            print "  '$database_wards{$_}' #$_\n";
+        }
     }
 }
 
