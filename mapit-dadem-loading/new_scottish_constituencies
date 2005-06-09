@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.6 2005-06-09 11:05:36 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.7 2005-06-09 11:21:07 chris Exp $';
 
 use strict;
 
@@ -136,25 +136,33 @@ $dbh->do('delete from new_scottish_constituencies_fixup');
 
 my %constituency_to_id;
 
-# This is where things start to go wrong. Just do the whole thing as a
-# once-only script.
+# Horrid. To fix the balls-up I made first time round, try to pick out the
+# appropriate constituencies by name.
 foreach my $constituency (sort(keys(%constituency_name))) {
-    my $friendly = $constituency;
-    $friendly =~ s#(Burgh|County) Constituency$##;
-    my $id = $dbh->selectrow_array("select nextval('area_id_seq')");
+
+    my $id = $dbh->do("select area_id from area_name where name_type = 'L' and name = ? and (select type from area where id = area_id and generation_low = generation_high and generation_low = 2) = 'WMC'", {}, $constituency);
+    
+    if (defined($id)) {
+        print "constituency '$constituency' already in database as #$id\n";
+    } else {
+        my $friendly = $constituency;
+        $friendly =~ s#(Burgh|County) Constituency$##;
+        $id = $dbh->selectrow_array("select nextval('area_id_seq')");
+        $dbh->do(q(
+                insert into area (id, type, country, generation_low, generation_high)
+                    values (?, 'WMC', 'S', 2, 2) -- XXX HACK!
+            ), {}, $id);
+        $dbh->do(q(
+                insert into area_name (area_id, name_type, name)
+                    values (?, 'L', ?)
+            ), {}, $id, $constituency);
+        $dbh->do(q(
+                insert into area_name (area_id, name_type, name)
+                    values (?, 'F', ?)
+            ), {}, $id, $friendly);
+        print "inserting constituency '$constituency' into database as #$id\n";
+    }
     $constituency_to_id{$constituency} = $id;
-    $dbh->do(q(
-            insert into area (id, type, country, generation_low, generation_high)
-                values (?, 'WMC', 'S', 2, 2) -- XXX HACK!
-        ), {}, $id);
-    $dbh->do(q(
-            insert into area_name (area_id, name_type, name)
-                values (?, 'L', ?)
-        ), {}, $id, $constituency);
-    $dbh->do(q(
-            insert into area_name (area_id, name_type, name)
-                values (?, 'F', ?)
-        ), {}, $id, $friendly);
 }
 
 foreach my $council (keys(%ward_to_constituency)) {
