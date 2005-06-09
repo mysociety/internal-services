@@ -6,7 +6,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.7 2005-06-09 11:21:07 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies,v 1.8 2005-06-09 12:14:22 chris Exp $';
 
 use strict;
 
@@ -140,7 +140,7 @@ my %constituency_to_id;
 # appropriate constituencies by name.
 foreach my $constituency (sort(keys(%constituency_name))) {
 
-    my $id = $dbh->do("select area_id from area_name where name_type = 'L' and name = ? and (select type from area where id = area_id and generation_low = generation_high and generation_low = 2) = 'WMC'", {}, $constituency);
+    my $id = $dbh->selectrow_array("select area_id from area_name where name_type = 'L' and name = ? and (select type from area where id = area_id and generation_low = generation_high and generation_low = 2) = 'WMC'", {}, $constituency);
     
     if (defined($id)) {
         print "constituency '$constituency' already in database as #$id\n";
@@ -198,7 +198,7 @@ while (my ($id, $parent_id) = $st->fetchrow_array()) {
         unless (defined($c_id));
 }
 
-#$dbh->commit();
-$dbh->rollback();
+$dbh->commit();
+#$dbh->rollback();
 
 $dbh->disconnect();
