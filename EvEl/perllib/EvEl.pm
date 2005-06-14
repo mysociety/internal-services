@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.23 2005-05-20 16:45:36 francis Exp $
+# $Id: EvEl.pm,v 1.24 2005-06-14 16:58:33 chris Exp $
 #
 
 package EvEl::Error;
@@ -487,6 +487,7 @@ sub construct_email ($) {
     }
 
     throw EvEl::Error("missing field 'Subject' in MESSAGE") if (!exists($p->{Subject}));
+    $hdr{Subject} = format_mimewords($p->{Subject});
 
     my %hdr;
     # To: and Cc: are address-lists.
@@ -536,7 +537,7 @@ sub construct_email ($) {
                             unpack('h*', random_bytes(5)),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
                         );
-    $hdr{'Date'} ||= POSIX::strftime("%a, %d %h %Y %T %z", localtime(time()));
+    $hdr{Date} ||= POSIX::strftime("%a, %d %h %Y %T %z", localtime(time()));
 
     foreach (keys(%$p)) {
         $hdr{$_} = $p->{$_} if ($_ ne '_data_' && !exists($hdr{$_}));
