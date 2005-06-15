@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.41 2005-06-03 16:04:03 francis Exp $
+# $Id: DaDem.pm,v 1.42 2005-06-15 17:32:26 chris Exp $
 #
 
 package DaDem;
@@ -660,7 +660,7 @@ sub admin_mark_failing_contact ($$$$) {
         } else {
             $newmethod = 'email';
         }
-        admin_edit_representative($id, { method => $newmethod }, "Failed delivery with contact '$x'", $editor);
+        admin_edit_representative($id, { method => $newmethod }, $editor, "Failed delivery with contact '$x'");
     }
 
     dbh()->commit();
