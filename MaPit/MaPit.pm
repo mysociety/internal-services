@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.24 2005-06-03 16:04:03 francis Exp $
+# $Id: MaPit.pm,v 1.25 2005-06-24 12:29:32 chris Exp $
 #
 
 package MaPit;
@@ -15,6 +15,9 @@ use strict;
 
 use DBI;
 use DBD::Pg;
+
+use Geography::NationalGrid;
+use Geo::HelmertTransform;
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
@@ -310,7 +313,7 @@ warn "area $area_id has no children...\n";
         && scalar(dbh()->selectrow_array('select type from area where id = ?',
                     {}, $area_id)) eq 'WMC') {
         # This could be because it's a new Scottish constituency.
-        my ($council_area_id, $ward_area_id) = dbh()->selectrow_array('select council_area_id, ward_area_id from new_scottish_constituencies_fixup where constituency_id = ?', {}, $area_id);
+        my ($council_area_id, $ward_area_id) = dbh()->selectrow_array('select council_area_id, ward_area_id from new_scottish_constituencies_fixup where constituency_area_id = ?', {}, $area_id);
         if (defined($council_area_id)) {
             return get_example_postcode($council_area_id);
         } elsif (defined($ward_area_id)) {
@@ -340,10 +343,30 @@ sub get_voting_area_children ($) {
 
 =item get_location POSTCODE
 
-Return the location of the given POSTCODE, including the grid system to which
-it is registered. The return value is a list of three elements: the coordinate
-system ("G" for OSGB or "I" for the Irish grid) and eastings and northings in
-meters.
+Return the location of the given POSTCODE. The return value is a reference to
+a hash containing elements,
+
+=over 4
+
+=item coordsyst
+
+=item easting
+
+=item northing
+
+Coordinates of the point in a UTM coordinate system. The coordinate system is
+identified by the coordsyst element, which is "G" for OSGB (the Ordnance Survey
+"National Grid" for Great Britain) or "I" for the Irish Grid (used in the
+island of Ireland).
+
+=item wgs84_lat
+
+=item wgs84_lon
+
+Latitude and longitude in the WGS84 coordinate system, expressed as decimal
+degrees, north- and east-positive.
+
+=back
 
 =cut
 sub get_location ($) {
@@ -355,19 +378,53 @@ sub get_location ($) {
     $pc =~ s/\s+//g;
     $pc = uc($pc);
 
-    if ($pc eq 'ZZ99ZZ') {
-        # Dummy postcode.
-        return ['G', 0, 0]; # Somewhere off in the Atlantic
-    } else {
+    my %result = (
+            coordsyst => 'G',
+            # default data
+            easting => 0,
+            northing => 0
+        );
+
+    if ($pc ne 'ZZ99ZZ') {
         # Real data
         throw RABX::Error("Postcode '$pc' is not valid.", mySociety::MaPit::BAD_POSTCODE) unless (mySociety::Util::is_valid_postcode($pc));
 
         if (my ($coordsyst, $E, $N) = dbh()->selectrow_array('select coordsyst, easting, northing from postcode where postcode = ?', {}, $pc)) {
-            return [$coordsyst, $E, $N];
+            $result{coordsyst} = $coordsyst;
+            $result{easting} = $E;
+            $result{northing} = $N;
         } else {
             throw RABX::Error("Postcode '$pc' not found.", mySociety::MaPit::POSTCODE_NOT_FOUND);
         }
     }
+
+    # Obtain lat/lon.
+    our ($wgs84, $airy1830, $airy1830m);
+    $wgs84      ||= Geo::HelmertTransform::datum("WGS84");
+    $airy1830   ||= Geo::HelmertTransform::datum("Airy1830");
+    $airy1830m  ||= Geo::HelmertTransform::datum("Airy1830Modified");
+
+    my ($lat, $lon, $h, $d);
+
+    if ($result{coordsyst} eq 'G') {
+        my $p = new Geography::NationalGrid('GB', Easting => $result{easting}, Northing => $result{northing});
+        $lat = $p->latitude();
+        $lon = $p->longitude();
+        $d = $airy1830;
+    } elsif ($result{coordsyst} eq 'I') {
+        my $p = new Geography::NationalGrid('IE', Easting => $result{easting}, Northing => $result{northing});
+        $lat = $p->latitude();
+        $lon = $p->longitude();
+        $d = $airy1830m;
+    } else {
+        die "bad value '$result{coordsyst}' for coordinate system in get_location";
+    }
+    
+    ($lat, $lon, $h) = Geo::HelmertTransform::convert_datum($d, $wgs84, $lat, $lon, $h);
+    $result{wgs84_lat} = $lat;
+    $result{wgs84_lon} = $lon;
+
+    return \%result;
 }
 
 =item admin_get_stats
