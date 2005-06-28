@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.25 2005-06-15 00:16:29 francis Exp $
+# $Id: EvEl.pm,v 1.26 2005-06-28 15:57:50 chris Exp $
 #
 
 package EvEl::Error;
@@ -386,6 +386,9 @@ sub do_template_substitution ($$) {
     local($Text::Wrap::huge = 'overflow');
     my $wrapped = Text::Wrap::wrap('', '', $body);
 
+binmode(STDERR, ":utf8");
+warn "Subject = $subject\n";
+
     return ($subject, $wrapped);
 }
 
@@ -544,6 +547,10 @@ sub construct_email ($) {
         $hdr{$_} = $p->{$_} if ($_ ne '_data_' && !exists($hdr{$_}));
     }
 
+    # MIME::Entity->build() apparently expects *byte strings* as its data
+    # argument; otherwise some crazy conversion goes on and it emits encoded
+    # ISO-8859-1 data, rather than UTF-8.
+    utf8::encode($p->{_body_});
     return MIME::Entity->build(
                     %hdr,
                     Data => $p->{_body_},
