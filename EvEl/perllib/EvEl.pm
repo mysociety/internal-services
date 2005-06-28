@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.26 2005-06-28 15:57:50 chris Exp $
+# $Id: EvEl.pm,v 1.27 2005-06-28 16:40:21 francis Exp $
 #
 
 package EvEl::Error;
@@ -386,8 +386,8 @@ sub do_template_substitution ($$) {
     local($Text::Wrap::huge = 'overflow');
     my $wrapped = Text::Wrap::wrap('', '', $body);
 
-binmode(STDERR, ":utf8");
-warn "Subject = $subject\n";
+#binmode(STDERR, ":utf8");
+#warn "Subject = $subject\n";
 
     return ($subject, $wrapped);
 }
