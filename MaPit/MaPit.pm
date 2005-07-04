@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.25 2005-06-24 12:29:32 chris Exp $
+# $Id: MaPit.pm,v 1.26 2005-07-04 09:15:23 chris Exp $
 #
 
 package MaPit;
@@ -404,7 +404,7 @@ sub get_location ($) {
     $airy1830   ||= Geo::HelmertTransform::datum("Airy1830");
     $airy1830m  ||= Geo::HelmertTransform::datum("Airy1830Modified");
 
-    my ($lat, $lon, $h, $d);
+    my ($lat, $lon, $d);
 
     if ($result{coordsyst} eq 'G') {
         my $p = new Geography::NationalGrid('GB', Easting => $result{easting}, Northing => $result{northing});
@@ -420,7 +420,7 @@ sub get_location ($) {
         die "bad value '$result{coordsyst}' for coordinate system in get_location";
     }
     
-    ($lat, $lon, $h) = Geo::HelmertTransform::convert_datum($d, $wgs84, $lat, $lon, $h);
+    ($lat, $lon) = Geo::HelmertTransform::convert_datum($d, $wgs84, $lat, $lon, 0); # 0 is altitude
     $result{wgs84_lat} = $lat;
     $result{wgs84_lon} = $lon;
 
