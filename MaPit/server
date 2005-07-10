@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.7 2005-01-31 20:14:45 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.8 2005-07-10 00:40:24 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -48,7 +48,7 @@ while ($req->Accept() >= 0) {
                 return MaPit::get_voting_area_children($_[0]);
             },
             'MaPit.get_location' => sub {
-                return MaPit::get_location($_[0]);
+                return MaPit::get_location($_[0], $_[1]);
             },
             'MaPit.admin_get_stats' => sub {
                 return MaPit::admin_get_stats();

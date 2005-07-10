@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.26 2005-07-04 09:15:23 chris Exp $
+# $Id: MaPit.pm,v 1.27 2005-07-10 00:40:24 francis Exp $
 #
 
 package MaPit;
@@ -341,10 +341,12 @@ sub get_voting_area_children ($) {
     }
 }
 
-=item get_location POSTCODE
+=item get_location POSTCODE [PARTIAL]
 
 Return the location of the given POSTCODE. The return value is a reference to
-a hash containing elements,
+a hash containing elements.  If PARTIAL is present set to 1, will use only
+the first part of the postcode, and generate the mean coordinate.  If PARTIAL
+is set POSTCODE can optionally be just the first part of the postcode.
 
 =over 4
 
@@ -369,8 +371,8 @@ degrees, north- and east-positive.
 =back
 
 =cut
-sub get_location ($) {
-    my ($pc) = @_;
+sub get_location ($;$) {
+    my ($pc, $partial) = @_;
     
     my $ret = undef;
     my $generation = get_generation();
@@ -387,14 +389,29 @@ sub get_location ($) {
 
     if ($pc ne 'ZZ99ZZ') {
         # Real data
-        throw RABX::Error("Postcode '$pc' is not valid.", mySociety::MaPit::BAD_POSTCODE) unless (mySociety::Util::is_valid_postcode($pc));
-
-        if (my ($coordsyst, $E, $N) = dbh()->selectrow_array('select coordsyst, easting, northing from postcode where postcode = ?', {}, $pc)) {
-            $result{coordsyst} = $coordsyst;
-            $result{easting} = $E;
-            $result{northing} = $N;
+        if ($partial) {
+            if (mySociety::Util::is_valid_postcode($pc)) {
+                $pc =~ s/\d[A-Z]{2}$//g;
+            }
+            throw RABX::Error("Partial postcode '$pc' is not valid.", mySociety::MaPit::BAD_POSTCODE) unless (mySociety::Util::is_valid_partial_postcode($pc));
+            my ($min_c, $max_c, $E, $N) = dbh()->selectrow_array("select min(coordsyst), max(coordsyst), avg(easting), avg(northing) from postcode where postcode like ? || '%'", {}, $pc);
+            if ($E && $N) {
+                throw RABX::Error("Multiple coordinate systems for one partial postcode '$pc'.", mySociety::MaPit::POSTCODE_NOT_FOUND) if ($min_c ne $max_c);
+                $result{coordsyst} = $min_c;
+                $result{easting} = $E;
+                $result{northing} = $N;
+            } else {
+                throw RABX::Error("Partial postcode '$pc' not found.", mySociety::MaPit::POSTCODE_NOT_FOUND);
+            }
         } else {
-            throw RABX::Error("Postcode '$pc' not found.", mySociety::MaPit::POSTCODE_NOT_FOUND);
+            throw RABX::Error("Postcode '$pc' is not valid.", mySociety::MaPit::BAD_POSTCODE) unless (mySociety::Util::is_valid_postcode($pc));
+            if (my ($coordsyst, $E, $N) = dbh()->selectrow_array('select coordsyst, easting, northing from postcode where postcode = ?', {}, $pc)) {
+                $result{coordsyst} = $coordsyst;
+                $result{easting} = $E;
+                $result{northing} = $N;
+            } else {
+                throw RABX::Error("Postcode '$pc' not found.", mySociety::MaPit::POSTCODE_NOT_FOUND);
+            }
         }
     }
 
