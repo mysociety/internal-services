@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.7 2005-06-08 22:34:22 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.8 2005-07-14 16:46:41 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -23,11 +23,13 @@ use Text::CSV;
 use Data::Dumper;
 use mySociety::VotingArea;
 use mySociety::CouncilMatch;
+use mySociety::ArrayUtils;
 
 use Common;
 
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
+mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
 # Delete existing GovEval name data for councils of 'C' type
 $m_dbh->do(
@@ -104,6 +106,9 @@ while (my $line = <STDIN>) {
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
     warn "invalid geid $geid\nline $line_number: $line\n" unless $geid =~ m/^[1-9][0-9]+$/;
+    warn "first name is empty geid $geid" if !$first;
+    warn "last name is empty geid $geid" if !$last;
+    warn "ward name is empty geid $geid" if !$vdiv;
 
     # Special case for areas with elected mayors.
     next if $vdiv eq "Elected Mayor";
@@ -144,53 +149,137 @@ foreach my $parent (@pk) {
 }
 
 # Load data into raw table in DaDem
-my $edited_councils_count = 0;
 my $councils_count = 0;
-foreach my $id (keys %$councils) {
+my $clashes_via_add_del_count = 0;
+foreach my $council_id (keys %$councils) {
     $councils_count++;
 
-    # Count how many edits and so on
-    my ($edits_count) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
-        where council_id =?#, {}, $id);
-    my ($edits_count_modify) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
-        where council_id =? and alteration='modify' and ge_id is not null#, {}, $id);
-    my ($edits_count_new) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
-        where council_id =? and alteration='modify' and newrow_id is not null#, {}, $id);
-    my ($edits_count_delete) = $d_dbh->selectrow_array(q#select count(*) from raw_input_data_edited 
-        where council_id =? and alteration='delete'#, {}, $id);
-    $edited_councils_count++ if ($edits_count > 0);
+    # Get data we loaded last time, i.e. before mySociety edits
+    my $sth = $d_dbh->prepare(q#select ge_id, ward_name, 
+                  rep_first, rep_last, rep_party, rep_email, rep_fax
+                  from raw_input_data where council_id = ?#, {});
+    $sth->execute($council_id);
+    my $reps_prev_import;
+    while (my $rep = $sth->fetchrow_hashref) {
+        my $key = 'ge_id' . $rep->{ge_id};
+        $reps_prev_import->{$key} = $rep;
+        $reps_prev_import->{$key}->{key} = $key;
+    }
+
+    # Get each line of new import
+    my $lines = $councils->{$council_id}->{lines};
+    my $reps_new_import;
+    foreach my $line (@$lines) {
+        my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
+        $fax = ""; $email = ""; # Fax and email data isn't good enough to use
+        $geid =~ s/[^0-9]//g;
+        die "digit part of geid too short\nline $line_number: $line\n" unless scalar($geid) > 3;
+        my $key = 'ge_id' . $geid;
+        $reps_new_import->{$key}->{key} = $key;
+        $reps_new_import->{$key}->{ward_name} = $vdiv;
+        $reps_new_import->{$key}->{rep_first} = $first;
+        $reps_new_import->{$key}->{rep_last} = $last;
+        $reps_new_import->{$key}->{rep_party} = $party;
+        $reps_new_import->{$key}->{rep_email} = $email;
+        $reps_new_import->{$key}->{rep_fax} = $fax;
+    }
+    
+    # Get data as modified by mySociety
+    my @reps_mysociety_mod = mySociety::CouncilMatch::get_raw_data($council_id);
+    my $reps_mysociety_mod;
+    foreach my $rep (@reps_mysociety_mod) {
+        $reps_mysociety_mod->{$rep->{key}} = $rep;
+    }
 
     # Display
-    print $councils->{$id}->{canonname} . " " . $area_id_data->{$id}->{type} . " id:$id edits:$edits_count = $edits_count_modify mod, $edits_count_new new, $edits_count_delete del\n";
+    print "-" x 70 . "\n";
+    print $councils->{$council_id}->{canonname} . " " . $area_id_data->{$council_id}->{type} . " id:$council_id" . "\n";
+
+    #print "prev import:\n";
+    #print Dumper($reps_prev_import);
+    #print "mysociety mods:\n";
+    #print Dumper($reps_mysociety_mod);
+    #print "new import:\n";
+    #print Dumper($reps_new_import);
+
+    # Look for differences in the keys
+    my $diff_mysociety_new = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
+    if (scalar(@$diff_mysociety_new) > 0) {
+        print "clashes through addition/deletion of ge_id, symmetric diff " . scalar(@$diff_mysociety_new) . "\n";
+        $clashes_via_add_del_count++;
+        next;
+    }
+    print "OK, keys match\n";
+    # In this case, other diffs should find no alterations (as serious mySociety mods make their own new keys)
+    my $diff_mysociety_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_prev_import]);
+    die "expected no diffs" if scalar(@$diff_mysociety_prev) > 0;
+    my $diff_new_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_new_import], [keys %$reps_prev_import]);
+    die "expected no diffs" if scalar(@$diff_new_prev) > 0;
+    
+    my $reps_differ = sub {
+        my ($rep1, $rep2) = @_;
+
+        my $diff = "";
+        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+            if ($rep1->{$field} ne $rep2->{$field}) {
+                $diff .= "$field: '".$rep1->{$field}."'->'".$rep2->{$field}."' ";
+            }
+        }
+        return $diff;
+    };
+
+    foreach my $key (keys %$reps_new_import) {
+        my $new_import = $reps_new_import->{$key};
+        my $mysociety_mod = $reps_mysociety_mod->{$key};
+        my $prev_import = $reps_prev_import->{$key};
+
+        my $mysociety_new = $reps_differ->($mysociety_mod, $new_import);
+        my $prev_mysociety = $reps_differ->($prev_import, $mysociety_mod);
+        my $prev_new = $reps_differ->($prev_import, $new_import);
+
+        if ($mysociety_new) {
+            # Differ
+            #print "Difference MS->GE: $mysociety_new\n";
+            if ($prev_mysociety && !$prev_new) {
+                print "Pick MS, as GE no change\n";
+                print "\tMS change: $prev_mysociety\n";
+            } elsif ($prev_new && !$prev_mysociety) {
+                print "Pick GE, as MS no change\n";
+                print "\tGE change: $prev_new\n";
+            } else {
+                die if (!$prev_new || !$prev_mysociety);
+                print "PROPER CLASH both changed\n";
+                print "\tMS change: $prev_mysociety\n";
+                print "\tGE change: $prev_new\n";
+            }
+            #print Dumper($new_import);
+            #print Dumper($mysociety_mod);
+        } else {
+            # Same
+            if ($prev_mysociety || $prev_new) {
+                print "Both made same change\n";
+                print "\tMS change: $prev_mysociety\n";
+                print "\tGE change: $prev_new\n";
+            }
+        }
+    }
 
     # Vague but doomed attempt to delete existing data (doesn't behave as we
     # would want when ids and names and types change, because we don't yet
     # know what we want)
-$d_dbh->do(q#delete from raw_input_data where
-        council_id = ? #, {}, $id);
+#$d_dbh->do(q#delete from raw_input_data where council_id = ? #, {}, $council_id);
+#$d_dbh->do(q#delete from raw_input_data_edited where council_id = ? #, {}, $council_id);
+    # Insert new data
+#        $d_dbh->do(q#insert into raw_input_data
+#                (ge_id, council_id, council_name, council_type, council_ons_code, ward_name, 
+#                    rep_first, rep_last, rep_party, rep_email, rep_fax)
+#                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
+#                $geid, $council_id, $councils->{$council_id}->{canonname}, $area_id_data->{$council_id}->{type}, 
+#                $area_id_data->{$id}->{ons_code}, $vdiv, 
+#                $first, $last, $party, $email, $fax);
 
-    # Load in each line of data
-    my $lines = $councils->{$id}->{lines};
-    foreach my $line (@$lines) {
-        my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
-        $geid =~ s/[^0-9]//g;
-        die "digit part of geid too short\nline $line_number: $line\n" unless scalar($geid) > 3;
-
-        # Fax and email data isn't good enough to load yet
-        $fax = "";
-        $email = "";
-
-        $d_dbh->do(q#insert into raw_input_data
-                (ge_id, council_id, council_name, council_type, council_ons_code, ward_name, 
-                    rep_first, rep_last, rep_party, rep_email, rep_fax)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
-                $geid, $id, $councils->{$id}->{canonname}, $area_id_data->{$id}->{type}, 
-                $area_id_data->{$id}->{ons_code}, $vdiv, 
-                $first, $last, $party, $email, $fax);
-    }
 }
-
-print "Edits: $edited_councils_count / $councils_count councils\n";
+print "Clashes due to differing gid list: $clashes_via_add_del_count / $councils_count\n";
 
 #$m_dbh->commit();
 #$d_dbh->commit();
