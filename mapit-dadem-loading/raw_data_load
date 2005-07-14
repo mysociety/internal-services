@@ -12,7 +12,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.8 2005-07-14 16:46:41 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.9 2005-07-14 17:51:05 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -150,7 +150,6 @@ foreach my $parent (@pk) {
 
 # Load data into raw table in DaDem
 my $councils_count = 0;
-my $clashes_via_add_del_count = 0;
 foreach my $council_id (keys %$councils) {
     $councils_count++;
 
@@ -202,21 +201,9 @@ foreach my $council_id (keys %$councils) {
     #print "new import:\n";
     #print Dumper($reps_new_import);
 
-    # Look for differences in the keys
-    my $diff_mysociety_new = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
-    if (scalar(@$diff_mysociety_new) > 0) {
-        print "clashes through addition/deletion of ge_id, symmetric diff " . scalar(@$diff_mysociety_new) . "\n";
-        $clashes_via_add_del_count++;
-        next;
-    }
-    print "OK, keys match\n";
-    # In this case, other diffs should find no alterations (as serious mySociety mods make their own new keys)
-    my $diff_mysociety_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_prev_import]);
-    die "expected no diffs" if scalar(@$diff_mysociety_prev) > 0;
-    my $diff_new_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_new_import], [keys %$reps_prev_import]);
-    die "expected no diffs" if scalar(@$diff_new_prev) > 0;
-    
-    my $reps_differ = sub {
+    # Returns string containing differences between two representative records, or empty
+    # string (which is "false") if there are no differences.
+    my $reps_diff = sub {
         my ($rep1, $rep2) = @_;
 
         my $diff = "";
@@ -228,14 +215,66 @@ foreach my $council_id (keys %$councils) {
         return $diff;
     };
 
-    foreach my $key (keys %$reps_new_import) {
+    # Returns description of rep
+    my $rep_desc = sub {
+        my ($rep) = @_;
+        return $rep->{ward_name} . ", ".$rep->{rep_first}." ".$rep->{rep_last}." (".$rep->{rep_party}.")";
+    };
+
+    # Look for differences in the keys
+    my $common_keys;
+    my $diff_mysociety_new = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
+    if (scalar(@$diff_mysociety_new) > 0) {
+        print "clashes through addition/deletion of ge_id, symmetric diff " . scalar(@$diff_mysociety_new) . "\n";
+        # See what the additions/deletions are
+        foreach my $key (@$diff_mysociety_new) {
+            my $in_mysociety = defined($reps_mysociety_mod->{$key});
+            my $in_new = defined($reps_new_import->{$key});
+            my $in_prev = defined($reps_prev_import->{$key});
+            if ($in_mysociety && !$in_new) {
+                if ($in_prev) {
+                    print "GE deleted $key\n";
+                    print "\t".$rep_desc->($reps_mysociety_mod->{$key})."\n";
+                } else {
+                    print "MS added $key\n";
+                    print "\t".$rep_desc->($reps_mysociety_mod->{$key})."\n";
+                }
+            } elsif ($in_new && !$in_mysociety) {
+                if ($in_prev) {
+                    print "MS deleted $key\n";
+                    print "\t".$rep_desc->($reps_new_import->{$key})."\n";
+                } else {
+                    print "GE added $key\n";
+                    print "\t".$rep_desc->($reps_new_import->{$key})."\n";
+                }
+            } else {
+                die "symmetric diff must be in one of them";
+            }
+        }
+
+        # Keys which remained in both fields throughout
+        $common_keys = mySociety::ArrayUtils::intersection([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
+    } else {
+        # In this case, other diffs should find no alterations (as serious mySociety mods make their own new keys)
+        my $diff_mysociety_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_prev_import]);
+        die "expected no diffs" if scalar(@$diff_mysociety_prev) > 0;
+        my $diff_new_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_new_import], [keys %$reps_prev_import]);
+        die "expected no diffs" if scalar(@$diff_new_prev) > 0;
+
+        # Keys match, so use them all
+        print "OK, keys match\n";
+        $common_keys = [keys %$reps_new_import];
+    }
+    
+    # Loop through all representatives, merging changes
+    foreach my $key (@$common_keys) {
         my $new_import = $reps_new_import->{$key};
         my $mysociety_mod = $reps_mysociety_mod->{$key};
         my $prev_import = $reps_prev_import->{$key};
 
-        my $mysociety_new = $reps_differ->($mysociety_mod, $new_import);
-        my $prev_mysociety = $reps_differ->($prev_import, $mysociety_mod);
-        my $prev_new = $reps_differ->($prev_import, $new_import);
+        my $mysociety_new = $reps_diff->($mysociety_mod, $new_import);
+        my $prev_mysociety = $reps_diff->($prev_import, $mysociety_mod);
+        my $prev_new = $reps_diff->($prev_import, $new_import);
 
         if ($mysociety_new) {
             # Differ
@@ -279,7 +318,6 @@ foreach my $council_id (keys %$councils) {
 #                $first, $last, $party, $email, $fax);
 
 }
-print "Clashes due to differing gid list: $clashes_via_add_del_count / $councils_count\n";
 
 #$m_dbh->commit();
 #$d_dbh->commit();
