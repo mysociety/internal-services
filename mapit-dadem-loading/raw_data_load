@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w -I../../perllib
 #
-# load_raw_wards
+# raw_data_load
 # Load in raw GovEval data, match Council names names to Ordnance Survey ones
 # in the MaPit database, and use appropriate IDs.  Loads the canonical names of
 # councils into MaPit.
@@ -8,11 +8,13 @@
 # Parameters:  Pipe the councillorsWithID.csv file from GovEval into standard
 # input.
 #
+# cat ../../../repdata/goveval/councillorsWithID.csv | ./raw_data_load
+#
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.9 2005-07-14 17:51:05 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.10 2005-07-16 11:26:33 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -30,6 +32,9 @@ use Common;
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
+
+# values from 0 to 3 with increasing verbosity
+my $verbose = 2;
 
 # Delete existing GovEval name data for councils of 'C' type
 $m_dbh->do(
@@ -106,6 +111,8 @@ while (my $line = <STDIN>) {
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
     warn "invalid geid $geid\nline $line_number: $line\n" unless $geid =~ m/^[1-9][0-9]+$/;
+    next if (!$first && !$last && $vdiv);  # GovEval sometimes use this to mark pending byelection, so no member ...
+    # ... we still check we don't have individual empty strings
     warn "first name is empty geid $geid" if !$first;
     warn "last name is empty geid $geid" if !$last;
     warn "ward name is empty geid $geid" if !$vdiv;
@@ -126,21 +133,7 @@ while (my $line = <STDIN>) {
 }
 
 # Print out councils in $parent_to_id for which nobody has been added to $councils
-my @ck = keys %$councils;
-my @pk = keys %parent_to_id;
-if ($#ck != $#pk) {
-    print STDERR "Council count mismatch:\n";
-    print STDERR "There are " . scalar(@ck) . " councils in GovEval data\n";
-    print STDERR "There are " . scalar(@pk) . " councils in database\n";
-
-    my %p = %parent_to_id;
-    foreach (keys %$councils) {
-        delete($p{$councils->{$_}->{canonname}});
-    }
-
-    print STDERR "Database councils not matched:\n", join("\n", sort keys %p), "\n";
-}
-foreach my $parent (@pk) {
+foreach my $parent (keys %parent_to_id) {
     my $id = $parent_to_id{$parent};
     die "\$parent_to_id{'$parent'} not present" unless (defined($id));
     if (!exists($councils->{$id})) {
@@ -150,8 +143,13 @@ foreach my $parent (@pk) {
 
 # Load data into raw table in DaDem
 my $councils_count = 0;
+my $clashes_count = 0;
 foreach my $council_id (keys %$councils) {
     $councils_count++;
+    my $this_clashes = "";
+
+    #################################################################
+    # Get the three versions of data
 
     # Get data we loaded last time, i.e. before mySociety edits
     my $sth = $d_dbh->prepare(q#select ge_id, ward_name, 
@@ -191,8 +189,9 @@ foreach my $council_id (keys %$councils) {
     }
 
     # Display
-    print "-" x 70 . "\n";
-    print $councils->{$council_id}->{canonname} . " " . $area_id_data->{$council_id}->{type} . " id:$council_id" . "\n";
+    my $out = "";
+    $out .= "-" x 70 . "\n";
+    $out .= $councils->{$council_id}->{canonname} . " " . $area_id_data->{$council_id}->{type} . " id:$council_id" . "\n";
 
     #print "prev import:\n";
     #print Dumper($reps_prev_import);
@@ -200,6 +199,9 @@ foreach my $council_id (keys %$councils) {
     #print Dumper($reps_mysociety_mod);
     #print "new import:\n";
     #print Dumper($reps_new_import);
+
+    #################################################################
+    # See if set of keys in each is the same
 
     # Returns string containing differences between two representative records, or empty
     # string (which is "false") if there are no differences.
@@ -224,32 +226,55 @@ foreach my $council_id (keys %$councils) {
     # Look for differences in the keys
     my $common_keys;
     my $diff_mysociety_new = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
+    my $ge_add_del = 0;
+    my $ms_add_del = 0;
     if (scalar(@$diff_mysociety_new) > 0) {
-        print "clashes through addition/deletion of ge_id, symmetric diff " . scalar(@$diff_mysociety_new) . "\n";
         # See what the additions/deletions are
         foreach my $key (@$diff_mysociety_new) {
-            my $in_mysociety = defined($reps_mysociety_mod->{$key});
-            my $in_new = defined($reps_new_import->{$key});
-            my $in_prev = defined($reps_prev_import->{$key});
+            my $new_import = $reps_new_import->{$key};
+            my $mysociety_mod = $reps_mysociety_mod->{$key};
+            my $prev_import = $reps_prev_import->{$key};
+            my $in_new = defined($new_import);
+            my $in_mysociety = defined($mysociety_mod);
+            my $in_prev = defined($prev_import);
             if ($in_mysociety && !$in_new) {
                 if ($in_prev) {
-                    print "GE deleted $key\n";
-                    print "\t".$rep_desc->($reps_mysociety_mod->{$key})."\n";
+                    $out .= "GE deleted:";
+                    $out .= " ".$rep_desc->($reps_prev_import->{$key})."\n";
+                    $ge_add_del = 1;
+                    my $prev_mysociety = $reps_diff->($prev_import, $mysociety_mod);
+                    if ($prev_mysociety) {
+                        $out .= "\tPROPER CLASH: but MS modified: $prev_mysociety\n";
+                        $this_clashes .= "Deletion modified by other. ";
+                    }
                 } else {
-                    print "MS added $key\n";
-                    print "\t".$rep_desc->($reps_mysociety_mod->{$key})."\n";
+                    $out .= "MS added:" if $verbose > 1;
+                    $out .= " ".$rep_desc->($reps_mysociety_mod->{$key})."\n";
+                    $ms_add_del = 1;
                 }
             } elsif ($in_new && !$in_mysociety) {
                 if ($in_prev) {
-                    print "MS deleted $key\n";
-                    print "\t".$rep_desc->($reps_new_import->{$key})."\n";
+                    $out .= "MS deleted:" if $verbose > 0;
+                    $out .= " ".$rep_desc->($reps_prev_import->{$key})."\n";
+                    $ms_add_del = 1;
+                    my $prev_new = $reps_diff->($prev_import, $new_import);
+                    if ($prev_new) {
+                        $out .= "\tPROPER CLASH: but GE modified: $prev_new\n";
+                        $this_clashes .= "Deletion modified by other. ";
+                    }
                 } else {
-                    print "GE added $key\n";
-                    print "\t".$rep_desc->($reps_new_import->{$key})."\n";
+                    $out .= "GE added:";
+                    $out .= " ".$rep_desc->($reps_new_import->{$key})."\n";
+                    $ge_add_del = 1;
                 }
             } else {
                 die "symmetric diff must be in one of them";
             }
+        }
+        
+        # What to do about deletion clashes
+        if ($ge_add_del && $ms_add_del) {
+            $this_clashes .= "Both made major additions/deletions. ";
         }
 
         # Keys which remained in both fields throughout
@@ -262,11 +287,15 @@ foreach my $council_id (keys %$councils) {
         die "expected no diffs" if scalar(@$diff_new_prev) > 0;
 
         # Keys match, so use them all
-        print "OK, keys match\n";
         $common_keys = [keys %$reps_new_import];
     }
+
+    #################################################################
+    # For common keys, merge changes
     
     # Loop through all representatives, merging changes
+    my $ge_change = 0;
+    my $ms_change = 0;
     foreach my $key (@$common_keys) {
         my $new_import = $reps_new_import->{$key};
         my $mysociety_mod = $reps_mysociety_mod->{$key};
@@ -278,29 +307,43 @@ foreach my $council_id (keys %$councils) {
 
         if ($mysociety_new) {
             # Differ
-            #print "Difference MS->GE: $mysociety_new\n";
             if ($prev_mysociety && !$prev_new) {
-                print "Pick MS, as GE no change\n";
-                print "\tMS change: $prev_mysociety\n";
+                # Pick MS, as GE no change
+                $out .= "MS change: $prev_mysociety\n";
+                $ms_change = 1;
             } elsif ($prev_new && !$prev_mysociety) {
-                print "Pick GE, as MS no change\n";
-                print "\tGE change: $prev_new\n";
+                # Pick GE, as MS no change
+                $out .= "GE change: $prev_new\n";
+                $ge_change = 1;
             } else {
                 die if (!$prev_new || !$prev_mysociety);
-                print "PROPER CLASH both changed\n";
-                print "\tMS change: $prev_mysociety\n";
-                print "\tGE change: $prev_new\n";
+                $out .= "PROPER CLASH both changed\n";
+                $out .= "\tMS change: $prev_mysociety\n";
+                $out .= "\tGE change: $prev_new\n";
+                $this_clashes .= "Individual rep edit clashes. ";
+                $ms_change = 1;
+                $ge_change = 1;
             }
-            #print Dumper($new_import);
-            #print Dumper($mysociety_mod);
         } else {
             # Same
             if ($prev_mysociety || $prev_new) {
-                print "Both made same change\n";
-                print "\tMS change: $prev_mysociety\n";
-                print "\tGE change: $prev_new\n";
+                #print "Both made same change\n" if $verbose > 2;
+                #print "\tMS change: $prev_mysociety\n" if $verbose > 2;
+                #print "\tGE change: $prev_new\n" if $verbose > 2;;
             }
         }
+    }
+
+    #################################################################
+
+    if (($ge_change && $ms_add_del) || ($ms_change && $ge_add_del)) {
+        $this_clashes .= "Add/del by one, small mods by other. ";
+    }
+
+    if ($this_clashes) {
+        $clashes_count++;
+        print $out;
+        print "CLASH REASONS: " . $this_clashes . "\n";
     }
 
     # Vague but doomed attempt to delete existing data (doesn't behave as we
@@ -318,6 +361,8 @@ foreach my $council_id (keys %$councils) {
 #                $first, $last, $party, $email, $fax);
 
 }
+
+print "$clashes_count/$councils_count clash\n";
 
 #$m_dbh->commit();
 #$d_dbh->commit();
