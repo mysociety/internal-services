@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.4 2005-04-30 15:25:55 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.5 2005-07-18 13:31:40 francis Exp $';
 
 use strict;
 
@@ -22,7 +22,7 @@ use lib "$FindBin::Bin/../../../perllib";
 use Error qw(:try);
 use Getopt::Long;
 use Pod::Usage;
-use POSIX;
+use POSIX ();
 use Sys::Syslog;
 
 use mySociety::Config;
@@ -104,7 +104,7 @@ my $termsig = mySociety::Util::manage_child_processes({
 
 undef($pidfile);
 
-if ($termsig == SIGHUP) {
+if ($termsig == POSIX::SIGHUP) {
     print_log('notice', "restarting on signal $termsig");
     { exec($FindBin::Script, @ARGV); }
     print_log('err', "exec: $!");
@@ -160,5 +160,5 @@ Copyright (c) 2005 UK Citizens Online Democracy
 
 =head1 VERSION
 
-$Id: eveld,v 1.4 2005-04-30 15:25:55 chris Exp $
+$Id: eveld,v 1.5 2005-07-18 13:31:40 francis Exp $
 
