@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.42 2005-06-15 17:32:26 chris Exp $
+# $Id: DaDem.pm,v 1.43 2005-07-20 18:56:20 francis Exp $
 #
 
 package DaDem;
@@ -679,6 +679,17 @@ sub admin_set_area_status($$) {
     dbh()->do("delete from area_status where area_id = ?", {}, $area_id);
     dbh()->do("insert into area_status (area_id, status) values (?, ?)", {}, $area_id, $new_status);
     dbh()->commit();
+}
+
+=item admin_get_raw_council_status
+
+Returns how many councils are not in the made-live state.
+
+=cut
+sub admin_get_raw_council_status() {
+    my $count = dbh()->selectrow_array('select count(*) from raw_process_status
+        where status <> \'made-live\'');
+    return $count;
 }
 
 1;

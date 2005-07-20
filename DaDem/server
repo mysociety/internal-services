@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.12 2005-06-03 16:04:03 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.13 2005-07-20 18:56:20 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -79,6 +79,9 @@ while ($req->Accept() >= 0) {
             },
             'DaDem.admin_set_area_status' => sub {
                 return DaDem::admin_set_area_status($_[0], $_[1]);
+            },
+            'DaDem.admin_get_raw_council_status' => sub {
+                return DaDem::admin_get_raw_council_status();
             }
          );
     $W->exit_if_changed();
