@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.43 2005-07-20 18:56:20 francis Exp $
+# $Id: DaDem.pm,v 1.44 2005-07-20 23:20:21 francis Exp $
 #
 
 package DaDem;
@@ -333,7 +333,7 @@ sub get_bad_contacts () {
     $s->execute();
     my @bad;
     while (my ($id, $email, $fax, $method, $deleted) = $s->fetchrow_array()) {
-        next if $deleted eq 't';
+        next if $deleted;
     
         my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
         my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
