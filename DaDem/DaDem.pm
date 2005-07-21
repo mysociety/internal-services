@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.44 2005-07-20 23:20:21 francis Exp $
+# $Id: DaDem.pm,v 1.45 2005-07-21 11:15:35 francis Exp $
 #
 
 package DaDem;
@@ -631,16 +631,18 @@ sub admin_done_user_correction ($) {
     dbh()->commit();
 }
 
-=item admin_mark_failing_contact ID METHOD X EDITOR
+=item admin_mark_failing_contact ID METHOD X EDITOR COMMENT
 
 Report that a delivery to representative ID by METHOD ('email' or 'fax') to the
 number or address X failed. Marks the representative as having unknown contact
 details if X is still the current contact method for that representative.
-EDITOR is the name of the entity making the correction (e.g. 'fyr-queue').
+EDITOR is the name of the entity making the correction (e.g. 'fyr-queue'),
+COMMENT is an extra comment to add to the change log of the representatives
+details.
 
 =cut
-sub admin_mark_failing_contact ($$$$) {
-    my ($id, $method, $x, $editor) = @_;
+sub admin_mark_failing_contact ($$$$$) {
+    my ($id, $method, $x, $editor, $comment) = @_;
     throw RABX::Error("Bad METHOD '$method'") unless (defined($method) and $method =~ m#^(email|fax)$#);
     throw RABX::Error("EDITOR must be specified") unless (defined($editor));
 
@@ -660,7 +662,7 @@ sub admin_mark_failing_contact ($$$$) {
         } else {
             $newmethod = 'email';
         }
-        admin_edit_representative($id, { method => $newmethod }, $editor, "Failed delivery with contact '$x'");
+        admin_edit_representative($id, { method => $newmethod }, $editor, "Failed delivery with contact '$x': $comment");
     }
 
     dbh()->commit();
