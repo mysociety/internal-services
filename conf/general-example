@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.13 2005-04-30 15:28:25 chris Exp $
+ * $Id: general-example,v 1.14 2005-07-22 13:57:40 francis Exp $
  * 
  */
 
@@ -32,6 +32,14 @@ define('OPTION_DADEM_DB_PASS', '');
 // optionally, define a hostname and port
 //define('OPTION_DADEM_DB_HOST', 'localhost');
 //define('OPTION_DADEM_DB_PORT', '5432');
+
+// PostgreSQL database for Gaze
+define('OPTION_GAZE_DB_NAME', 'gaze');
+define('OPTION_GAZE_DB_USER', 'gaze');
+define('OPTION_GAZE_DB_PASS', '');
+// optionally, define a hostname and port
+//define('OPTION_GAZE_DB_HOST', 'localhost');
+//define('OPTION_GAZE_DB_PORT', '5432');
 
 // PostgreSQL database for Ratty
 define('OPTION_RATTY_DB_NAME', 'ratty');
