@@ -14,7 +14,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.10 2005-07-16 11:26:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.11 2005-07-26 09:50:47 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -280,11 +280,18 @@ foreach my $council_id (keys %$councils) {
         # Keys which remained in both fields throughout
         $common_keys = mySociety::ArrayUtils::intersection([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
     } else {
-        # In this case, other diffs should find no alterations (as serious mySociety mods make their own new keys)
+        # In this case, other diffs should find no additions (as serious mySociety mods make their own new keys),
+        # and only deletions which have happened in both sets of changes.  So, symmetric diff same for both.
         my $diff_mysociety_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_prev_import]);
-        die "expected no diffs" if scalar(@$diff_mysociety_prev) > 0;
         my $diff_new_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_new_import], [keys %$reps_prev_import]);
-        die "expected no diffs" if scalar(@$diff_new_prev) > 0;
+        if (scalar(@$diff_mysociety_prev) > 0 || scalar(@$diff_new_prev) > 0) {
+            my $d = mySociety::ArrayUtils::symmetric_diff($diff_mysociety_prev, $diff_new_prev);
+            if (scalar(@$d) > 0) {
+                die "Internally inconsistent changes:" . 
+                    " diff_mysociety_prev: " . join(", ", @$diff_mysociety_prev) .
+                    " diff_mysociety_prev: " . join(", ", @$diff_new_prev);
+            }
+        }
 
         # Keys match, so use them all
         $common_keys = [keys %$reps_new_import];
