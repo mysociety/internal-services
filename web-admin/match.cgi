@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.22 2005-02-10 09:13:33 francis Exp $
+# $Id: match.cgi,v 1.23 2005-07-26 17:42:56 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.22 2005-02-10 09:13:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.23 2005-07-26 17:42:56 francis Exp $';
 
 use strict;
 
@@ -87,6 +87,8 @@ sub build_url($$$;$) {
 }
 
 my $status_titles = {
+    'conflicts-none' => 'No conflicts found',
+    'conflicts-found' => 'Conflicts found',
     'wards-match' => 'Wards matched OK',
     'wards-mismatch' => 'Ward matching failed',
     'url-found' => 'Councillors URL OK',
@@ -96,11 +98,13 @@ my $status_titles = {
     'failed-live' => 'Failed to make live',
     'made-live' => 'Has refreshed live data',
 };
-my $status_titles_order =  
-    ['wards-mismatch', 'wards-match', 
+my $status_titles_order =  [
+    'conflicts-none', 'conflicts-found',
+    'wards-mismatch', 'wards-match', 
     'url-missing', 'url-found',
     'councillors-mismatch', 'councillors-match',
-    'failed-live', 'made-live'];
+    'failed-live', 'made-live'
+];
 
 # do_summary CGI
 # Displays page with summary of matching status of all councils.
@@ -198,10 +202,12 @@ sub do_council_info ($) {
 
     if ($status_data->{status} eq "made-live") {
         my $example_postcode = MaPit::get_example_postcode($area_id);
-        print $q->p("Example postcode to test on WriteToThem.com: ",
-            $q->a({href => build_url($q, "http://www.writetothem.com/",
-                    { 'pc' => $example_postcode}) }, 
-                $example_postcode));
+        if ($example_postcode) {
+            print $q->p("Example postcode to test on WriteToThem.com: ",
+                $q->a({href => build_url($q, "http://www.writetothem.com/",
+                        { 'pc' => $example_postcode}) }, 
+                    $example_postcode));
+        }
     }
 
     if ($status_data->{'error'}) {
@@ -370,6 +376,7 @@ sub do_council_edit ($) {
         mySociety::CouncilMatch::edit_raw_data($area_id, 
                 $name_data->{'name'}, $area_data->{'type'}, $area_data->{'ons_code'},
                 \@newdata, $q->remote_user() || "*unknown*");
+        $d_dbh->commit();
 
         # Regenerate stuff
         my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
