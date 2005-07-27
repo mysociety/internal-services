@@ -5,6 +5,11 @@
 # in the MaPit database, and use appropriate IDs.  Loads the canonical names of
 # councils into MaPit.
 #
+# If an import has been done before to the database, it does a merge with any
+# changes made since them.  This can be safely done repeatedly with the same
+# data.  The merge automatically is made relative to the last import.
+# Conflicts are marked in the merged fields with the text CONFLICT.
+#
 # Parameters:  Pipe the councillorsWithID.csv file from GovEval into standard
 # input.
 #
@@ -14,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.14 2005-07-27 19:09:53 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.15 2005-07-27 19:15:02 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -178,6 +183,8 @@ foreach my $council_id (keys %$councils) {
     # Get the three versions of data
 
     # Get data we loaded last time, i.e. before mySociety edits
+    # We use the second parameter to get_raw_data to do this -- it gives the 
+    # state just after the user "import" last edited things.
     my @reps_prev_import = mySociety::CouncilMatch::get_raw_data($council_id, 1);
     my $reps_prev_import;
     foreach my $rep (@reps_prev_import) {
@@ -403,6 +410,7 @@ foreach my $council_id (keys %$councils) {
     }
 
     #################################################################
+    # Go for it
 
     if (($ge_change && $ms_add_del) || ($ms_change && $ge_add_del)) {
         $this_clashes .= "Add/del by one, small mods by other. ";
@@ -419,12 +427,18 @@ foreach my $council_id (keys %$councils) {
         
         # Edit the data
         print "Modifying\n";
+
+        # First a user "import" load the full new data for later reference (we
+        # go back to this position when we next do a load)
         mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
             $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
             [values %$reps_new_import], "import");
+
+        # Then on top of that apply the merges
         mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
             $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
             [values %$reps_merged], "merge");
+
     } else {
         die "Unexpected clashes when no GE changes:\n$this_clashes" if $this_clashes;
         print $out;
@@ -433,7 +447,7 @@ foreach my $council_id (keys %$councils) {
 }
 
 print "-" x 70 . "\n";
-print "All done.  $clashes_count/$councils_count clash\n";
+print "All done.  $clashes_count/$councils_count clash a bit\n";
 
 $m_dbh->commit();
 $d_dbh->commit();
