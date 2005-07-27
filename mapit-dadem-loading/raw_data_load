@@ -14,7 +14,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.12 2005-07-26 17:42:56 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.13 2005-07-27 03:48:11 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -148,36 +148,64 @@ foreach my $parent (keys %parent_to_id) {
 my $councils_count = 0;
 my $clashes_count = 0;
 foreach my $council_id (keys %$councils) {
+#foreach my $council_id (2448) {
     $councils_count++;
     my $this_clashes = "";
 
     #################################################################
-    # Get the three versions of data
+    # Utility functions
+    
+    # Returns string containing differences between two representative records, or empty
+    # string (which is "false") if there are no differences.
+    my $reps_diff = sub {
+        my ($rep1, $rep2) = @_;
 
-    # Get data as modified by mySociety
-    my @reps_mysociety_mod = mySociety::CouncilMatch::get_raw_data($council_id);
-    my $reps_mysociety_mod;
-    foreach my $rep (@reps_mysociety_mod) {
-        $reps_mysociety_mod->{$rep->{key}} = $rep;
-    }
+        my $diff = "";
+        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+            if ($rep1->{$field} ne $rep2->{$field}) {
+                $diff .= "$field: '".$rep1->{$field}."'->'".$rep2->{$field}."' ";
+            }
+        }
+        return $diff;
+    };
+
+    # Returns description of rep
+    my $rep_desc = sub {
+        my ($rep) = @_;
+        return $rep->{ward_name} . ", ".$rep->{rep_first}." ".$rep->{rep_last}." (".$rep->{rep_party}.")";
+    };
+
+    #################################################################
+    # Get the three versions of data
 
     # Get data we loaded last time, i.e. before mySociety edits
     my @reps_prev_import = mySociety::CouncilMatch::get_raw_data($council_id, 1);
     my $reps_prev_import;
     foreach my $rep (@reps_prev_import) {
         $reps_prev_import->{$rep->{key}} = $rep;
+    }
 
-        # Advance any resolved conflits through to their resolution
+    # Get data as modified by mySociety
+    my @reps_mysociety_mod = mySociety::CouncilMatch::get_raw_data($council_id);
+    my $reps_mysociety_mod;
+    foreach my $rep (@reps_mysociety_mod) {
+        $reps_mysociety_mod->{$rep->{key}} = $rep;
+
+        # Revert any unresolved conflits back to before their resolution
         my $conflict = 0;
         foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
             my $value = $rep->{$field};
             $conflict = 1 if ($value =~ m/CONFLICT/);
         }
         if ($conflict) {
-            print "Conflict flipping\n";
-            print Dumper($reps_prev_import->{$rep->{key}});
-            print Dumper($reps_mysociety_mod->{$rep->{key}});
-            $reps_prev_import->{$rep->{key}} = $reps_mysociety_mod->{$rep->{key}};
+            #print "Conflict flipping\n";
+            #print Dumper($reps_mysociety_mod->{$rep->{key}});
+            #print Dumper($reps_prev_import->{$rep->{key}});
+            if (!defined($reps_prev_import->{$rep->{key}})) {
+                delete $reps_mysociety_mod->{$rep->{key}};
+            } else {
+                $reps_mysociety_mod->{$rep->{key}} = $reps_prev_import->{$rep->{key}};
+            }
         }
     }
 
@@ -221,31 +249,13 @@ foreach my $council_id (keys %$councils) {
     #################################################################
     # Find keys which are added/deleted by either mySociety or GE
 
-    # Returns string containing differences between two representative records, or empty
-    # string (which is "false") if there are no differences.
-    my $reps_diff = sub {
-        my ($rep1, $rep2) = @_;
-
-        my $diff = "";
-        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
-            if ($rep1->{$field} ne $rep2->{$field}) {
-                $diff .= "$field: '".$rep1->{$field}."'->'".$rep2->{$field}."' ";
-            }
-        }
-        return $diff;
-    };
-
-    # Returns description of rep
-    my $rep_desc = sub {
-        my ($rep) = @_;
-        return $rep->{ward_name} . ", ".$rep->{rep_first}." ".$rep->{rep_last}." (".$rep->{rep_party}.")";
-    };
-
     # Look for differences in the keys
     my $common_keys;
     my $diff_mysociety_new = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
     my $ge_add_del = 0;
     my $ms_add_del = 0;
+    my $ge_change = 0;
+    my $ms_change = 0;
     if (scalar(@$diff_mysociety_new) > 0) {
         # See what the additions/deletions are
         foreach my $key (@$diff_mysociety_new) {
@@ -265,12 +275,13 @@ foreach my $council_id (keys %$councils) {
                         $reps_merged->{$key} = Storable::dclone($prev_import);
                         foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
                             if ($mysociety_mod->{$field} ne $prev_import->{$field}) {
-                                $reps_merged->{$key}->{$field} = "CONFLICT MS: " . $mysociety_mod->{$field} .
-                                    "->". $prev_import->{$field} . " GE: DELETED COUNCILLOR ENTIRELY";
+                                $reps_merged->{$key}->{$field} = "CONFLICT MS: " . $prev_import->{$field} .
+                                    "->". $mysociety_mod->{$field} . " GE: DELETED COUNCILLOR ENTIRELY";
                             }
                         }                    
                         $out .= "\tPROPER CLASH: but MS modified: $prev_mysociety\n";
                         $this_clashes .= "Deletion modified by other. ";
+                        $ms_change = 1;
                     }
                 } else {
                     $reps_merged->{$key} = Storable::dclone($reps_mysociety_mod->{$key});
@@ -290,6 +301,7 @@ foreach my $council_id (keys %$councils) {
                         die "TODO";
                         $out .= "\tPROPER CLASH: but GE modified: $prev_new\n";
                         $this_clashes .= "Deletion modified by other. ";
+                        $ge_change = 1;
                     }
                 } else {
                     $out .= "GE added:";
@@ -297,12 +309,13 @@ foreach my $council_id (keys %$councils) {
                     $ge_add_del = 1;
                 }
             } else {
-                die "symmetric diff must be in one of them";
+                die "symmetric diff must be in one of them, $key";
             }
         }
         
         # What to do about deletion clashes
         if ($ge_add_del && $ms_add_del) {
+            die "TODO\n$out";
             $this_clashes .= "Both made major additions/deletions. ";
         }
 
@@ -330,8 +343,6 @@ foreach my $council_id (keys %$councils) {
     # For common keys, merge changes
     
     # Loop through all representatives, merging changes
-    my $ge_change = 0;
-    my $ms_change = 0;
     foreach my $key (@$common_keys) {
         my $new_import = $reps_new_import->{$key};
         my $mysociety_mod = $reps_mysociety_mod->{$key};
@@ -393,7 +404,7 @@ foreach my $council_id (keys %$councils) {
         $this_clashes .= "Add/del by one, small mods by other. ";
     }
 
-    if ($ge_change or $ms_change or $ge_add_del or $ms_add_del) {
+    if ($ge_change or $ge_add_del) {
         print $out;
         #print "ms_change: $ms_change ge_change: $ge_change ms_add_del: $ms_add_del ge_add_del: $ge_add_del\n";
 
@@ -407,28 +418,18 @@ foreach my $council_id (keys %$councils) {
         print "Modifying\n";
         mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
             $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
+            [values %$reps_new_import], "import");
+        mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
+            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
             [values %$reps_merged], "merge");
         $out .= $councils->{$council_id}->{canonname} . " " . $area_id_data->{$council_id}->{type} . " id:$council_id" . "\n";
-#$d_dbh->commit();
-exit;
+$d_dbh->commit();
+#exit;
     } else {
-        # print "Nothing to do\n";
+        die "Unexpected clashes when no GE changes:\n$this_clashes" if $this_clashes;
+        print $out;
+        print "Nothing to do\n";
     }
-
-    # Vague but doomed attempt to delete existing data (doesn't behave as we
-    # would want when ids and names and types change, because we don't yet
-    # know what we want)
-#$d_dbh->do(q#delete from raw_input_data where council_id = ? #, {}, $council_id);
-#$d_dbh->do(q#delete from raw_input_data_edited where council_id = ? #, {}, $council_id);
-    # Insert new data
-#        $d_dbh->do(q#insert into raw_input_data
-#                (ge_id, council_id, council_name, council_type, council_ons_code, ward_name, 
-#                    rep_first, rep_last, rep_party, rep_email, rep_fax)
-#                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
-#                $geid, $council_id, $councils->{$council_id}->{canonname}, $area_id_data->{$council_id}->{type}, 
-#                $area_id_data->{$id}->{ons_code}, $vdiv, 
-#                $first, $last, $party, $email, $fax);
-
 }
 
 print "$clashes_count/$councils_count clash\n";

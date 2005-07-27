@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.23 2005-07-26 17:42:56 francis Exp $
+# $Id: match.cgi,v 1.24 2005-07-27 03:48:11 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.23 2005-07-26 17:42:56 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.24 2005-07-27 03:48:11 francis Exp $';
 
 use strict;
 
@@ -325,6 +325,11 @@ sub do_council_info ($) {
                 {
                     print $q->td( $q->b($row->{$field} || "&nbsp;"), $q->br(), 
                         "(was ".encode_entities($prevrow->{$key}->{$field}).")");
+                } elsif ($field eq "alteration" and (!exists($prevrow->{$key})) and $row->{$field} eq 'modify') {
+                    # In database, inserts are labelled as "modify", but with new key
+                    print $q->td( $q->b("insert") );
+                } elsif ($field eq "alteration" and $row->{$field} eq 'delete') {
+                    print $q->td( $q->b("delete") );
                 } else {
                     print $q->td( encode_entities($row->{$field}) || "&nbsp;");
                 }
