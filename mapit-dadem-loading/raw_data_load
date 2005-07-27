@@ -14,7 +14,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.13 2005-07-27 03:48:11 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.14 2005-07-27 19:09:53 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -148,7 +148,6 @@ foreach my $parent (keys %parent_to_id) {
 my $councils_count = 0;
 my $clashes_count = 0;
 foreach my $council_id (keys %$councils) {
-#foreach my $council_id (2448) {
     $councils_count++;
     my $this_clashes = "";
 
@@ -297,8 +296,13 @@ foreach my $council_id (keys %$councils) {
                     $ms_add_del = 1;
                     my $prev_new = $reps_diff->($prev_import, $new_import);
                     if ($prev_new) {
-                        # TODO: store GE change with conflict marker
-                        die "TODO";
+                        $reps_merged->{$key} = Storable::dclone($prev_import);
+                        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+                            if ($new_import->{$field} ne $prev_import->{$field}) {
+                                $reps_merged->{$key}->{$field} = "CONFLICT MS: DELETED COUNCILLOR ENTIRELY" . 
+                                    " GE: " . $prev_import->{$field} .  "->". $new_import->{$field};
+                            }
+                        }                    
                         $out .= "\tPROPER CLASH: but GE modified: $prev_new\n";
                         $this_clashes .= "Deletion modified by other. ";
                         $ge_change = 1;
@@ -315,7 +319,7 @@ foreach my $council_id (keys %$councils) {
         
         # What to do about deletion clashes
         if ($ge_add_del && $ms_add_del) {
-            die "TODO\n$out";
+            # TODO: Maybe make this a CONFLICT somehow?
             $this_clashes .= "Both made major additions/deletions. ";
         }
 
@@ -406,7 +410,6 @@ foreach my $council_id (keys %$councils) {
 
     if ($ge_change or $ge_add_del) {
         print $out;
-        #print "ms_change: $ms_change ge_change: $ge_change ms_add_del: $ms_add_del ge_add_del: $ge_add_del\n";
 
         # Count clashes
         if ($this_clashes) {
@@ -422,9 +425,6 @@ foreach my $council_id (keys %$councils) {
         mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
             $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
             [values %$reps_merged], "merge");
-        $out .= $councils->{$council_id}->{canonname} . " " . $area_id_data->{$council_id}->{type} . " id:$council_id" . "\n";
-$d_dbh->commit();
-#exit;
     } else {
         die "Unexpected clashes when no GE changes:\n$this_clashes" if $this_clashes;
         print $out;
@@ -432,10 +432,11 @@ $d_dbh->commit();
     }
 }
 
-print "$clashes_count/$councils_count clash\n";
+print "-" x 70 . "\n";
+print "All done.  $clashes_count/$councils_count clash\n";
 
-#$m_dbh->commit();
-#$d_dbh->commit();
-#$m_dbh->disconnect();
-#$d_dbh->disconnect();
+$m_dbh->commit();
+$d_dbh->commit();
+$m_dbh->disconnect();
+$d_dbh->disconnect();
 

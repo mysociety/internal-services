@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.24 2005-07-27 03:48:11 francis Exp $
+# $Id: match.cgi,v 1.25 2005-07-27 19:09:53 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.24 2005-07-27 03:48:11 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.25 2005-07-27 19:09:53 francis Exp $';
 
 use strict;
 
@@ -294,7 +294,7 @@ sub do_council_info ($) {
     print $q->pre(encode_entities($status_data->{'details'}));
 
     # History
-    print $q->h2("Edit History");
+    print $q->h2("Change History");
     my @history;
     my @cols = qw#editor key alteration ward_name rep_first rep_last rep_party rep_email rep_fax#;
     my $sth = $d_dbh->prepare(q#select * from raw_input_data where council_id = ?
@@ -336,7 +336,11 @@ sub do_council_info ($) {
             }
             print $q->end_Tr();
         }
-        $prevrow->{$key} = $row;
+        if ($row->{alteration} eq "delete") {
+            delete $prevrow->{$key};
+        } else {
+            $prevrow->{$key} = $row;
+        }
     }
     print $q->end_table();
  
