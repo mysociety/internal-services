@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: deploy,v 1.5 2005-03-12 00:57:14 francis Exp $
+# $Id: deploy,v 1.6 2005-07-29 16:27:34 francis Exp $
 #
 
 set -e
@@ -21,12 +21,23 @@ check_who_where very.unfortu.net root
 # User to load test schema
 PSQL_SCHEMATEST_USER=pgsql
 
-# Which virtual server to update
-SERVICES_VHOST=$1
-[ x$SERVICES_VHOST = x ] && die "specify target vhost directory as single argument"
-[ ! -d $SERVICES_VHOST ] && die "specify target vhost directory as single argument"
+# Load in parameters
+if [ "$1" = "services.mysociety.org" ]
+then
+    SERVICES_VHOST=/data/vhost/services.mysociety.org
+    SERVICES_EVELD=eveld
+elif [ "$1" = "stagingservices.mysociety.org" ]
+then
+    SERVICES_VHOST=/data/vhost/stagingservices.mysociety.org
+    SERVICES_EVELD=evelstagingd
+else 
+    die "specify stagingservices.mysociety.org or services.mysociety.org as parameter"
+fi
 
-# Write To Them
+# Check virtual server directory
+[ ! -d $SERVICES_VHOST ] && die "virtual host directory $SERVICES_VHOST not found"
+
+# Services
 SERVICES_NAME="Services"
 SERVICES_UNAME=msservices
 SERVICES_DEPLOYSPACE=$SERVICES_VHOST/deployspace
@@ -36,9 +47,9 @@ SERVICES_DB_UNIX_USER=msservices
 # Main body of script
 fmt << END
 This will update $hostname from CVS and gracefully restart 
-Apache.  It will warn you first if any database schemas need
-upgrading, or config files fixing.  These get fixed in the deploy
-space, i.e. the place where the "cvs export" happens to, before
+Apache and restart EvEl daemon.  It will warn you first if any database
+schemas need upgrading, or config files fixing.  These get fixed in the
+deploy space, i.e. the place where the "cvs export" happens to, before
 copying over to the live server.
 
 Press RETURN to continue.
@@ -63,6 +74,7 @@ check_pgsql_schema $SERVICES_DB_UNIX_USER $SERVICES_DEPLOYSPACE/mysociety/servic
 check_pgsql_schema $SERVICES_DB_UNIX_USER $SERVICES_DEPLOYSPACE/mysociety/services/mapit-dadem-loading/dadem-schema.sql $OPTION_DADEM_DB_NAME $OPTION_DADEM_DB_USER $OPTION_DADEM_DB_PASS 
 
 warn "Stopping services..."
+daemon_stop $SERVICES_EVELD
 down_notice $SERVICES_VHOST $SERVICES_NAME
 
 warn "Rsyncing new data files..."
@@ -71,4 +83,5 @@ rsync_across $SERVICES_DEPLOYSPACE $SERVICES_VHOST
 warn "Starting services..."
 apachectl graceful
 up_notice $SERVICES_VHOST
+daemon_start $SERVICES_EVELD
 
