@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.15 2005-07-27 08:55:08 chris Exp $
+ * $Id: general-example,v 1.16 2005-07-29 16:08:37 chris Exp $
  * 
  */
 
@@ -41,6 +41,9 @@ define('OPTION_GAZE_DB_PASS', '');
 //define('OPTION_GAZE_DB_HOST', 'localhost');
 //define('OPTION_GAZE_DB_PORT', '5432');
 
+// Where the Xapian (index) databases for Gaze reside.
+define('OPTION_GAZE_XAPIAN_INDEX_DIR', '/web/SERVERS/mssvcs.fishsoupisgoodforyou.com/mysociety/services/Gaze/xapian');
+
 // PostgreSQL database for Ratty
 define('OPTION_RATTY_DB_NAME', 'ratty');
 define('OPTION_RATTY_DB_USER', 'ratty');
@@ -63,12 +66,5 @@ define('OPTION_EVEL_DAEMON_QUEUE_RUN_INTERVAL', '10');  // 10 is the default
 define('OPTION_TOMS_FAX', 'xxxxxxxx');
 define('OPTION_COUNCILMATCH_PAGECACHE', '/home/mssecure/councilmatch/');
 
-// PostgreSQL database for Gaze
-define('OPTION_GAZE_DB_NAME', 'gaze');
-define('OPTION_GAZE_DB_USER', 'gaze');
-define('OPTION_GAZE_DB_PASS', '');
-
-// Where the Xapian (index) databases for Gaze reside.
-define('OPTION_GAZE_XAPIAN_INDEX_DIR', '/web/SERVERS/mssvcs.fishsoupisgoodforyou.com/mysociety/services/Gaze/xapian');
 
 ?>
