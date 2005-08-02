@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.2 2005-06-09 15:33:20 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.3 2005-08-02 13:58:22 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -94,28 +94,33 @@ my $debug = 0;
         WMC => ['Westminster constituency', 'VA']
     );
 
-use fields qw(id admin_area_id ons_code area_type name non_type_codes);
+use fields qw(id admin_area_id ons_code area_type name non_type_codes type);
 
 my %checks = (
-        id => qr/^[1-9]\d*$/,
-        admin_area_id => qr/^[1-9]\d*$/,
-        ons_code => sub { return !defined($_[0]) || $_[0] =~ /^[1-9]\d*$/ },
+        id => qr/^\d+$/,
+        admin_area_id => qr/^\d+$/,
+        ons_code => sub { return !defined($_[0]) || $_[0] =~ /^[0-9A-Z]+$/ },
         area_type => sub { return defined($_[0]) && exists($area_types{$_[0]}) },
-        name => qr/./,
-        non_type_codes => sub { return !defined($_[0]) || (ref($_[0]) eq 'ARRAY' && 0 == grep { !exists($area_types{$_}) } @{$_[0]}); }
+        name => qr//,   # can be blank?
+        non_type_codes => sub { return !defined($_[0]) || (ref($_[0]) eq 'ARRAY' && 0 == grep { !exists($area_types{$_}) } @{$_[0]}); },
+        type => qr/^[AFTV]A$/
     );
 
 sub new ($%) {
     my ($class, %a) = @_;
     my $self = fields::new($class);
     foreach (keys %a) {
+        my $v = $a{$_};
+        next unless (defined($v));
+        $v =~ s# +$##;
+        next if ($v eq '');
         if (!exists($checks{$_})) {
             die "unknown field '$_' in constructor for Geo::OSBoundaryLine::Attribute";
-        } elsif (ref($checks{$_}) eq 'Regexp' && $a{$_} !~ $checks{$_}
-                 || !&{$checks{$_}}($a{$_})) {
-            throw Geo::OSBoundaryLine::Error("Bad value '$a{$_}' for field '$_' in constructore for Geo::OSBoundaryLine::Attribute";
+        } elsif ((ref($checks{$_}) eq 'Regexp' && $v !~ $checks{$_})
+                 || (ref($checks{$_}) eq 'CODE' && !&{$checks{$_}}($v))) {
+            throw Geo::OSBoundaryLine::Error("Bad value '$a{$_}' for field '$_' in constructor for Geo::OSBoundaryLine::Attribute");
         } else {
-            $self->{$_} = $a{$_};
+            $self->{$_} = $v;
         }
     }
     return $self;
@@ -218,12 +223,13 @@ use strict;
 
 use Error qw(:try);
 use IO::Handle;
+use Fcntl;
 
 use fields qw(attributes geometries chains polygons complexes collections);
 
 =head1 Name
 
-Geo::OSBoundaryLine::File
+Geo::OSBoundaryLine::NTFFile
 
 =head1 Description
 
@@ -267,7 +273,7 @@ sub new ($$) {
         my $i = 0;
         $get = sub () { return $x->[$i++]; };
     } elsif (ref($x) eq 'GLOB' || UNIVERSAL::isa($x, 'IO::Handle')) {
-        $get = sub () { my $l = $x->getline(); throw Geo::OSBoundaryLine::Error($!) if (!defined($l) && $x->error()); };
+        $get = sub () { my $l = $x->getline(); throw Geo::OSBoundaryLine::Error($!) if (!defined($l) && $x->error()); return $l; };
     }
 
     my $i = 1;
@@ -279,7 +285,7 @@ sub new ($$) {
     # those records which describe geometry -- everything else in BL is
     # basically fixed.
     my %recordtypes = (
-            '01' => ['Volume Header']
+            '01' => ['Volume Header'],
             '02' => ['Database Header'],
             '05' => ['Feature Classification'],
             '07' => ['Section Header'],
@@ -297,10 +303,11 @@ sub new ($$) {
 
     while (defined(my $record = &$get())) {
         ++$linenum;
-        chomp($record);
+        $record =~ s#\r?\n##;
         while ($record =~ m#1%$#) {
             $record =~ s#1%$##;
             my $x = &$get();
+            $x =~ s#\r\n##;
             throw Geo::OSBoundaryLine::Error("line $linenum: continuation line does not begin \"00\"")
                 unless ($x =~ m#^00#);
             $x =~ s#^00##;
@@ -353,7 +360,7 @@ sub parse_14 ($$) {
                             (..)        # type: AA, administrative; VA, voting;
                                         # FA, non-area; TA, sea
                             AC
-                            (...)       # type, i.e. DIS, CTY etc.
+                            (...)       # area type, i.e. DIS, CTY etc.
                             NM
                             ([^\\]*)    # name
                             \\
@@ -363,7 +370,7 @@ sub parse_14 ($$) {
                                 ...     # optional non-type-codes
                                 )*
                             )?
-                            0$/x);
+                            0%$/x);
 
     my $non_type_codes = undef;
     if ($8) {
@@ -374,10 +381,10 @@ sub parse_14 ($$) {
         new Geo::OSBoundaryLine::Attribute(
                 id => $1,
                 admin_area_id => $2,
-                ons_code => ($3 eq '999999' ? undef : $3),
+                ons_code => ($4 eq '999999 ' ? undef : $4),
                 type => $5,
                 area_type => $6,
-                name => $7
+                name => $7,
                 non_type_codes => $non_type_codes
             );
     
@@ -391,7 +398,7 @@ Collection of Features Attribute record:
     Name: "$7"
 EOF
     if ($debug && $8) {
-        print "    Non-Type-Code: ", join(", ", @types), "\n";
+        print "    Non-Type-Code: ", join(", ", @$non_type_codes), "\n";
     }
 }
 
@@ -412,7 +419,7 @@ sub parse_21 ($$) {
                                          # points
 
                             (|\d{6})     # attribute ID
-                            0$/x);
+                            0%$/x);
     my $geomid = $1;
     my $attrid = $3;
     my @coords = grep { $_ ne '' } split(/(\d{8})(\d{8}) /, $2);
@@ -439,7 +446,7 @@ sub parse_24 ($$) {
     my ($obj, $rec) = @_;
 
     my $num = substr($rec, 6, 4);
-    die "bad Chain Record \"$rec\"" unless ($rec =~ m/^(\d{6}) $num ((?:\d{6}[12]){$num})  0$/x);
+    die "bad Chain Record \"$rec\"" unless ($rec =~ m/^(\d{6}) $num ((?:\d{6}[12]){$num}) 0%$/x);
 
     my $chainid = $1;
     # Each part specifies a geometry record, and whether it is to be used
@@ -469,7 +476,7 @@ EOF
 sub parse_31 ($$) {
     my ($obj, $rec) = @_;
 
-    die "bad Polygon Record \"$rec\"" unless ($rec =~ m/^(\d{6}) \1 0{6} 01 (\d{6}) 0$/x
+    die "bad Polygon Record \"$rec\"" unless ($rec =~ m/^(\d{6}) \1 0{6} 01 (\d{6}) 0%$/x
                                               or $rec =~ m/^(\d{6}) \1 0$/x);
 
     my $polyid = $1;
@@ -522,7 +529,7 @@ sub parse_34 ($$) {
 
     my $num = substr($rec, 6, 4);
 
-    die "bad Collection of Features Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:3[134]\d{6}){$num}) 01 (\d{6}) 0$/x);
+    die "bad Collection of Features Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:3[134]\d{6}){$num}) 01 (\d{6}) 0%$/x);
 
     my $collectid = $1;
     my @parts = grep { $_ ne '' } split(/(3[134])(\d{6})/, $2);
