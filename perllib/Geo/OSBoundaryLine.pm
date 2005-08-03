@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.3 2005-08-02 13:58:22 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.4 2005-08-03 13:08:05 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -195,11 +195,7 @@ list context, return a list of the parts and their sense (positive meaning
 sub parts ($) {
     my $self = shift;
     my $ntf = $self->{ntf};
-    if (wantarray()) {
-        return map { [new Geo::OSBoundaryLine::Polygon($ntf, $_->[0]), $_->[1] eq '+' ? +1 : -1] } @{$self->{ntf}->{complexes}->{$self->{id}}};
-    } else {
-        return @{$ntf->{complexes}->{$self->{id}}};
-    }
+    return @{$ntf->{complexes}->{$self->{id}}};
 }
 
 =item part INDEX
@@ -211,10 +207,75 @@ Return in list context the polygonal part identified by the given INDEX
 sub part ($$) {
     my ($self, $i) = @_;
     my $ntf = $self->{ntf};
-    if ($i >= @{$self->{ntf}->{complexes}->{$self->{id}}}) {
-        die "index '$i' out of range for complex polygon id '$self->{id}'";
+    die "index '$i' out of range for complex polygon #$self->{id}"
+        if ($i >= @{$ntf->{complexes}->{$self->{id}}} || $i < 0);
+    return $ntf->{complexes}->{$self->{id}}->[$i];
+}
+
+package Geo::OSBoundaryLine::CollectionOfFeatures;
+
+use fields qw(ntf id);
+
+sub new ($$$) {
+    my ($class, $ntf, $id) = @_;
+    my $self = fields::new($class);
+    die "no collection of features with id '$id' in NTF file"
+        unless (exists($ntf->{collections}->{$id});
+    $self->{ntf} = $ntf;
+    $self->{id} = $id;
+    return $self;
+}
+
+=item parts
+
+In scalar context, return the number of parts this collection has. In list
+context, return a list of the parts. Note that a part may itself by a
+collection.
+
+=cut
+sub parts ($) {
+    my $self = shift;
+    my $ntf = $self->{ntf};
+    return @{$ntf->{collections}->{$self->{id}}};
+}
+
+=item part INDEX
+
+Return in list context the polygonal part identified by the given INDEX
+(starting at zero).
+
+=cut
+sub part ($$) {
+    my ($self, $i) = @_;
+    die "index '$i' out of range for collection #$self->{id}"
+        if ($i >= @{$ntf->{collections}->{$self->{id}}} || $i < 0);
+    return $ntf->{collections}->{$self->{id}}->[$i];
+}
+
+=item flatten
+
+Return a flattened representation of the collection; that is, a list of
+[polygon, sense] obtained recursively.
+
+=cut
+sub flatten ($;$) {
+    my ($self, $cofids_seen) = @_;
+    my @parts = ( );
+    $cofids_seen ||= { };
+    $cofids_seen->{$self->{id}} = 1;
+    foreach my $p ($self->parts()) {
+        if (UNIVERSAL::ISA($p, "Geo::OSBoundaryLine::CollectionOfFeatures")) {
+            die "collection #$self->{id} is part of a referential cycle of collections"
+                if (exists($cofids_seen->{$p->{id}}));
+            push(@parts, $p->flatten());
+        } if (UNIVERSAL::ISA($p, "Geo::OSBoundaryLine::ComplexPolygon")) {
+            push(@parts, $p->parts());
+        } if (UNIVERSAL::ISA($p, "Geo::OSBoundaryLine::Polygon")) {
+            push(@parts, [$p, +1]);
+        } else {
+            die "bad object of type " . ref($p) . " in collection #$self->{id}";
+        }
     }
-    return (new Geo::OSBoundaryLine::Polygon($ntf, $ntf->{complexes}->{$self->{id}}->[$i]->[0]), $ntf->{complexes}->{$self->{id}}->[$i]->[0]);
 }
 
 package Geo::OSBoundaryLine::NTFFile;
@@ -482,7 +543,7 @@ sub parse_31 ($$) {
     my $polyid = $1;
     my $attrid = $2;
 
-    $obj->{polygons}->{$polyid} = { };
+    $obj->{polygons}->{$polyid} = new Geo::OSBoundaryLine::Polygon($obj, $polyid);
 
     $debug && print <<EOF;
 Polygon:
@@ -515,7 +576,7 @@ EOF
 
     $obj->{complexes}->{$complexid} = [ ];
     for (my $i = 0; $i < @parts; $i += 2) {
-        push(@{$obj->{complexes}->{$complexid}}, [$parts[$i], $parts[$i + 1]]);
+        push(@{$obj->{complexes}->{$complexid}}, [$obj->{polygons}->[$parts[$i]], $parts[$i + 1] eq '+' ? -1 : 1]);
     }
 }
 
@@ -551,7 +612,7 @@ EOF
         my ($ty, $id) = ($parts[$i], $parts[$i + 1]);
         die "Collection of Features Record refers to non-existent object #$id"
             unless (exists($obj->{$tymap{$ty}}->{$id}));
-        push(@{$obj->{collections}->{$collectid}}, [$ty, $id]);
+        push(@{$obj->{collections}->{$collectid}}, $obj->{$tymap{$ty}}->{$id});
     }
 }
 
