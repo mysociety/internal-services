@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.4 2005-08-03 13:08:05 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.5 2005-08-03 15:01:57 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -138,11 +138,9 @@ use fields qw(ntf id);
 sub new ($$$) {
     my ($class, $ntf, $id) = @_;
     my $self = fields::new($class);
-    die "no polygon with id '$id' in NTF file"
-        unless (exists($ntf->{chains}->{$id}));
     $self->{ntf} = $ntf;
     $self->{id} = $id;
-    return $self;
+    return bless($self, $class);
 }
 
 =item vertices
@@ -173,16 +171,15 @@ sub vertices ($) {
 
 package Geo::OSBoundaryLine::ComplexPolygon;
 
-use fields qw(ntf id);
+use fields qw(ntf id parts);
 
-sub new ($$$) {
-    my ($class, $ntf, $id) = @_;
+sub new ($$$$) {
+    my ($class, $ntf, $id, $parts) = @_;
     my $self = fields::new($class);
-    die "no complex polygon with id '$id' in NTF file"
-        unless (exists($ntf->{complexes}->{$id}));
     $self->{ntf} = $ntf;
     $self->{id} = $id;
-    return $self;
+    $self->{parts} = $parts;
+    return bless($self, $class);
 }
 
 =item parts
@@ -194,8 +191,7 @@ list context, return a list of the parts and their sense (positive meaning
 =cut
 sub parts ($) {
     my $self = shift;
-    my $ntf = $self->{ntf};
-    return @{$ntf->{complexes}->{$self->{id}}};
+    return @{$self->{parts}};
 }
 
 =item part INDEX
@@ -208,22 +204,24 @@ sub part ($$) {
     my ($self, $i) = @_;
     my $ntf = $self->{ntf};
     die "index '$i' out of range for complex polygon #$self->{id}"
-        if ($i >= @{$ntf->{complexes}->{$self->{id}}} || $i < 0);
+        if ($i >= @{$self->{parts}} || $i < 0);
     return $ntf->{complexes}->{$self->{id}}->[$i];
 }
 
 package Geo::OSBoundaryLine::CollectionOfFeatures;
 
-use fields qw(ntf id);
+use fields qw(ntf id attrid parts);
 
-sub new ($$$) {
-    my ($class, $ntf, $id) = @_;
+use UNIVERSAL;
+
+sub new ($$$$$) {
+    my ($class, $ntf, $id, $attrid, $parts) = @_;
     my $self = fields::new($class);
-    die "no collection of features with id '$id' in NTF file"
-        unless (exists($ntf->{collections}->{$id});
     $self->{ntf} = $ntf;
     $self->{id} = $id;
-    return $self;
+    $self->{attrid} = $attrid;
+    $self->{parts} = $parts;
+    return bless($self, $class);
 }
 
 =item parts
@@ -236,7 +234,7 @@ collection.
 sub parts ($) {
     my $self = shift;
     my $ntf = $self->{ntf};
-    return @{$ntf->{collections}->{$self->{id}}};
+    return @{$self->{parts}};
 }
 
 =item part INDEX
@@ -264,18 +262,28 @@ sub flatten ($;$) {
     $cofids_seen ||= { };
     $cofids_seen->{$self->{id}} = 1;
     foreach my $p ($self->parts()) {
-        if (UNIVERSAL::ISA($p, "Geo::OSBoundaryLine::CollectionOfFeatures")) {
+        if ($p->isa("Geo::OSBoundaryLine::CollectionOfFeatures")) {
             die "collection #$self->{id} is part of a referential cycle of collections"
                 if (exists($cofids_seen->{$p->{id}}));
             push(@parts, $p->flatten());
-        } if (UNIVERSAL::ISA($p, "Geo::OSBoundaryLine::ComplexPolygon")) {
+        } elsif ($p->isa("Geo::OSBoundaryLine::ComplexPolygon")) {
             push(@parts, $p->parts());
-        } if (UNIVERSAL::ISA($p, "Geo::OSBoundaryLine::Polygon")) {
+        } elsif ($p->isa("Geo::OSBoundaryLine::Polygon")) {
             push(@parts, [$p, +1]);
         } else {
             die "bad object of type " . ref($p) . " in collection #$self->{id}";
         }
     }
+}
+
+=item attributes
+
+Return this collection's attributes.
+
+=cut
+sub attributes ($) {
+    my $self = shift;
+    return $self->{ntf}->{attributes}->{$self->{attrid}};
 }
 
 package Geo::OSBoundaryLine::NTFFile;
@@ -538,7 +546,7 @@ sub parse_31 ($$) {
     my ($obj, $rec) = @_;
 
     die "bad Polygon Record \"$rec\"" unless ($rec =~ m/^(\d{6}) \1 0{6} 01 (\d{6}) 0%$/x
-                                              or $rec =~ m/^(\d{6}) \1 0$/x);
+                                              or $rec =~ m/^(\d{6}) \1 0%$/x);
 
     my $polyid = $1;
     my $attrid = $2;
@@ -559,7 +567,7 @@ sub parse_33 ($$) {
 
     my $num = substr($rec, 6, 4);
 
-    die "bad Complex Polygon Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:\d{6}[+-]){$num}) 0{6} 01 (\d{6}) 0$/x);
+    die "bad Complex Polygon Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:\d{6}[+-]){$num}) 0{6} 01 (\d{6}) 0%$/x);
 
     my $complexid = $1;
     my @parts = grep { $_ ne '' } split(/(\d{6})([+-])/, $2);
@@ -574,10 +582,13 @@ Complex Polygon:
     Number of parts: $num
 EOF
 
-    $obj->{complexes}->{$complexid} = [ ];
+    my @pp = ( );
     for (my $i = 0; $i < @parts; $i += 2) {
-        push(@{$obj->{complexes}->{$complexid}}, [$obj->{polygons}->[$parts[$i]], $parts[$i + 1] eq '+' ? -1 : 1]);
+        die "complex polygon #$complexid references non-existent polygon #$parts[$i] (sense $parts[$i + 1])"
+            unless (exists($obj->{polygons}->{$parts[$i]}));
+        push(@pp, [$obj->{polygons}->{$parts[$i]}, $parts[$i + 1] eq '+' ? -1 : 1]);
     }
+    $obj->{complexes}->{$complexid} = new Geo::OSBoundaryLine::ComplexPolygon($obj, $complexid, \@pp);
 }
 
 # parse_34 OBJECT RECORD
@@ -606,14 +617,19 @@ Collection of Features Record:
     Number of parts: $num
 EOF
 
-    $obj->{collections}->{$collectid} = [ ];
+    $debug && print "    Parts:";
+
+    my @pp = ( );
     my %tymap = qw( 31 polygons 33 complexes 34 collections );
     for (my $i = 0; $i < @parts; $i += 2) {
         my ($ty, $id) = ($parts[$i], $parts[$i + 1]);
         die "Collection of Features Record refers to non-existent object #$id"
             unless (exists($obj->{$tymap{$ty}}->{$id}));
-        push(@{$obj->{collections}->{$collectid}}, $obj->{$tymap{$ty}}->{$id});
+        push(@pp, $obj->{$tymap{$ty}}->{$id});
+        $debug && print " $tymap{$ty} #$id";
     }
+    $debug && print "\n";
+    $obj->{collections}->{$collectid} = new Geo::OSBoundaryLine::CollectionOfFeatures($obj, $collectid, $attrid, \@pp);
 }
 
 1;
