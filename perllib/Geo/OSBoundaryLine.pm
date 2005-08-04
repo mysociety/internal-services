@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.5 2005-08-03 15:01:57 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.6 2005-08-04 15:25:07 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -101,7 +101,7 @@ my %checks = (
         admin_area_id => qr/^\d+$/,
         ons_code => sub { return !defined($_[0]) || $_[0] =~ /^[0-9A-Z]+$/ },
         area_type => sub { return defined($_[0]) && exists($area_types{$_[0]}) },
-        name => qr//,   # can be blank?
+        name => qr/.*/,   # can be blank?
         non_type_codes => sub { return !defined($_[0]) || (ref($_[0]) eq 'ARRAY' && 0 == grep { !exists($area_types{$_}) } @{$_[0]}); },
         type => qr/^[AFTV]A$/
     );
@@ -118,7 +118,7 @@ sub new ($%) {
             die "unknown field '$_' in constructor for Geo::OSBoundaryLine::Attribute";
         } elsif ((ref($checks{$_}) eq 'Regexp' && $v !~ $checks{$_})
                  || (ref($checks{$_}) eq 'CODE' && !&{$checks{$_}}($v))) {
-            throw Geo::OSBoundaryLine::Error("Bad value '$a{$_}' for field '$_' in constructor for Geo::OSBoundaryLine::Attribute");
+            throw Geo::OSBoundaryLine::Error("Bad value '$a{$_}' ['$v'] for field '$_' in constructor for Geo::OSBoundaryLine::Attribute");
         } else {
             $self->{$_} = $v;
         }
