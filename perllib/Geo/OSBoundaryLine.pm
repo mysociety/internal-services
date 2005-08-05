@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.6 2005-08-04 15:25:07 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.7 2005-08-05 09:43:26 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -133,12 +133,16 @@ foreach (keys %checks) {
 
 package Geo::OSBoundaryLine::Polygon;
 
+use Scalar::Util qw(weaken);
+
 use fields qw(ntf id);
 
 sub new ($$$) {
     my ($class, $ntf, $id) = @_;
     my $self = fields::new($class);
-    $self->{ntf} = $ntf;
+    # Weaken the reference back to the parent object so that GC doesn't fail
+    # on the circular reference.
+    $self->{ntf} = weaken($ntf);
     $self->{id} = $id;
     return bless($self, $class);
 }
@@ -376,25 +380,25 @@ sub new ($$) {
         while ($record =~ m#1%$#) {
             $record =~ s#1%$##;
             my $x = &$get();
-            $x =~ s#\r\n##;
+            $x =~ s#\r?\n$##;
             throw Geo::OSBoundaryLine::Error("line $linenum: continuation line does not begin \"00\"")
                 unless ($x =~ m#^00#);
-            $x =~ s#^00##;
-            $record .= $x;
+            $record .= substr($x, 2);
         }
 
         throw Geo::OSBoundaryLine::Error("line $linenum: bad record format")
-            unless ($record =~ m#^(\d{2})(.+)#);
+            unless ($record =~ m#^(\d{2})#);
 
-        my $code = $1;
-        $record = $2;
+        my $code = substr($record, 0, 2);
 
         throw Geo::OSBoundaryLine::Error("line $linenum: bad record type \"$code\"")
             unless (exists($recordtypes{$code}));
 
         # XXX check that volume begins with an 01 volume header record?
 
-        &{$recordtypes{$code}->[1]}($self, $record) if ($recordtypes{$code}->[1]);
+        &{$recordtypes{$code}->[1]}($self, substr($record, 2)) if ($recordtypes{$code}->[1] && ($code == 21 || $code == 14 || $code == 31)); # || $code == 24 || $code == 31));
+
+        undef $record;
     }
 
     # XXX check that volume ends with a 99 volume termination record?
@@ -480,21 +484,31 @@ sub parse_21 ($$) {
     my $num = substr($rec, 7, 4);    
 
     die "bad Two-dimensional Geometry Record \"$rec\""
-        unless ($rec =~ m/^(\d{6})      # geometry ID
+        unless ($rec =~ m/^
+                            \d{6}       # geometry ID
                             2
                             \d{4}       # number of coordinates
+                        /x
+                && $rec =~ m/
+                            [ ]         # last coordinate separator
                             
-                            ((?:\d{8}\d{8}\ )+)
-                                         # points
+                            (|\d{6})    # optional attribute ID
+                
+                            0%$/x
+                # don't match the coordinates with a regex, as there may be
+                # zillions of them.
+                && (length($rec) == 11 + 17 * $num + 2
+                    || length($rec) == 11 + 17 * $num + 8));
 
-                            (|\d{6})     # attribute ID
-                            0%$/x);
-    my $geomid = $1;
+    my $geomid = substr($rec, 0, 6);
     my $attrid = $3;
-    my @coords = grep { $_ ne '' } split(/(\d{8})(\d{8}) /, $2);
-    
-    die "Two-dimensional Geometry Record has odd number (" . scalar(@coords) . ") of coordinates" if (@coords & 1);
-    die "Two-dimensional Geometry Record has wrong number of coordinates (" . scalar(@coords) . " vs. " . 2 * $num . ")" if (@coords != 2 * $num);
+
+    $obj->{geometries}->{$geomid} = [ ];
+    for (my $i = 0; $i < $num; ++$i) {
+        my $x = 0.1 * substr($rec, 11 + 17 * $i, 8);
+        my $y = 0.1 * substr($rec, 19 + 17 * $i, 8);
+        push(@{$obj->{geometries}->{$geomid}}, [$x, $y]);
+    }
     
     $debug && print <<EOF;
 Two-dimensional Geometry:
@@ -502,10 +516,6 @@ Two-dimensional Geometry:
     Number of points: $num
     Attribute ID: $attrid
 EOF
-    $obj->{geometries}->{$geomid} = [ ];
-    for (my $i = 0; $i < @coords; $i += 2) {
-        push(@{$obj->{geometries}->{$geomid}}, [$coords[$i], $coords[$i + 1]]);
-    }
 }
 
 # parse_24 OBJECT RECORD
