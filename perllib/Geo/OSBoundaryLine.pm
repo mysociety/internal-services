@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.7 2005-08-05 09:43:26 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.8 2005-08-05 10:34:44 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -142,7 +142,8 @@ sub new ($$$) {
     my $self = fields::new($class);
     # Weaken the reference back to the parent object so that GC doesn't fail
     # on the circular reference.
-    $self->{ntf} = weaken($ntf);
+    $self->{ntf} = $ntf;
+    weaken($self->{ntf});
     $self->{id} = $id;
     return bless($self, $class);
 }
@@ -170,7 +171,7 @@ sub vertices ($) {
             }
         }
     }
-    return wantarray() ? $n : @verts;
+    return wantarray() ? @verts : $n;
 }
 
 package Geo::OSBoundaryLine::ComplexPolygon;
@@ -278,6 +279,7 @@ sub flatten ($;$) {
             die "bad object of type " . ref($p) . " in collection #$self->{id}";
         }
     }
+    return @parts;
 }
 
 =item attributes
@@ -396,7 +398,7 @@ sub new ($$) {
 
         # XXX check that volume begins with an 01 volume header record?
 
-        &{$recordtypes{$code}->[1]}($self, substr($record, 2)) if ($recordtypes{$code}->[1] && ($code == 21 || $code == 14 || $code == 31)); # || $code == 24 || $code == 31));
+        &{$recordtypes{$code}->[1]}($self, substr($record, 2)) if ($recordtypes{$code}->[1]);
 
         undef $record;
     }
@@ -405,7 +407,7 @@ sub new ($$) {
 
     $x->close() if ($closeafter);
 
-    return $self;
+    return bless($self, $class);
 }
 
 # parse_14 OBJECT RECORD
@@ -450,10 +452,10 @@ sub parse_14 ($$) {
         $non_type_codes = [grep(/.../, split(/NB/, $8))];
     }
 
-    $obj->{attributes}->{$1} =
+    $obj->{attributes}->{int($1)} =
         new Geo::OSBoundaryLine::Attribute(
-                id => $1,
-                admin_area_id => $2,
+                id => int($1),
+                admin_area_id => int($2),
                 ons_code => ($4 eq '999999 ' ? undef : $4),
                 type => $5,
                 area_type => $6,
@@ -500,8 +502,8 @@ sub parse_21 ($$) {
                 && (length($rec) == 11 + 17 * $num + 2
                     || length($rec) == 11 + 17 * $num + 8));
 
-    my $geomid = substr($rec, 0, 6);
-    my $attrid = $3;
+    my $geomid = int(substr($rec, 0, 6));
+    my $attrid = defined($3) ? int($3) : undef;
 
     $obj->{geometries}->{$geomid} = [ ];
     for (my $i = 0; $i < $num; ++$i) {
@@ -527,7 +529,7 @@ sub parse_24 ($$) {
     my $num = substr($rec, 6, 4);
     die "bad Chain Record \"$rec\"" unless ($rec =~ m/^(\d{6}) $num ((?:\d{6}[12]){$num}) 0%$/x);
 
-    my $chainid = $1;
+    my $chainid = int($1);
     # Each part specifies a geometry record, and whether it is to be used
     # start-to-end (1) or end-to-start (2).
     my @parts = grep { $_ ne '' } split(/(\d{6})([12])/, $2);
@@ -545,7 +547,7 @@ EOF
 
     $obj->{chains}->{$chainid} = [ ];
     for (my $i = 0; $i < @parts; $i += 2) {
-        push(@{$obj->{chains}->{$chainid}}, [$parts[$i], $parts[$i + 1]]);
+        push(@{$obj->{chains}->{$chainid}}, [int($parts[$i]), $parts[$i + 1]]);
     }
 }
 
@@ -558,8 +560,8 @@ sub parse_31 ($$) {
     die "bad Polygon Record \"$rec\"" unless ($rec =~ m/^(\d{6}) \1 0{6} 01 (\d{6}) 0%$/x
                                               or $rec =~ m/^(\d{6}) \1 0%$/x);
 
-    my $polyid = $1;
-    my $attrid = $2;
+    my $polyid = int($1);
+    my $attrid = int($2);
 
     $obj->{polygons}->{$polyid} = new Geo::OSBoundaryLine::Polygon($obj, $polyid);
 
@@ -579,9 +581,9 @@ sub parse_33 ($$) {
 
     die "bad Complex Polygon Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:\d{6}[+-]){$num}) 0{6} 01 (\d{6}) 0%$/x);
 
-    my $complexid = $1;
+    my $complexid = int($1);
     my @parts = grep { $_ ne '' } split(/(\d{6})([+-])/, $2);
-    my $attrid = $3;
+    my $attrid = int($3);
 
     die "Complex Polygon Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
     die "Complex Polygon Record has wrong number of parts (" . scalar(@parts) . " vs. " . 2 * $num . ")" if (@parts != 2 * $num);
@@ -596,7 +598,7 @@ EOF
     for (my $i = 0; $i < @parts; $i += 2) {
         die "complex polygon #$complexid references non-existent polygon #$parts[$i] (sense $parts[$i + 1])"
             unless (exists($obj->{polygons}->{$parts[$i]}));
-        push(@pp, [$obj->{polygons}->{$parts[$i]}, $parts[$i + 1] eq '+' ? -1 : 1]);
+        push(@pp, [$obj->{polygons}->{int($parts[$i])}, $parts[$i + 1] eq '+' ? -1 : 1]);
     }
     $obj->{complexes}->{$complexid} = new Geo::OSBoundaryLine::ComplexPolygon($obj, $complexid, \@pp);
 }
@@ -613,9 +615,9 @@ sub parse_34 ($$) {
 
     die "bad Collection of Features Record \"$rec\"" unless ($rec =~ m/(\d{6}) $num ((?:3[134]\d{6}){$num}) 01 (\d{6}) 0%$/x);
 
-    my $collectid = $1;
+    my $collectid = int($1);
     my @parts = grep { $_ ne '' } split(/(3[134])(\d{6})/, $2);
-    my $attrid = $3;
+    my $attrid = int($3);
 
     die "Collection of Features Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
     die "Collection of Features Record has wrong number of parts (" . scalar(@parts) . " vs. " . 2 * $num . ")" if (@parts != 2 * $num);
@@ -632,7 +634,7 @@ EOF
     my @pp = ( );
     my %tymap = qw( 31 polygons 33 complexes 34 collections );
     for (my $i = 0; $i < @parts; $i += 2) {
-        my ($ty, $id) = ($parts[$i], $parts[$i + 1]);
+        my ($ty, $id) = ($parts[$i], int($parts[$i + 1]));
         die "Collection of Features Record refers to non-existent object #$id"
             unless (exists($obj->{$tymap{$ty}}->{$id}));
         push(@pp, $obj->{$tymap{$ty}}->{$id});
