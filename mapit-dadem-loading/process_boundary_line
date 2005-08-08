@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.16 2005-08-08 09:52:54 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.17 2005-08-08 12:02:34 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -185,9 +185,7 @@ use Data::Dumper;
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
     foreach (sort { stat($b)->size() <=> stat($a)->size() } glob("$dir/*.[Nn][Tt][Ff]")) {
-#    foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
-        print STDERR "\r$_ ";
-#        printf STDERR "        size on disk = %.2fMB\n", stat($_)->size() / (1024.*1024);
+        printf STDERR "\r%s (%.2fMB) ", $_, stat($_)->size() / (1024.*1024);
         my $ntf = new Geo::OSBoundaryLine::NTFFile($_);
         print STDERR "loaded.\n";
 
@@ -224,7 +222,8 @@ foreach my $dir (@ARGV) {
                 }
 
                 my $polydata = pack('d*', map { @$_ } @verts);
-                push(@parts, [$sense, $polydata, poly_area(length($polydata) / (2 * $doublesize), $polydata)]);
+                my $area = 0; # XXX
+                push(@parts, [$sense, $polydata, $area]);
                 @verts = ( );
             }
 
