@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.15 2005-08-05 13:06:56 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.16 2005-08-08 09:52:54 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -234,7 +234,7 @@ foreach my $dir (@ARGV) {
             $name =~ s#\s+$##;
 
             # Determine whether this is a new shape or a new part of a previous
-            # shape (does the latter happen in NTF BL?)
+            # shape.
             my $row;
             if (defined($ons_code) && exists($onscode_to_shape{$ons_code})) {
                 $row = $onscode_to_shape{$ons_code};
