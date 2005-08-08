@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.8 2005-08-05 10:34:44 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.9 2005-08-08 11:12:16 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -176,12 +176,15 @@ sub vertices ($) {
 
 package Geo::OSBoundaryLine::ComplexPolygon;
 
+use Scalar::Util qw(weaken);
+
 use fields qw(ntf id parts);
 
 sub new ($$$$) {
     my ($class, $ntf, $id, $parts) = @_;
     my $self = fields::new($class);
     $self->{ntf} = $ntf;
+    weaken($self->{ntf});
     $self->{id} = $id;
     $self->{parts} = $parts;
     return bless($self, $class);
@@ -215,14 +218,16 @@ sub part ($$) {
 
 package Geo::OSBoundaryLine::CollectionOfFeatures;
 
-use fields qw(ntf id attrid parts);
-
+use Scalar::Util qw(weaken);
 use UNIVERSAL;
+
+use fields qw(ntf id attrid parts);
 
 sub new ($$$$$) {
     my ($class, $ntf, $id, $attrid, $parts) = @_;
     my $self = fields::new($class);
     $self->{ntf} = $ntf;
+    weaken($self->{ntf});
     $self->{id} = $id;
     $self->{attrid} = $attrid;
     $self->{parts} = $parts;
@@ -238,7 +243,6 @@ collection.
 =cut
 sub parts ($) {
     my $self = shift;
-    my $ntf = $self->{ntf};
     return @{$self->{parts}};
 }
 
@@ -455,7 +459,7 @@ sub parse_14 ($$) {
     $obj->{attributes}->{int($1)} =
         new Geo::OSBoundaryLine::Attribute(
                 id => int($1),
-                admin_area_id => int($2),
+                admin_area_id => $2,
                 ons_code => ($4 eq '999999 ' ? undef : $4),
                 type => $5,
                 area_type => $6,
@@ -561,7 +565,7 @@ sub parse_31 ($$) {
                                               or $rec =~ m/^(\d{6}) \1 0%$/x);
 
     my $polyid = int($1);
-    my $attrid = int($2);
+    my $attrid = defined($2) ? int($2) : undef;
 
     $obj->{polygons}->{$polyid} = new Geo::OSBoundaryLine::Polygon($obj, $polyid);
 
@@ -596,8 +600,8 @@ EOF
 
     my @pp = ( );
     for (my $i = 0; $i < @parts; $i += 2) {
-        die "complex polygon #$complexid references non-existent polygon #$parts[$i] (sense $parts[$i + 1])"
-            unless (exists($obj->{polygons}->{$parts[$i]}));
+        die "complex polygon #$complexid references non-existent polygon #", int($parts[$i]), " (sense $parts[$i + 1])"
+            unless (exists($obj->{polygons}->{int($parts[$i])}));
         push(@pp, [$obj->{polygons}->{int($parts[$i])}, $parts[$i + 1] eq '+' ? -1 : 1]);
     }
     $obj->{complexes}->{$complexid} = new Geo::OSBoundaryLine::ComplexPolygon($obj, $complexid, \@pp);
