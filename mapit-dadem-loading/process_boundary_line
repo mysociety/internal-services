@@ -34,7 +34,40 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.17 2005-08-08 12:02:34 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.18 2005-08-10 08:10:16 chris Exp $';
+
+#
+# Simple object to represent a single area.
+#
+package Area;
+
+use fields qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent);
+
+# Accessor methods
+my $x = fields::new('Area');
+foreach (keys %$x) {
+    eval <<EOF;
+sub $_ (\$;\$) {
+    my (\$self, \$val) = \@_;
+    if (\$val) {
+        \$self->{$_} = \$val;
+    } else {
+        return \$self->{$_};
+    }
+}
+EOF
+}
+
+sub new ($%) {
+    my ($class, %values) = @_;
+    my $self = fields::new($class);
+    foreach (keys %values) {
+        $self->{$_} = $values{$_};  # syntax checks?
+    }
+    return bless($self, $class);
+}
+
+package main;
 
 use strict;
 require 5.8.0;
@@ -156,7 +189,9 @@ my %interesting_areas = map { $_ => 1 } (
 
  'WMC',   # Westminster Constituency
 
- 'EUR'    # European Region
+ 'EUR',   # European Region
+
+ 'CPC'    # Civil Parish
     )
 );
 
@@ -184,7 +219,8 @@ my %aaid_to_shape;
 use Data::Dumper;
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
-    foreach (sort { stat($b)->size() <=> stat($a)->size() } glob("$dir/*.[Nn][Tt][Ff]")) {
+#    foreach (sort { stat($b)->size() <=> stat($a)->size() } glob("$dir/*.[Nn][Tt][Ff]")) {
+    foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
         printf STDERR "\r%s (%.2fMB) ", $_, stat($_)->size() / (1024.*1024);
         my $ntf = new Geo::OSBoundaryLine::NTFFile($_);
         print STDERR "loaded.\n";
@@ -197,6 +233,11 @@ foreach my $dir (@ARGV) {
             my ($area_type, $ons_code, $aaid, $name) = map { $C->attributes()->{$_} } qw(area_type ons_code admin_area_id name);
 
             next unless (defined($area_type) && exists($interesting_areas{$area_type}));
+
+            # Detached subparts of administrative areas are named with a
+            # suffix "(DET NO n)". Remove it.
+            $name =~ s#\(DET( NO \d+|)\)\s*##gi;
+            $name =~ s#\s+$##;
 
             # Bounding rectangle of this shape.
             my ($minx, $miny, $maxx, $maxy) = (1e8, 1e8, -1e8, -1e8);
@@ -222,31 +263,32 @@ foreach my $dir (@ARGV) {
                 }
 
                 my $polydata = pack('d*', map { @$_ } @verts);
-                my $area = 0; # XXX
+                my $area = 0; # XXX area including winding
                 push(@parts, [$sense, $polydata, $area]);
                 @verts = ( );
             }
-
-            # Detached subparts of administrative areas are named with a
-            # suffix "(DET NO n)". Remove it.
-            $name =~ s#\(DET( NO \d+|)\)##g;
-            $name =~ s#\s+$##;
 
             # Determine whether this is a new shape or a new part of a previous
             # shape.
             my $row;
             if (defined($ons_code) && exists($onscode_to_shape{$ons_code})) {
                 $row = $onscode_to_shape{$ons_code};
-                print STDERR "second shape for ONS code $ons_code; combining\n";
-                die "ONS code $ons_code is used for '$row->[12]' and for '$name'\n"
-                    if ($name ne $row->[12]);
+                if ($name ne $row->name()) {
+                    print STDERR "\rONS code $ons_code is used for '", $row->name(), "' and for '$name'\n";
+                    undef $row;
+                } else {
+                    print STDERR "\rsecond shape for ONS code $ons_code; combining\n";
+                }
             }
 
-            if (!defined($row) && exists($aaid_to_shape{$aaid})) {
-                $row = $aaid_to_shape{$aaid};
-                    if ($name ne $row->[12]) {
-                warn "admin area id $aaid is used for '$row->[12]' and for '$name'\n";
-                $row = undef;}
+            if (!defined($row) && exists($aaid_to_shape{$area_type . $aaid})) {
+                $row = $aaid_to_shape{$area_type . $aaid};
+                if ($name ne $row->name()) {
+                    print STDERR "\radmin area id $aaid is used for ${area_type}s '", $row->name(), "' and for '$name'\n";
+                    undef $row;
+                } else {
+                    print STDERR "\rsecond shape for admin area id $aaid; combining\n";
+                }
             }
 
             if (!defined($row)) {
@@ -278,20 +320,37 @@ foreach my $dir (@ARGV) {
 
                 # first element is id, which we don't know yet
                 #           0      1           2        3      4      5      6      7    8    9          10         11     12
-                my $row = [ undef, $area_type, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $ons_code, $devolved, $aaid, $name ];
+#               my $row = [ undef, $area_type, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $ons_code, $devolved, $aaid, $name ];
+
+
+                my $row = new Area(
+                                area_type => $area_type,
+                                ons_code => $ons_code,
+                                devolved => $devolved,
+                                aaid => $aaid,
+                                name => $name,
+                                parts => \@parts,
+                                minx => $minx,
+                                miny => $miny,
+                                maxx => $maxx,
+                                maxy => $maxy,
+                                cx => $cx,
+                                cy => $cy,
+                            );
+                
                 $onscode_to_shape{$ons_code} = $row if (defined($ons_code));
-                $aaid_to_shape{$aaid} = $row;
+                $aaid_to_shape{$area_type . $aaid} = $row;
 
                 push(@shapes, $row);
                 STDERR->printf("\rreading shapes: %d", scalar(@shapes));
             } else {
                 # Shape already exists. Form union of its parts and ours.
-                print STDERR "adding collection to '$row->[12]'\n";
-                push(@{$row->[2]}, @parts);
-                $row->[3] = $minx if ($minx < $row->[3]);
-                $row->[4] = $maxx if ($maxx > $row->[4]);
-                $row->[5] = $miny if ($miny < $row->[5]);
-                $row->[6] = $maxy if ($maxy > $row->[6]);
+                print STDERR "adding collection to '", $row->name(), "'\n";
+                push(@{$row->parts()}, @parts);
+                $row->minx($minx) if ($minx < $row->minx());
+                $row->maxx($maxx) if ($maxx > $row->maxx());
+                $row->miny($miny) if ($miny < $row->miny());
+                $row->maxy($maxy) if ($maxy > $row->maxy());
             }
         }
 
@@ -305,7 +364,7 @@ STDERR->printf("\rreading shapes: %d total\n", scalar(@shapes));
 # Assign IDs to all these areas, and save them in a database.
 my $n = 0;
 foreach my $row (@shapes) {
-    my $parts = $row->[2];
+    my $parts = $row->parts();
 
     # Compute the geometry hash of the polygon. Consider parts in order of area
     # (counting winding), and hash the polydata. Strictly that's
@@ -321,7 +380,7 @@ foreach my $row (@shapes) {
     # Determine the area ID for this area in the database. If this area
     # corresponds exactly to an area we already know about, recycle the ID;
     # otherwise, create a new one.
-    $row->[0] = get_area_id($dbh, $row->[12], 'O', $row->[1], $row->[9], $row->[11], $digest);
+    $row->[0] = get_area_id($dbh, $row->name(), 'O', $row->area_type(), $row->ons_code(), $row->aaid(), $digest);
     STDERR->printf("\rsaving shapes in database: %d/%d", ++$n, scalar(@shapes));
 }
 
@@ -346,14 +405,14 @@ sub is_point_in_shape ($$$) {
     my ($S, $E, $N) = @_;
     
     # Bounding box.
-    return 0 if ($S->[3] > $E or $S->[4] < $E or $S->[5] > $N or $S->[6] < $N);
+    return 0 if ($S->minx() > $E or $S->maxx() < $E or $S->miny > $N or $S->maxy() < $N);
 
     my $res = 0;
-    foreach (@{$S->[2]}) {
+    foreach (@{$S->parts()}) {
         my ($sense, $vv) = @$_;
         $res += $sense if (is_point_in_poly($E, $N, length($vv) / (2 * $doublesize), $vv));
     }
-    warn "area $S->[0] coords ($E, $N) result is $res" unless ($res == 0 || $res == 1);
+    warn "area ", $S->id(), " coords ($E, $N) result is $res" unless ($res == 0 || $res == 1);
     return 1 if ($res > 0);
 }
 
@@ -372,8 +431,8 @@ sub find_containing_areas ($$;$) {
 
     # Count number of areas of each type.
     foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
-        ++$count{$S->[1]};
-        $only{$S->[1]} = $S;
+        ++$count{$S->area_type()};
+        $only{$S->area_type()} = $S;
     }
 
     # Short-circuit interiors of certain areas. Each point must be in exactly
@@ -407,21 +466,21 @@ sub find_containing_areas ($$;$) {
 
     # Try hinted points.
     if (defined($hints)) {
-        foreach my $S (grep { defined($_) and !exists($found{$_->[1]}) } values %$hints) {
+        foreach my $S (grep { defined($_) and !exists($found{$_->area_type()}) } values %$hints) {
             ++$total_shape_tests;
-            $found{$S->[1]} = $S if (is_point_in_shape($S, $E, $N));
+            $found{$S->area_type()} = $S if (is_point_in_shape($S, $E, $N));
         }
     }
 
     # Devolved assemblies. These cover areas which correspond to Euro-areas.
     if (exists($found{EUR})) {
-        if ($found{EUR}->[10] eq 'L') {
+        if ($found{EUR}->country() eq 'L') {
             $found{LAC} = $only{LAC} if ($count{LAC} == 1);
             $found{GLA} = $only{GLA} if ($count{GLA} == 1);
-        } elsif ($found{EUR}->[10] eq 'S') {
+        } elsif ($found{EUR}->country() eq 'S') {
             $found{SPC} = $only{SPC} if ($count{SPC} == 1);
             $found{SPE} = $only{SPE} if ($count{SPE} == 1);
-        } elsif ($found{EUR}->[10] eq 'W') {
+        } elsif ($found{EUR}->country() eq 'W') {
             $found{WAC} = $only{WAC} if ($count{WAC} == 1);
             $found{WAE} = $only{WAE} if ($count{WAE} == 1);
         }
@@ -429,9 +488,9 @@ sub find_containing_areas ($$;$) {
 
     # Now the slow way.
     foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
-        next if (exists($found{$S->[1]}));  # only care about one shape of each type.
+        next if (exists($found{$S->area_type()}));  # only care about one shape of each type.
         ++$total_shape_tests;
-        $found{$S->[1]} = $S if (is_point_in_shape($S, $E, $N));
+        $found{$S->area_type()} = $S if (is_point_in_shape($S, $E, $N));
     }
 
     return %found;
@@ -446,7 +505,7 @@ sub find_containing_areas ($$;$) {
 $n = 0;
 foreach my $S (@shapes) {
     # Add the buckets in which vertices of the shape lie.
-    foreach my $part (@{$S->[2]}) {
+    foreach my $part (@{$S->parts()}) {
         my ($minx, $maxx);
         my @miny = ( );
         my @maxy = ( );
@@ -483,7 +542,7 @@ foreach my $S (@shapes) {
         }
 
         if (!defined($minx) || !defined($maxx)) {
-            print STDERR "\r[2Kshape #$S->[0] has no vertices\n";
+            print STDERR "\r[2Kshape '", $S->name(), "' has no vertices\n";
             next;
         }
 
@@ -529,30 +588,30 @@ foreach my $S (@shapes) {
     ++$n;
     STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes; total p-in-p tests: %d; average tests/query = %f", $n, scalar(@shapes), $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
 
-    my $needparent = exists($parentmap{$S->[1]});
+    my $needparent = exists($parentmap{$S->area_type()});
 
     # Even areas which do not have a proper parent need to have a country.
     my $country = undef;
 
     # If this shape has a proper ONS code, use it to locate its parent and
     # country.
-    my $pid = undef;
-    my $ptype = $parentmap{$S->[1]};
-    if (defined($S->[9])) {
+    my $parent = undef;
+    my $ptype = $parentmap{$S->area_type()};
+    if (defined($S->ons_code())) {
         if ($needparent) {
-            my $newcode = substr($S->[9], 0, length($S->[9]) - 2);
+            my $newcode = substr($S->ons_code(), 0, length($S->ons_code()) - 2);
             if (exists($onscode_to_shape{$newcode})) {
                 my $s = $onscode_to_shape{$newcode};
-                $pid = $s->[0] if ($s->[1] eq $ptype);
+                $parent = $s if ($s->area_type() eq $ptype);
             }
         }
 
         # XXX I am assuming that ONS codes which begin '00N' are all in Wales,
         # and those which begin '00Q' or '00R' are all in Scotland. This is
         # true of SNAC 2003, and I assume will be in future too.
-        if ($S->[9] =~ m#^00N#) {
+        if ($S->ons_code() =~ m#^00N#) {
             $country = 'W';
-        } elsif ($S->[9] =~ m#^00[QR]#) {
+        } elsif ($S->ons_code() =~ m#^00[QR]#) {
             $country = 'S';
         } else {
             $country = 'E';
@@ -560,29 +619,31 @@ foreach my $S (@shapes) {
     }
     
     # Otherwise do it the slow way.
-    if (!defined($country) or ($needparent && !defined($pid))) {
-        my %areas = find_containing_areas($S->[7], $S->[8]);
-        if ($needparent and !defined($pid)) {
+    if (!defined($country) or ($needparent && !defined($parent))) {
+        my %areas = find_containing_areas($S->cx(), $S->cy());
+        if ($needparent and !defined($parent)) {
             if (exists($areas{$ptype})) {
-                $pid = $areas{$ptype}->[0];
+                $parent = $areas{$ptype};
             } else {
-                warn "$S->[1] shape $S->[0] has no $ptype parent\n" unless (defined($pid));
+                warn $S->area_type() . " shape '", $S->name(), "' has no $ptype parent\n" unless (defined($parent));
             }
         }
         if (!defined($country)) {
             my $euro = $areas{EUR};
             if (!defined($euro)) {
-                warn "$S->[1] shape $S->[0] is not in a Euro-area\n";
+                warn $S->area_type(), " shape '", $S->name(), "' is not in a Euro-area\n";
             } else {
                 # Devolved assembly info.
-                $country = $euro->[10];
+                $country = $euro->devolved();
                 $country = 'E' if ($country eq 'L');
             }
         }
     }
 
-    $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if ($needparent and defined($pid));
-    country($dbh, $S->[0], $country) if (defined($country));
+#    $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if ($needparent and defined($pid));
+#    country($dbh, $S->[0], $country) if (defined($country));
+    $S->parent($parent) if ($needparent && defined($parent));
+    $S->country($country) if (defined($country));
 }
 $dbh->commit();
 STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes));
@@ -632,8 +693,8 @@ $total_shape_tests = $total_queries = 0;
        
         my $pcid = get_postcode_id($dbh, $pc, $E, $N);
         foreach my $S (grep { defined($_) } values %areas) {
-            $dbh->do('delete from postcode_area where postcode_id = ? and area_id = ?', {}, $pcid, $S->[0]);
-            $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->[0]);
+            $dbh->do('delete from postcode_area where postcode_id = ? and area_id = ?', {}, $pcid, $S->id());
+            $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->id());
         }
 
         ++$n;
