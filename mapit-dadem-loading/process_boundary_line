@@ -34,17 +34,66 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.18 2005-08-10 08:10:16 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.19 2005-08-11 16:48:24 chris Exp $';
 
 #
 # Simple object to represent a single area.
 #
 package Area;
 
-use fields qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent);
+use fields qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent children deleted alreadyexists);
 
 # Accessor methods
 my $x = fields::new('Area');
+foreach (keys %$x) {
+    next if ($_ eq 'children');
+    eval <<EOF;
+sub $_ (\$;\$) {
+    my (\$self, \$val) = \@_;
+    if (\$val) {
+        \$self->{$_} = \$val;
+    } else {
+        return \$self->{$_};
+    }
+}
+EOF
+}
+
+# children [CHILD]
+# Add a CHILD to the set of this area's children, or return the current set of
+# children.
+sub children ($;$) {
+    my ($self, $ch) = @_;
+    if (defined($ch)) {
+        $self->{children}->{$ch} = $ch;
+    } else {
+        return grep { !$_->deleted() } values(%{$self->{children}});
+    }
+}
+
+sub new ($%) {
+    my ($class, %values) = @_;
+    my $self = fields::new($class);
+    $self->{deleted} = 0;
+    $self->{alreadyexists} = 1; # whether the area should already be in the db
+    foreach (keys %values) {
+        $self->{$_} = $values{$_};  # syntax checks?
+    }
+    return bless($self, $class);
+}
+
+#
+# Control statements, used to fix up differences between old and new data.
+#
+package Control;
+
+use IO::File;
+
+use fields qw(command args);
+
+# Accessor methods
+#my 
+$x = fields::new('Control');
 foreach (keys %$x) {
     eval <<EOF;
 sub $_ (\$;\$) {
@@ -58,13 +107,83 @@ sub $_ (\$;\$) {
 EOF
 }
 
-sub new ($%) {
-    my ($class, %values) = @_;
+sub new ($$@) {
+    my ($class, $command, @args) = @_;
     my $self = fields::new($class);
-    foreach (keys %values) {
-        $self->{$_} = $values{$_};  # syntax checks?
-    }
+    $self->{command} = $command;
+    $self->{args} = \@args;
     return bless($self, $class);
+}
+
+# read_file FILENAME
+# read_file HANDLE
+# Read a list of control statements from FILENAME. Each control statement may
+# be,
+#
+# delete SPEC
+#   Delete areas from the newly loaded data which match the given SPEC.
+#
+# construct AREA SPEC
+#   Construct a new AREA consisting of the union of the areas identified by the
+#   list of SPECs. Its parent will be identified in the usual way.
+#
+# Each AREA is a string of the form
+#
+#   TYPE:"NAME"[;ONSCODE]
+#
+# where TYPE is an area type such as CTY or WMC, NAME is the area's full name,
+# and ONSCODE may optionally supply its ONS code number.
+# 
+# Each SPEC is a perl expression which is evaluated with $_ being a candidate
+# area. It should evaluate to true if $_ matches the spec, and false otherwise.
+# For instance,
+#
+#   $_->area_type() eq 'CED' && $_->parent()->full_name() =~ /^Suffolk/
+#
+# selects CEDs within Suffolk.
+#
+# \ continues a line; where a # is the first nonblank character on a line, it
+# introduces a comment.
+sub read_file ($) {
+    my ($file) = @_;
+    my $h;
+    if (!ref($file)) {
+        $h = new IO::File($file, O_RDONLY) || die "$file: $!";
+    } else {
+        $h = $file;
+        $file = '-';
+    }
+    my @cmds = ( );
+    
+    my $n = 0;
+    my $accum = '';
+    while (defined(my $line = $h->getline())) {
+        ++$n;
+        chomp($line);
+        next if ($line =~ /^\s+#/);
+        
+        my $continue = ($line =~ /^(.*)\\$/);
+        $accum .= $continue ? $1 : $line;
+
+        # If this is not a continuation line, actually parse it.
+        if (!$continue) {
+            my $area_regex = '[A-Z]{3}:"[^"]+"(?:|;[0-9A-Z]{3,7})';
+            $accum =~ s/^\s+//;
+            if ($accum =~ m#^delete\s+(.*)#) {
+                push(@cmds, new Control('delete', $1));
+            } elsif ($accum =~ m#construct\s+($area_regex)\s+(.*)#) {
+                push(@cmds, new Control('construct', $1, $2));
+            } elsif ($accum =~ m#^\s*$#) {
+                # no action
+            } else {
+                die "$file: syntax error at line $n";
+            }
+            $accum = '';
+        }
+    }
+    die "$file: $!" if ($h->error());
+    $h->close();
+    return @cmds;
 }
 
 package main;
@@ -153,6 +272,7 @@ int is_point_in_poly(double x, double y, size_t npts, char *vv) {
 
 EOF
 
+# Record the size of a double for use later.
 my $doublesize = length(pack('d', 0));
 
 my %interesting_areas = map { $_ => 1 } (
@@ -201,8 +321,10 @@ my %interesting_areas = map { $_ => 1 } (
 my @shapes;
 my %onscode_to_shape;
 
-die "arguments are Postgres database name and directories containing NTF files" unless (@ARGV > 1);
+die "arguments are Postgres database name, control file, and directories containing NTF files" unless (@ARGV > 2);
 my $dbname = shift(@ARGV);
+my $controlfile = shift(@ARGV);
+my @controlcommands = Control::read_file($controlfile);
 
 # Open database.
 my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
@@ -219,7 +341,6 @@ my %aaid_to_shape;
 use Data::Dumper;
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
-#    foreach (sort { stat($b)->size() <=> stat($a)->size() } glob("$dir/*.[Nn][Tt][Ff]")) {
     foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
         printf STDERR "\r%s (%.2fMB) ", $_, stat($_)->size() / (1024.*1024);
         my $ntf = new Geo::OSBoundaryLine::NTFFile($_);
@@ -298,6 +419,10 @@ foreach my $dir (@ARGV) {
                 # is used to find the areas which enclose this area in the case
                 # where that cannot be computed by other means (e.g. ONS code).
                 # XXX finding the centroid would be better!
+                # XXX this is actually broken, since a point inside this
+                # polygon might actually lie in a hole. In principle we should
+                # move this to later, when all the parts for this shape have
+                # been assembled.
                 my ($cx, $cy);
                 do {
                     $cx = $vx + rand(20) - 10;
@@ -317,11 +442,6 @@ foreach my $dir (@ARGV) {
                         $devolved = 'W';
                     }
                 }
-
-                # first element is id, which we don't know yet
-                #           0      1           2        3      4      5      6      7    8    9          10         11     12
-#               my $row = [ undef, $area_type, \@parts, $minx, $maxx, $miny, $maxy, $cx, $cy, $ons_code, $devolved, $aaid, $name ];
-
 
                 my $row = new Area(
                                 area_type => $area_type,
@@ -360,33 +480,6 @@ foreach my $dir (@ARGV) {
 
 STDERR->printf("\rreading shapes: %d total\n", scalar(@shapes));
 
-# Pass 1.5:
-# Assign IDs to all these areas, and save them in a database.
-my $n = 0;
-foreach my $row (@shapes) {
-    my $parts = $row->parts();
-
-    # Compute the geometry hash of the polygon. Consider parts in order of area
-    # (counting winding), and hash the polydata. Strictly that's
-    # architecture-dependent, but that doesn't matter because the data have
-    # already passed through Shapelib, which treats them as binary
-    # floating-point numbers.
-    my $digest = new Digest::SHA1();
-    foreach (sort { $parts->[$a]->[2] <=> $parts->[$b]->[2] } (0 .. scalar(@$parts) - 1)) {
-        $digest->add($parts->[$_]->[1]);
-    }
-    $digest = $digest->hexdigest();
-
-    # Determine the area ID for this area in the database. If this area
-    # corresponds exactly to an area we already know about, recycle the ID;
-    # otherwise, create a new one.
-    $row->[0] = get_area_id($dbh, $row->name(), 'O', $row->area_type(), $row->ons_code(), $row->aaid(), $digest);
-    STDERR->printf("\rsaving shapes in database: %d/%d", ++$n, scalar(@shapes));
-}
-
-#$dbh->commit();
-
-
 # Stick the shapes into buckets for a set of grid squares.
 my $tilesize = 1000;   # 1km buckets
 my $tiles = [ ];
@@ -417,9 +510,9 @@ sub is_point_in_shape ($$$) {
 }
 
 # find_containing_areas EASTING NORTHING [HINTS]
-# Return a list of all shapes (in the same format as rows of @shapes) which
-# contain the point (EASTING, NORTHING). HINTS is an optional hash of area type
-# to containing area.
+# Return a list of all areas contain the point (EASTING, NORTHING). HINTS is an
+# optional hash of area type to containing area; if specified, these areas will
+# be tried first before an exhastive search for areas containing the point.
 my ($total_shape_tests, $total_queries) = (0, 0);
 sub find_containing_areas ($$;$) {
     my ($E, $N, $hints) = @_;
@@ -431,6 +524,7 @@ sub find_containing_areas ($$;$) {
 
     # Count number of areas of each type.
     foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
+        next if ($S->deleted());
         ++$count{$S->area_type()};
         $only{$S->area_type()} = $S;
     }
@@ -467,6 +561,7 @@ sub find_containing_areas ($$;$) {
     # Try hinted points.
     if (defined($hints)) {
         foreach my $S (grep { defined($_) and !exists($found{$_->area_type()}) } values %$hints) {
+            next if ($S->deleted());
             ++$total_shape_tests;
             $found{$S->area_type()} = $S if (is_point_in_shape($S, $E, $N));
         }
@@ -488,6 +583,7 @@ sub find_containing_areas ($$;$) {
 
     # Now the slow way.
     foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
+        next if ($S->deleted());
         next if (exists($found{$S->area_type()}));  # only care about one shape of each type.
         ++$total_shape_tests;
         $found{$S->area_type()} = $S if (is_point_in_shape($S, $E, $N));
@@ -502,7 +598,7 @@ sub find_containing_areas ($$;$) {
 # they are and put the shape in each bucket within a rough convex hull of the
 # polygon's vertices. This must be done separately for each part, since shapes
 # may have several disconnected convex parts (e.g. islands).
-$n = 0;
+my $n = 0;
 foreach my $S (@shapes) {
     # Add the buckets in which vertices of the shape lie.
     foreach my $part (@{$S->parts()}) {
@@ -640,13 +736,33 @@ foreach my $S (@shapes) {
         }
     }
 
-#    $dbh->do('update area set parent_area_id = ? where id = ?', {}, $pid, $S->[0]) if ($needparent and defined($pid));
-#    country($dbh, $S->[0], $country) if (defined($country));
-    $S->parent($parent) if ($needparent && defined($parent));
+    # Record both parent and child.
+    if ($needparent && defined($parent)) {
+        $S->parent($parent);
+        $parent->children($S);
+    }
     $S->country($country) if (defined($country));
 }
-$dbh->commit();
 STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes));
+
+#
+# Now we need to:
+#
+# - identify which areas are new (i.e., the results of boundary changes etc.);
+# 
+# - construct new areas to incorporate boundary changes which are not yet
+#   shown in the data; and
+#
+# - where an area corresponds to an area which was already in the data,
+#   identify the ID of the old area so that we can keep it for the new area.
+#
+# Accordingly, process control file commands.
+#
+
+foreach my $cmd (@controlcommands) {
+}
+
+
 
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
