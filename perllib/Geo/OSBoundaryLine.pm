@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.9 2005-08-08 11:12:16 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.10 2005-08-12 15:38:06 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -128,7 +128,7 @@ sub new ($%) {
 
 # accessor methods
 foreach (keys %checks) {
-    eval 'sub ' . $_ . ' ($) { my $self = shift; return $self->{' . $_ . '}';
+    eval 'sub ' . $_ . ' ($) { my $self = shift; return $self->{' . $_ . '} }';
 }
 
 package Geo::OSBoundaryLine::Polygon;
@@ -259,22 +259,25 @@ sub part ($$) {
     return $ntf->{collections}->{$self->{id}}->[$i];
 }
 
-=item flatten
+=item flatten [NORECURSE]
 
 Return a flattened representation of the collection; that is, a list of
-[polygon, sense] obtained recursively.
+[polygon, sense] obtained recursively. If NORECURSE is true, then do not
+recurse into enclosed collections-of-features.
 
 =cut
-sub flatten ($;$) {
-    my ($self, $cofids_seen) = @_;
+sub flatten ($;$$);
+sub flatten ($;$$) {
+    my ($self, $norecurse, $cofids_seen) = @_;
     my @parts = ( );
     $cofids_seen ||= { };
     $cofids_seen->{$self->{id}} = 1;
     foreach my $p ($self->parts()) {
         if ($p->isa("Geo::OSBoundaryLine::CollectionOfFeatures")) {
+            next if ($norecurse);
             die "collection #$self->{id} is part of a referential cycle of collections"
                 if (exists($cofids_seen->{$p->{id}}));
-            push(@parts, $p->flatten());
+            push(@parts, $p->flatten($norecurse, $cofids_seen));
         } elsif ($p->isa("Geo::OSBoundaryLine::ComplexPolygon")) {
             push(@parts, $p->parts());
         } elsif ($p->isa("Geo::OSBoundaryLine::Polygon")) {
