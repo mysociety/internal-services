@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.19 2005-08-11 16:48:24 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.20 2005-08-12 15:51:01 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -138,7 +138,7 @@ sub new ($$@) {
 # area. It should evaluate to true if $_ matches the spec, and false otherwise.
 # For instance,
 #
-#   $_->area_type() eq 'CED' && $_->parent()->full_name() =~ /^Suffolk/
+#   $_->area_type() eq 'CED' && $_->parent()->name() =~ /^Suffolk/
 #
 # selects CEDs within Suffolk.
 #
@@ -160,7 +160,7 @@ sub read_file ($) {
     while (defined(my $line = $h->getline())) {
         ++$n;
         chomp($line);
-        next if ($line =~ /^\s+#/);
+        next if ($line =~ /^\s*#/);
         
         my $continue = ($line =~ /^(.*)\\$/);
         $accum .= $continue ? $1 : $line;
@@ -369,7 +369,7 @@ foreach my $dir (@ARGV) {
             # For each part, obtain a list of vertices and update the bounding
             # rectangle.
             my ($vx, $vy);
-            foreach my $part ($C->flatten()) {
+            foreach my $part ($C->flatten(1)) {
                 my ($poly, $sense) = @$part;
                 my @verts = $poly->vertices();
 
@@ -505,7 +505,35 @@ sub is_point_in_shape ($$$) {
         my ($sense, $vv) = @$_;
         $res += $sense if (is_point_in_poly($E, $N, length($vv) / (2 * $doublesize), $vv));
     }
-    warn "area ", $S->id(), " coords ($E, $N) result is $res" unless ($res == 0 || $res == 1);
+    warn "area '", $S->name(), "' coords ($E, $N) result is $res" unless ($res == 0 || $res == 1);
+unless ($res == 0 || $res == 1) {
+    my $n = $S->name();
+    $n =~ s/ /_/g;
+    print STDERR "writing sense +1 areas to /tmp/$n=+1\n";
+    print STDERR "writing sense -1 areas to /tmp/$n=-1\n";
+    open(P, ">/tmp/$n=+1");
+    open(N, ">/tmp/$n=-1");
+print STDERR "  ... shape has ", scalar(@{$S->parts()}), " parts\n";
+    foreach (@{$S->parts()}) {
+        my ($sense, $vv) = @$_;
+        my @pp = unpack('d*', $vv);
+print STDERR "  ... part sense $sense ", length($vv) / (2 * $doublesize), " vertices\n";
+        for (my $i = 0; $i < @pp; $i += 2) {
+            if ($sense > 0) {
+                print P "$pp[$i] $pp[$i + 1]\n";
+            } else {
+                print N "$pp[$i] $pp[$i + 1]\n";
+            }
+        }
+        if ($sense > 0) {
+            print P "\n\n";
+        } else {
+            print N "\n\n";
+        }
+    }
+    close(P);
+    close(N);
+}
     return 1 if ($res > 0);
 }
 
@@ -753,16 +781,33 @@ STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes)
 # - construct new areas to incorporate boundary changes which are not yet
 #   shown in the data; and
 #
-# - where an area corresponds to an area which was already in the data,
-#   identify the ID of the old area so that we can keep it for the new area.
-#
 # Accordingly, process control file commands.
 #
 
 foreach my $cmd (@controlcommands) {
+    if ($cmd->command() eq 'delete') {
+        my $cond = $cmd->args()->[0];
+        print STDERR "DELETE: $cond\n";
+        my ($seen, $deleted) = (0, 0);
+        foreach (@shapes) {
+            ++$seen;
+            if (eval($cond) && !$_->deleted()) {
+                ++$deleted;
+                $_->deleted(1);
+            }
+
+            print STDERR "\rProcessed $seen/", scalar(@shapes), "; deleted $deleted";
+        }
+        print STDERR "\rProcessed $seen/", scalar(@shapes), "; deleted $deleted\n";
+    } elsif ($cmd->comand() eq 'construct') {
+    }
 }
 
-
+#
+# Last step: where an area corresponds to an area which was already in the
+# data, identify the ID of the old area so that we can keep it for the new
+# area.
+#
 
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
