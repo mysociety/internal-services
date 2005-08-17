@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.21 2005-08-17 13:31:45 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.22 2005-08-17 17:46:58 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -76,6 +76,7 @@ sub new ($%) {
     my $self = fields::new($class);
     $self->{deleted} = 0;
     $self->{alreadyexists} = 1; # whether the area should already be in the db
+                                # (assume yes until told otherwise)
     foreach (keys %values) {
         $self->{$_} = $values{$_};  # syntax checks?
     }
@@ -119,6 +120,10 @@ sub new ($$@) {
 # read_file HANDLE
 # Read a list of control statements from FILENAME. Each control statement may
 # be,
+#
+# isnew SPEC
+#   Mark areas matching the given SPEC as not corresponding to any existing
+#   area in the database.
 #
 # delete SPEC
 #   Delete areas from the newly loaded data which match the given SPEC.
@@ -169,7 +174,9 @@ sub read_file ($) {
         if (!$continue) {
             my $area_regex = '[A-Z]{3}:"[^"]+"(?:|;[0-9A-Z]{3,7})';
             $accum =~ s/^\s+//;
-            if ($accum =~ m#^delete\s+(.*)#) {
+            if ($accum =~ m#^isnew\s+(.*)#) {
+                push(@cmds, new Control('isnew', $1));
+            } elsif ($accum =~ m#^delete\s+(.*)#) {
                 push(@cmds, new Control('delete', $1));
             } elsif ($accum =~ m#construct\s+($area_regex)\s+(.*)#) {
                 push(@cmds, new Control('construct', $1, $2));
@@ -198,6 +205,7 @@ use Fcntl;
 use File::stat;
 use Geo::OSBoundaryLine;
 use IO::Handle;
+use Text::LevenshteinXS;
 
 use Common;
 
@@ -334,6 +342,11 @@ foreach (keys %parentmap) {
 # List of Area objects for each area we're interested in.
 my @shapes;
 my %onscode_to_shape;
+my %area_type_to_shape;
+
+# We may have several shapes in files with the same administrative area ID. We
+# amalgamate them before writing them to the database.
+my %aaid_to_shape;
 
 die "arguments are Postgres database name, control file, and directories containing NTF files" unless (@ARGV > 2);
 my $dbname = shift(@ARGV);
@@ -348,11 +361,6 @@ die "no new generation available" if (!defined($generation));
 # Pass 1:
 # Process all the directories of NTF files, saving their coordinates and
 # recording area names etc. in memory.
-
-# We may have several shapes in files with the same administrative area ID. We
-# amalgamate them before writing them to the database.
-my %aaid_to_shape;
-use Data::Dumper;
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
     foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
@@ -365,10 +373,12 @@ foreach my $dir (@ARGV) {
         my %collectid_to_area;
         my %collectid_to_parent_collectid;
 
-        # Each administrative area will be represented by a single
-        # collection-of-features. So we can go through all the
-        # collections-of-features and collect all the associated shapes for
-        # processing.
+        # Each administrative area will be represented by at least one
+        # collection-of-features. So we go through all the collections and
+        # collect all the associated shapes for processing. But collections
+        # also contain child areas (e.g. a DIS collection will contain all
+        # the DIW collections for its contained wards), so we don't recurse
+        # down.
         foreach my $collectid (keys %{$ntf->{collections}}) {
             my $C = $ntf->{collections}->{$collectid};
             my ($area_type, $ons_code, $aaid, $name) = map { $C->attributes()->{$_} } qw(area_type ons_code admin_area_id name);
@@ -480,6 +490,7 @@ foreach my $dir (@ARGV) {
                 
                 $onscode_to_shape{$ons_code} = $row if (defined($ons_code));
                 $aaid_to_shape{$area_type . $aaid} = $row;
+                push(@{$area_type_to_shape{$area_type}}, $row);
 
                 push(@shapes, $row);
                 STDERR->printf("\rreading shapes: %d", scalar(@shapes));
@@ -860,20 +871,30 @@ STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes)
 #
 
 foreach my $cmd (@controlcommands) {
-    if ($cmd->command() eq 'delete') {
+    if ($cmd->command() =~ m/^(isnew|delete)$/) {
+        my $C = $cmd->command();
         my $cond = $cmd->args()->[0];
-        print STDERR "DELETE: $cond\n";
-        my ($seen, $deleted) = (0, 0);
+        if ($C eq 'isnew') {
+            print STDERR "ISNEW";
+        } else {
+            print STDERR "DELETE";
+        }
+        print STDERR ": $cond\n";
+        my ($seen, $acted) = (0, 0);
         foreach (@shapes) {
             ++$seen;
             if (eval($cond) && !$_->deleted()) {
-                ++$deleted;
-                $_->deleted(1);
+                ++$acted;
+                if ($C eq 'isnew') {
+                    $_->alreadyexists(0);
+                } else {
+                    $_->deleted(1);
+                }
             }
 
-            print STDERR "\rProcessed $seen/", scalar(@shapes), "; deleted $deleted";
+            print STDERR "\rProcessed $seen/", scalar(@shapes), "; $C $acted";
         }
-        print STDERR "\rProcessed $seen/", scalar(@shapes), "; deleted $deleted\n";
+        print STDERR "\rProcessed $seen/", scalar(@shapes), "; $C $acted\n";
     } elsif ($cmd->comand() eq 'construct') {
     }
 }
@@ -883,6 +904,50 @@ foreach my $cmd (@controlcommands) {
 # data, identify the ID of the old area so that we can keep it for the new
 # area.
 #
+
+# match_db_areas AREAS CONDITION
+# AREAS is a list of areas, and CONDITION a where-clause fragment for selecting
+# from the database a superset of areas which should match them. On success,
+# annotates each of the AREAS with the appropriate ID; on failure, dies.
+sub match_db_areas ($$) {
+    my ($areas, $condition) = @_;
+
+    my $g = current_generation($dbh);
+    my $s = "select id, parent_area_id, unit_id, ons_code, type, name from area, area_name where area.id = area_name.area_id and name_type = 'O' and ($g >= generation_low and $g <= generation_high) and ($condition)";
+    my $aa = $dbh->selectall_hashref($s, 'id');
+
+    if (scalar(keys(%$aa)) < @$areas) {
+        print STDERR "condition = $condition\n";
+        die "got " . scalar(keys(%$aa)) . " from db, but have " . scalar(@$areas) . " to match";
+    }
+
+    foreach my $A (@$areas) {
+        my @i = sort { Text::LevenshteinXS::distance($A->name(), $a->{name}) cmp Text::LevenshteinXS::distance($A->name(), $b->{name}) } values(%$aa);
+        die "closest match for '" . $A->name() . "', '" . $i[0]->{name} . "', is not similar enough"
+            if (Text::LevenshteinXS::distance($A->name(), $i[0]->{name}) > length($A->name()) / 10);
+        print STDERR $A->name(), " -> $i[0]->{name}\n";
+        $A->id($i[0]->{id});
+        delete($aa->{$A->id()});
+    }
+}
+
+print STDERR "Finding existing database rows for areas...\n";
+
+# For each area type, associate names.
+foreach my $area_type (grep { !exists($parentmap{$_}) } @interesting_areas) {
+    print STDERR "$area_type...\n";
+    my @aa = grep { $_->alreadyexists() } @{$area_type_to_shape{$area_type}};
+    match_db_areas(\@aa, 'type = ' . $dbh->quote($area_type));
+    
+    # Now consider these shapes' children.
+    if (exists($childmap{$area_type})) {
+        foreach my $S (@aa) {
+            print "--- children for ", $S->name(), "\n";
+            my @children = grep { $_->alreadyexists() } $S->children();
+            match_db_areas(\@children, 'parent_area_id = ' . $S->id());
+        }
+    }
+}
 
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
