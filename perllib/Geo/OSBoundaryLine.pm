@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.10 2005-08-12 15:38:06 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.11 2005-08-17 13:33:32 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -232,6 +232,16 @@ sub new ($$$$$) {
     $self->{attrid} = $attrid;
     $self->{parts} = $parts;
     return bless($self, $class);
+}
+
+=item id
+
+Return the collection id.
+
+=cut
+sub id ($) {
+    my $self = shift;
+    return $self->{id};
 }
 
 =item parts
@@ -605,7 +615,7 @@ EOF
     for (my $i = 0; $i < @parts; $i += 2) {
         die "complex polygon #$complexid references non-existent polygon #", int($parts[$i]), " (sense $parts[$i + 1])"
             unless (exists($obj->{polygons}->{int($parts[$i])}));
-        push(@pp, [$obj->{polygons}->{int($parts[$i])}, $parts[$i + 1] eq '+' ? -1 : 1]);
+        push(@pp, [$obj->{polygons}->{int($parts[$i])}, $parts[$i + 1] eq '+' ? +1 : -1]);
     }
     $obj->{complexes}->{$complexid} = new Geo::OSBoundaryLine::ComplexPolygon($obj, $complexid, \@pp);
 }
