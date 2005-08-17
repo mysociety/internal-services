@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.20 2005-08-12 15:51:01 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.21 2005-08-17 13:31:45 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -311,13 +311,27 @@ my %interesting_areas = map { $_ => 1 } (
 
  'EUR',   # European Region
 
- 'CPC'    # Civil Parish
+# 'CPC'    # Civil Parish
     )
 );
 
+# Areas for which we compute parentage, and their parent types.
+my %parentmap = qw(
+        CED CTY
+        DIW DIS
+        LBW LBO
+        MTW MTD
+        UTW UTA
+        UTE UTA
+    );
+
+my %childmap;
+foreach (keys %parentmap) {
+    $childmap{$parentmap{$_}}->{$_} = 1;
+}
+
 # @shapes
-# List of [ unique ID, area code, shape, min_x, max_x, min_y, max_y, cx, cy, ons_code ] for each
-# area we're interested in.
+# List of Area objects for each area we're interested in.
 my @shapes;
 my %onscode_to_shape;
 
@@ -346,11 +360,17 @@ foreach my $dir (@ARGV) {
         my $ntf = new Geo::OSBoundaryLine::NTFFile($_);
         print STDERR "loaded.\n";
 
+        # Within each file, cache a list of collection ID to area object. We
+        # use this to determine area parents at load time.
+        my %collectid_to_area;
+        my %collectid_to_parent_collectid;
+
         # Each administrative area will be represented by a single
         # collection-of-features. So we can go through all the
         # collections-of-features and collect all the associated shapes for
         # processing.
-        foreach my $C (values %{$ntf->{collections}}) {
+        foreach my $collectid (keys %{$ntf->{collections}}) {
+            my $C = $ntf->{collections}->{$collectid};
             my ($area_type, $ons_code, $aaid, $name) = map { $C->attributes()->{$_} } qw(area_type ons_code admin_area_id name);
 
             next unless (defined($area_type) && exists($interesting_areas{$area_type}));
@@ -443,7 +463,7 @@ foreach my $dir (@ARGV) {
                     }
                 }
 
-                my $row = new Area(
+                $row = new Area(
                                 area_type => $area_type,
                                 ons_code => $ons_code,
                                 devolved => $devolved,
@@ -472,6 +492,37 @@ foreach my $dir (@ARGV) {
                 $row->miny($miny) if ($miny < $row->miny());
                 $row->maxy($maxy) if ($maxy > $row->maxy());
             }
+
+            $collectid_to_area{$C->id()} = $row;
+
+            # If this is an area for which we maintain a parent/child mapping,
+            # then go through each of its parts linking them up appropriately.
+            if (exists($childmap{$area_type})) {
+                foreach my $part ($C->parts()) {
+                    # Only consider child collections which are of the
+                    # appropriate type to be children of this area.
+                    next unless ($part->isa("Geo::OSBoundaryLine::CollectionOfFeatures")
+                                    && exists($childmap{$area_type}->{$part->attributes()->area_type()}));
+
+                    # Don't actually match up the parent and child rows here as
+                    # we may not have seen all the referenced IDs yet. Save a
+                    # link which we process later.
+                    die "#" . $part->id() . " already has a parent, #$collectid_to_parent_collectid{$part->id()}, not " . $C->id() . "\n"
+                        if (exists($collectid_to_parent_collectid{$part->id()}) && $collectid_to_parent_collectid{$part->id()} ne $C->id());
+                    $collectid_to_parent_collectid{$part->id()} = $C->id();
+                }
+            }
+        }
+
+        # Now use the map of parent collection IDs to fix up the parent/child
+        # mapping.
+        print STDERR "\n";
+        foreach my $child (keys %collectid_to_parent_collectid) {
+            my $parent = $collectid_to_parent_collectid{$child};
+            die "child collection ID #$child does not exist but was referenced by another area" if (!exists($collectid_to_area{$child}));
+            $collectid_to_area{$child}->parent($collectid_to_area{$parent});
+            $collectid_to_area{$parent}->children($collectid_to_area{$child});
+            printf STDERR "%s lies inside %s\n", $collectid_to_area{$child}->name(), $collectid_to_area{$parent}->name();
         }
 
         undef $ntf;
@@ -597,13 +648,13 @@ sub find_containing_areas ($$;$) {
 
     # Devolved assemblies. These cover areas which correspond to Euro-areas.
     if (exists($found{EUR})) {
-        if ($found{EUR}->country() eq 'L') {
+        if ($found{EUR}->devolved() eq 'L') {
             $found{LAC} = $only{LAC} if ($count{LAC} == 1);
             $found{GLA} = $only{GLA} if ($count{GLA} == 1);
-        } elsif ($found{EUR}->country() eq 'S') {
+        } elsif ($found{EUR}->devolved() eq 'S') {
             $found{SPC} = $only{SPC} if ($count{SPC} == 1);
             $found{SPE} = $only{SPE} if ($count{SPE} == 1);
-        } elsif ($found{EUR}->country() eq 'W') {
+        } elsif ($found{EUR}->devolved() eq 'W') {
             $found{WAC} = $only{WAC} if ($count{WAC} == 1);
             $found{WAE} = $only{WAE} if ($count{WAE} == 1);
         }
@@ -698,21 +749,21 @@ STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
 
 # Pass 3:
 # Compute area parents for those which should have parents.
+#
+# There are several ways to do this. Firstly, where an area has an ONS code,
+# the parent's ONS code will be a prefix of that code. So we can search for the
+# area that way. Secondly, Boundary Line codes parent areas as collections of
+# features which include the child areas. And thirdly we can search for the
+# areas which contain a point within the child area, and pick out the result of
+# the appropriate type.
 print STDERR "finding parent areas... ";
-my %parentmap = qw(
-        CED CTY
-        DIW DIS
-        LBW LBO
-        MTW MTD
-        UTW UTA
-        UTE UTA
-    );
+
 $n = 0;
 foreach my $S (@shapes) {
     ++$n;
     STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes; total p-in-p tests: %d; average tests/query = %f", $n, scalar(@shapes), $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
 
-    my $needparent = exists($parentmap{$S->area_type()});
+    my $needparent = exists($parentmap{$S->area_type()}) && !defined($S->parent());
 
     # Even areas which do not have a proper parent need to have a country.
     my $country = undef;
@@ -741,6 +792,30 @@ foreach my $S (@shapes) {
             $country = 'E';
         }
     }
+
+    # Otherwise we know that certain types of shapes exist only in specific
+    # countries.
+    my %area_type_country = (
+            CED => 'E',
+            CTY => 'E',
+            DIW => 'E',
+            DIS => 'E',
+            MTW => 'E',
+            MTD => 'E',
+            
+            LBW => 'L',
+            LBO => 'L',
+            LAC => 'L',
+            GLA => 'L',
+            
+            SPE => 'S',
+            SPC => 'S',
+
+            WAE => 'W',
+            WAC => 'W'
+        );
+
+    $country = $area_type_country{$S->area_type()} if (!defined($country) and exists($area_type_country{$S->area_type()}));
     
     # Otherwise do it the slow way.
     if (!defined($country) or ($needparent && !defined($parent))) {
