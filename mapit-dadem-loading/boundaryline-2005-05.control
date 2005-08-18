@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+#
+# boundaryline-2005-05.control:
+# Control file for import of May 2005 Boundary Line.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: boundaryline-2005-05.control,v 1.1 2005-08-18 11:42:30 chris Exp $
+#
+
+# All EDs in English counties were redrawn for May 2005.
+isnew $_->area_type() eq 'CED'
+
+# New BL codes Isles of Scilly as a county, which is new.
+isnew $_->area_type() eq 'CTY' and $_->name() eq 'Isles of Scilly';
+
+# The Borough of Stockton-on-Tees (Electoral Changes) Order 2003 (#2506)
+isnew $_->area_type() eq 'UTW' and $_->parent()->name() eq 'Stockton-on-Tees'
+
+# All the constituencies in Scotland have been redrawn. Drop the old ones and
+# construct new.
+delete $_->area_type() eq 'WMC' and $_->country() eq 'S'
+
