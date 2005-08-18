@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.22 2005-08-17 17:46:58 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.23 2005-08-18 09:03:27 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -50,7 +50,7 @@ foreach (keys %$x) {
     eval <<EOF;
 sub $_ (\$;\$) {
     my (\$self, \$val) = \@_;
-    if (\$val) {
+    if (\@_ == 2) {
         \$self->{$_} = \$val;
     } else {
         return \$self->{$_};
