@@ -1,0 +1,102 @@
+#!/usr/bin/perl -w
+#
+# parse_ced_si:
+# Parse a statutory instrument creating new CEDs in a county, and generate
+# control file statements to generate the new CEDs (where possible).
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: parse_ced_si,v 1.1 2005-08-19 12:46:05 chris Exp $';
+
+use strict;
+require 5.8.0;
+
+use HTML::Entities;
+use HTML::TreeBuilder;
+
+sub trim ($) {
+    my $s = shift;
+    $s =~ s/\xa0/ /g;
+    $s =~ s/^\s+//;
+    $s =~ s/\s+$//;
+    return $s;
+}
+
+my $html = join('', <STDIN>);
+
+my $T = HTML::TreeBuilder->new_from_content($html)
+            or die "unable to parse input data";
+
+# Find out the council to which this refers.
+my $heading = $T->look_down(
+                    _tag => "font",
+                    sub { $_[0]->as_text() =~ /The County of [A-Za-z ]+ \(Electoral Changes\) Order [1-9]\d{3}/ }
+                )
+    or die "couldn't find title of Order";
+
+my ($county) = $heading->as_text() =~ /The County of ([A-Za-z ]+) \(Electoral Changes\) Order [1-9]\d{3}/;
+print "# county of $county\n";
+
+# The descriptions of the new EDs are in a big table which is preceded by the
+# text "NAMES AND AREAS OF ELECTORAL DIVISIONS" (possibly continuing "AND
+# NUMBERS OF COUNCILLORS", in a <center> tag (how quaint!). That table then
+# has either two columns, or three (where numbers of councillors are given
+# also).
+my $table = $T->look_down(
+                    _tag => "center", 
+                    sub { $_[0]->as_text() =~ /NAMES AND AREAS OF ELECTORAL DIVISIONS/ }
+                )
+    or die "couldn't find 'NAMES AND AREAS...' title";
+
+my $expected_columns = 2;
+
+$expected_columns = 3 if ($table->as_text() =~ /AND NUMBERS OF COUNCILLORS/);
+
+$table = $table->parent()->look_down(_tag => 'table')
+    or die "couldn't find table defining CEDs";
+
+# Now go through the rows of this table.
+my $n = 0;
+my $district = undef;
+foreach my $row ($table->content_list()) {
+    # Top two rows are list of columns and column headings. Skip them.
+    next if ($n++ < 2);
+    my @cells = $row->content_list();
+    if (@cells == 1) {
+        my ($tt) = $cells[0]->content_list();
+        die "thing inside district/borough subheading should be <b> tag"
+            unless ($tt->tag() eq 'b');
+        $tt = ($tt->content_list())[0];
+        die "subheading '$tt' doesn't match expected pattern"
+            unless ($tt =~ /^In the (district|borough|city) of (.+)$/);
+        $district = $2;
+    } elsif (@cells == $expected_columns) {
+        my ($edname, $constituents, $councillors) = map { trim(($_->content_list())[0]) } @cells;
+        $councillors ||= 1;
+        print "# $edname ED\n# seats: $councillors\n";
+        if ($constituents) {
+            print "# consists of:\n";
+            foreach (split(/;\s*/, $constituents)) {
+                if (/^(.+) parish ward of (.+?) parish$/) {
+                    # defined by a parish ward (not in BL)
+                    print "# - $1 parish ward of $2 parish\n";
+                } elsif (/^(.+) parish/) {
+                    # complete parish
+                    print "# - $1 parish\n";
+                } elsif (/^(.+) ward/) {
+                    # complete district ward
+                    print "# - $1 ward\n";
+                } else {
+                    die "don't understand constituent '$_'";
+                }
+            }
+        } else {
+            print "# (defined by marked area on map)\n";
+        }
+    } else {
+        die "got " . scalar(@cells) . " cells in table row; expected 1 or 3";
+    }
+}
+
