@@ -1,0 +1,34 @@
+#!/usr/bin/perl -w -I../perllib
+#
+# ntfdump:
+# Very simple dump of a single NTF file.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: ntfdump,v 1.1 2005-08-19 11:54:25 chris Exp $';
+
+use strict;
+require 5.8.0;
+
+use Geo::OSBoundaryLine;
+use IO::File;
+
+foreach (@ARGV) {
+    print "$_";
+    my $O = new Geo::OSBoundaryLine::NTFFile($_);
+
+    my %num;
+    foreach my $area (values %{$O->{collections}}) {
+        my $a = $area->attributes();
+        print $a->area_type(), " ", $a->name() || 'n/a';
+        print " ONS #", $a->ons_code() if (defined($a->ons_code()));
+        print "\n";
+        ++$num{$a->area_type()};
+    }
+
+    foreach (sort keys %num) {
+        printf "%s % 4d\n", $_, $num{$_};
+    }
+}
