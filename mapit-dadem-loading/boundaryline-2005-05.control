@@ -6,11 +6,214 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.1 2005-08-18 11:42:30 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.2 2005-08-30 17:26:54 chris Exp $
 #
+
+use Text::CSV;
+
+sub find_best_match ($$) {
+    my ($name, $list) = @_;
+    return (sort { Text::LevenshteinXS::distance($name, $a->name()) <=> Text::LevenshteinXS::distance($name, $b->name()) } @$list)[0];
+}
+
+# control_function SHAPES ONSCODE AREATYPE
+# Function called to fix up BL.
+sub control_function ($$$) {
+    my ($shapes, $onscode_idx, $area_type_idx) = @_;
+
+    # Wards in the Borough of Stockton-on-Tees have changed.
+    foreach (@{$area_type_idx->{UTW}}) {
+        $_->deleted(1) if ($_->ons_code() =~ /^00EF/);
+    }
+
+    # New Boundary Line codes the Isles of Scilly as a county. We don't,
+    # instead treating them as a special case, which is what they are.
+    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
+    foreach ($ios, @{$ios->children()}) {
+        $_->deleted(1);
+    }
+
+    #
+    # Boundary changes in English counties.
+    #
+
+    # Mark as new all English CEDs.
+    foreach (@{$area_type_idx->{CED}}) {
+        $_->alreadyexists(0);
+    }
+
+    # Delete CEDs in counties for which the SIs have not been included in this
+    # edition of BL.
+    foreach my $cty (@{$area_type_idx->{CTY}}) {
+        next unless ($cty->name() =~ /^(Buckinghamshire|Cambridgeshire|Cornwall|Durham|Lancashire|Leicestershire|Norfolk|North Yorkshire|West Sussex|Worcestershire)/);
+        foreach my $ced (@{$cty->children()}) {
+            $ced->deleted(1);
+        }
+    }
+
+    # For those counties, we need to construct the new CEDs from existing
+    # areas, so far as that is possible.
+    open(C, "boundaryline-2005-05-missing-CEDs.csv") or die "can't read CEDs CSV file: $!";
+    my $C = new Text::CSV();
+
+    my %cedscreated;
+    my %districts;
+
+    while (defined (my $line = <C>)) {
+        chomp($line);
+        $C->parse($line);
+        my ($county, $district, $ced, $ward, $parish, $parishward) = $C->fields();
+        my $shape;
+        if (!exists($cedscreated{$county}->{$ced})) {
+            my ($cty) = grep { $_->name() =~ /\Q$county\E/ } @{$area_type_idx->{CTY}};
+            die "can't find shape for county '$county'" unless ($cty);
+        
+            my $a = new Area(area_type => 'CED', name => "$ced ED", devolved => 'E', country => 'E', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 0);
+            $cty->children($a);
+            push(@$shapes, $a);
+            push(@{$area_type_idx->{CED}}, $a);
+            $shape = $cedscreated{$county}->{$ced} = $a;
+        }
+
+        # Need to identify the associated district.
+        if (!exists($districts{$district})) {
+            my $dis = find_best_match($district, $area_type_idx->{DIS});
+            print STDERR "district '$district' -> DIS ", $dis->name(), "\n";
+            $districts{$district} = $dis;
+        }
+
+        my $othershape;
+        if (defined($ward)) {
+            my $othershape = find_best_match($ward, [grep { $_->area_type() eq 'DIW' } @{$districts{$district}->children()}]);
+        } elsif (defined($parish) && !defined($parishward)) {
+            my $othershape = find_best_match($parish, [grep { $_->area_type() eq 'CPC' } @{$districts{$district}->children()}]);
+        } else {
+            # anything else: can't cope with this
+        }
+
+        if (defined($othershape)) {
+            push(@{$shape->parts()}, @{$othershape->parts()});
+            $shape->minx($othershape->minx()) if ($othershape->minx() < $shape->minx());
+            $shape->miny($othershape->miny()) if ($othershape->miny() < $shape->miny());
+            $shape->maxx($othershape->maxx()) if ($othershape->maxx() > $shape->maxx());
+            $shape->maxy($othershape->maxy()) if ($othershape->maxy() > $shape->maxy());
+            $shape->cx($othershape->cx()) if (!defined($shape->cx()));
+            $shape->cy($othershape->cy()) if (!defined($shape->cy()));
+        }
+    }
+
+    close(C);
+
+
+    #
+    # Scottish constituencies.
+    #
+    foreach my $wmc (@{$area_type_idx->{WMC}}) {
+        $wmc->deleted(1) if ($wmc->country() eq 'S');
+    }
+
+    # The new constituencies are made up of whole council wards, but each
+    # constituency may be described by a list of wards or by referring to that
+    # part of a council which has not already been assigned to other
+    # constituencies.
+
+    my (%council_name, %ward_name, %constituency_name);
+
+    # council name -> constituency for leftover bits of that council
+    my %council_to_constituency;
+    # council name -> ward name -> constituency for that ward
+    my %ward_to_constituency;
+
+    # Read CSV file which identifies the UTW wards which make up each new
+    # Scottish constituency.
+    open(C, "new-scottish-constituencies-council-wards.csv") or die "can't read WMCs CSV file: $!";
+
+    my ($last_constituency, $last_council);
+    while (my $line = <C>) {
+        chomp($line);
+        $C->parse($line);
+        my ($constituency, $council, $ward) = $C->fields();
+
+        die "no constituency at top of file" unless ($constituency || $last_constituency);
+        die "no council at top of file" unless ($council || $last_council);
+
+        $constituency ||= $last_constituency;
+        $council ||= $last_council;
+
+        $constituency_name{$constituency} = 1;
+
+        $council_name{$council} = 1;
+        $ward_name{$council}->{$ward} = 1;
+
+        $ward_to_constituency{$council} ||= { };
+
+        if ($ward eq '*') {
+            die "constituency '$constituency': council '$council' already has a residue constituency, '$council_to_constituency{$council}'" if (exists($council_to_constituency{$council}));
+            $council_to_constituency{$council} = $constituency;
+        } else {
+            die "constituency '$constituency': ward '$ward' in council '$council' is already assigned to constituency '$ward_to_constituency{$council}->{$ward}'"
+                if (exists($ward_to_constituency{$council}->{$ward}));
+            $ward_to_constituency{$council}->{$ward} = $constituency;
+        }
+        
+        $last_constituency = $constituency;
+        $last_council = $council;
+    }
+
+    # Now for each 
+}
+
+1;
+
+=pod
 
 # All EDs in English counties were redrawn for May 2005.
 isnew $_->area_type() eq 'CED'
+
+# Some counties' SIs are not in this Boundary Line edition. Drop their CEDs
+# and construct new ones from subsidiary areas.
+delete $_->area_type() eq 'CED' and $_->parent()->name() =~ 
+
+# West Sussex
+# http://www.opsi.gov.uk/si/si2005/20050175.htm
+
+# ... in the district of Adur
+# construct CED:"Kingston Buci ED"
+construct CED:"Lancing ED"  $_->area_type() eq 'DIW' and $_->parent()->name() eq 'Adur District' and $_->name() =~ /^(Churchill|Manor|Mash Barn)/
+construct CED:"Saltings ED" $_->area_type() eq 'DIW' and $_->parent()->name() eq 'Adur District' and $_->name() =~ /^(Marine|Widewater)/
+# construct CED:"Shoreham ED"
+construct CED:"Sompting ED" $_->area_type() eq 'DIW' and $_->parent()->name() eq 'Adur District' and $_->name() =~ /^(Cokeham|Peverel)/
+# construct CED:"Southwick ED"
+
+# ... in the district of Arun
+construct CED:"Angmering and Findon ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Angmering|Findon)/
+construct CED:"Arundel and Wick ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Arundel|Wick with Toddington)/
+construct CED:"Bersted ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Bersted|Pevensey)/
+construct CED:"Bognor Regis East ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Hotham|Orchard)/
+construct CED:"Bognor Regis West and Aldwick ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Aldwick East|Marine)/
+construct CED:"East Preston and Ferring ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(East Preston with Kingston|Ferring)/
+construct CED:"Felpham ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Felpham East|Felpham West)/
+construct CED:"Fontwell ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Barnham|Walberton)/
+# XXX this is wrong -- that ED should include also "Rustington North parish
+# ward of Rustington parish" but BL doesn't code parish wards.
+construct CED:"Littlehampton East ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Beach|Brookfield)/
+construct CED:"Littlehampton Town ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Ham|River)/
+construct CED:"Middleton ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Middleton-on-Sea|Yapton)/
+construct CED:"Nyetimber ED" $_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Aldwich West|Pagham and Rose Green)/
+# XXX also wrong -- should only be "Rustington West parish ward"
+construct CED:"Rustington ED" ($_->area_type() eq 'DIW' and $_->parent->name() eq 'Arun District' and $_->name() =~ /^(Rustington East)/) || ($_->area_type() eq 'CPC' and $_->ons_code() eq '45UC026')
+
+
+# ... in the district of Chichester
+construct CED:"Bourne ED" ($_->area_type() eq 'DIW' and $_->parent->name() eq 'Chichester District' and $_->name() =~ /^(Southbourne|Westbourne)/) || ($_->area_type() eq 'CPC' and $_->ons_code() =~ /^(45UD010|45UD012|45UD038|45UD053)$/)
+construct CED:"Chichester East ED" $_->area_type() eq 'DIW' and $_->parent()->name() eq 'Chichester District' and $_->name() =~ /^(Chichester East|North Mundham|Tangmere)/
+construct CED:"Chichester North ED" $_->area_type() eq 'DIW' and $_->parent()->name() eq 'Chichester District' and $_->name() =~ /^(Boxgrove|Chichester North|Lavant)/
+construct CED:"Chichester South ED" $_->area_type() eq 'DIW' and $_->parent()->name() eq 'Chichester District' and $_->name() =~ /^(Chichester South|Donnington|Sidlesham)/
+construct CED:"Chichester West ED" ($_->area_type() eq 'DIW' and $_->parent()->name() eq 'Chichester District' and $_->name() =~ /^(Chichester West|Fishbourne)/) || ($_->area_type() eq 'CPC' and $_->ons_code() =~ /^(45UD006|45UD026)$/)
+construct CED:"Fernhurst ED" ($_->area_type() eq 'DIW' and $_->parent()->name() eq 'Chichester District' and $_->name() =~ /^(Bury|Easebourne|Fernhurst)/) || ($_->area_type() eq 'CPC' and $_->ons_code() =~ /^(45UD064|45UD029|45UD011)$/)
+construct CED:"Midhurst ED" ($_->area_type() eq 'DIW' and $_->parent()->name() eq 'Chichester District' and $_->name() =~ /^(Bury|Easebourne|Fernhurst)/) || ($_->area_type() eq 'CPC' and $_->ons_code() =~ /^(45UD064|45UD029|45UD011)$/)
+
+
 
 # New BL codes Isles of Scilly as a county, which is new.
 isnew $_->area_type() eq 'CTY' and $_->name() eq 'Isles of Scilly';
@@ -22,3 +225,4 @@ isnew $_->area_type() eq 'UTW' and $_->parent()->name() eq 'Stockton-on-Tees'
 # construct new.
 delete $_->area_type() eq 'WMC' and $_->country() eq 'S'
 
+=cut
