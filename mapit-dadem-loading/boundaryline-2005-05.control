@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.5 2005-08-31 15:37:14 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.6 2005-08-31 16:37:37 chris Exp $
 #
 
 use Text::CSV;
@@ -29,7 +29,7 @@ sub control_function ($$$) {
     # New Boundary Line codes the Isles of Scilly as a county. We don't,
     # instead treating them as a special case, which is what they are.
     my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
-    foreach ($ios, @{$ios->children()}) {
+    foreach ($ios, $ios->children()) {
         $_->deleted(1);
     }
 
@@ -46,7 +46,7 @@ sub control_function ($$$) {
     # edition of BL.
     foreach my $cty (@{$area_type_idx->{CTY}}) {
         next unless ($cty->name() =~ /^(Buckinghamshire|Cambridgeshire|Cornwall|Durham|Lancashire|Leicestershire|Norfolk|North Yorkshire|West Sussex|Worcestershire)/);
-        foreach my $ced (@{$cty->children()}) {
+        foreach my $ced ($cty->children()) {
             $ced->deleted(1);
         }
     }
@@ -68,7 +68,7 @@ sub control_function ($$$) {
             my ($cty) = grep { $_->name() =~ /\Q$county\E/ } @{$area_type_idx->{CTY}};
             die "can't find shape for county '$county'" unless ($cty);
         
-            my $a = new Area(area_type => 'CED', name => "$ced ED", devolved => 'E', country => 'E', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 0);
+            my $a = new Area(area_type => 'CED', name => "$ced ED", devolved => 'E', country => 'E', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 0, parts => [ ]);
             $cty->children($a);
             push(@$shapes, $a);
             push(@{$area_type_idx->{CED}}, $a);
@@ -84,9 +84,9 @@ sub control_function ($$$) {
 
         my $othershape;
         if (defined($ward)) {
-            my $othershape = find_best_match($ward, [grep { $_->area_type() eq 'DIW' } @{$districts{$district}->children()}]);
+            my $othershape = find_best_match($ward, [grep { $_->area_type() eq 'DIW' } $districts{$district}->children()]);
         } elsif (defined($parish) && !defined($parishward)) {
-            my $othershape = find_best_match($parish, [grep { $_->area_type() eq 'CPC' } @{$districts{$district}->children()}]);
+            my $othershape = find_best_match($parish, [grep { $_->area_type() eq 'CPC' } $districts{$district}->children()]);
         } else {
             # anything else: can't cope with this
         }
@@ -137,13 +137,15 @@ sub control_function ($$$) {
         die "no constituency at top of file" unless ($constituency || $last_constituency);
         die "no council at top of file" unless ($council || $last_council);
 
+        $ward = "$ward Ward" unless ($ward eq '*');
+
         $constituency ||= $last_constituency;
         $council ||= $last_council;
 
         $constituency_name{$constituency} = 1;
 
         $council_name{$council} = 1;
-        $ward_name{$council}->{$ward} = 1;
+        $ward_name{$council}->{$ward} = 1 unless ($ward eq '*');
 
         $ward_to_constituency{$council} ||= { };
 
@@ -172,7 +174,7 @@ sub control_function ($$$) {
     foreach my $council (keys %ward_name) {
         print STDERR "wards in $council...\n";
         foreach my $ward (keys %{$ward_name{$council}}) {
-            my $shape = find_best_match($ward, $council_name{$council}->children());
+            my $shape = find_best_match($ward, [$council_name{$council}->children()]);
             $ward_name{$council}->{$ward} = $shape;
             print "    ward $ward -> ", $shape->name(), "\n";
         }
@@ -186,18 +188,31 @@ sub control_function ($$$) {
         my $osname = $name;
         $osname =~ s/Burgh Constituency$/Burgh Const/;
         $osname =~ s/County Constituency$/Co Const/;
-        my $a = new Area(area_type => 'WMC', name => $osname, devolved => 'S', country => 'S', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 1);
+        my $a = new Area(area_type => 'WMC', name => $osname, devolved => 'S', country => 'S', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 1, parts => [ ]);
         push(@$shapes, $a);
         push(@{$area_type_idx->{WMC}}, $a);
         $constituency_name{$name} = $a;
     }
 
     foreach my $council (keys %council_name) {
-        foreach my $ward (keys %ward_name) {
-            my $constituency = $ward_to_constituency{$council}->{$ward} || $council_to_constituency{$council};
-            print STDERR "$council, $ward added to $constituency\n";
+        # Go through all of the wards in this council.
+        foreach my $w ($council_name{$council}->children()) {
+            my $constituency = $council_to_constituency{$council};
+            foreach my $w2 (keys %{$ward_name{$council}}) {
+                if ($ward_name{$council}->{$w2} == $w) {
+                    $constituency = $ward_to_constituency{$council}->{$w2};
+                    last;
+                }
+            }
+
+            if (!defined($constituency)) {
+                die "no constituency defined for $council, " . $w->name() . "\n";
+            }
+
             my $shape = $constituency_name{$constituency};
-            my $othershape = $ward_name{$council}->{$ward};
+            print STDERR "$council, ", $w->name(), " added to ", $shape->name(), "\n";
+            
+            my $othershape = $w;
 
             push(@{$shape->parts()}, @{$othershape->parts()});
             $shape->minx($othershape->minx()) if ($othershape->minx() < $shape->minx());
