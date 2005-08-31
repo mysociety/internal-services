@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.3 2005-08-30 17:29:48 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.4 2005-08-31 11:13:16 chris Exp $
 #
 
 use Text::CSV;
@@ -104,7 +104,6 @@ sub control_function ($$$) {
 
     close(C);
 
-
     #
     # Scottish constituencies.
     #
@@ -140,10 +139,6 @@ sub control_function ($$$) {
         $constituency ||= $last_constituency;
         $council ||= $last_council;
 
-        # XXX Match OS naming convention.
-        ## $constituency =~ s/Burgh Constituency$/Burgh Const/;
-        ## $constituency =~ s/County Constituency$/Co Const/;
-
         $constituency_name{$constituency} = 1;
 
         $council_name{$council} = 1;
@@ -164,7 +159,54 @@ sub control_function ($$$) {
         $last_council = $council;
     }
 
-    # Now for each 
+    close(C);
+
+    # Match named councils and wards to shapes.
+    foreach my $name (keys %council_name) {
+        my $shape = find_best_match($name, grep { $_->country() eq 'S' } @{$area_type_idx->{UTA}});
+        print STDERR "unitary authority $name -> ", $shape->name(), "\n";
+        $council_name{$name} = $shape;
+    }
+
+    foreach my $council (keys %ward_name) {
+        print STDERR "wards in $council...\n";
+        foreach my $ward (keys %{$ward_name{$council}}) {
+            my $shape = find_best_match($ward, @{$council_name{$council}->children()});
+            $ward_name{$council}->{$ward} = $shape;
+            print "    ward $ward -> ", $shape->name(), "\n";
+        }
+    }
+
+    # Now construct a shape for each constituency and form it from the wards of
+    # which it's composed.
+    foreach my $name (keys %constituency_name) {
+        # Match OS naming convention. Scotland has "Burgh Constituencies"
+        # rather than "Boro[ugh] Constituencies".
+        my $osname = $name;
+        $osname =~ s/Burgh Constituency$/Burgh Const/;
+        $osname =~ s/County Constituency$/Co Const/;
+        my $a = new Area(area_type => 'WMC', name => $osname, devolved => 'S', country => 'S', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 1);
+        push(@$shapes, $a);
+        push(@{$area_type_idx->{WMC}}, $a);
+        $constituency_name{$name} = $a;
+    }
+
+    foreach my $council (keys %council_name) {
+        foreach my $ward (keys %ward_name) {
+            my $constituency = $ward_to_constituency{$council}->{$ward} || $council_to_constituency{$council};
+            print STDERR "$council, $ward added to $constituency\n";
+            my $shape = $constituency_name{$constituency};
+            my $othershape = $ward_name{$council}->{$ward};
+
+            push(@{$shape->parts()}, @{$othershape->parts()});
+            $shape->minx($othershape->minx()) if ($othershape->minx() < $shape->minx());
+            $shape->miny($othershape->miny()) if ($othershape->miny() < $shape->miny());
+            $shape->maxx($othershape->maxx()) if ($othershape->maxx() > $shape->maxx());
+            $shape->maxy($othershape->maxy()) if ($othershape->maxy() > $shape->maxy());
+            $shape->cx($othershape->cx()) if (!defined($shape->cx()));
+            $shape->cy($othershape->cy()) if (!defined($shape->cy()));
+        }
+    }
 }
 
 1;
