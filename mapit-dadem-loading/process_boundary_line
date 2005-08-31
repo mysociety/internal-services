@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.24 2005-08-18 11:43:28 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.25 2005-08-31 17:31:00 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -81,116 +81,6 @@ sub new ($%) {
         $self->{$_} = $values{$_};  # syntax checks?
     }
     return bless($self, $class);
-}
-
-#
-# Control statements, used to fix up differences between old and new data.
-#
-package Control;
-
-use IO::File;
-
-use fields qw(command args);
-
-# Accessor methods
-#my 
-$x = fields::new('Control');
-foreach (keys %$x) {
-    eval <<EOF;
-sub $_ (\$;\$) {
-    my (\$self, \$val) = \@_;
-    if (\$val) {
-        \$self->{$_} = \$val;
-    } else {
-        return \$self->{$_};
-    }
-}
-EOF
-}
-
-sub new ($$@) {
-    my ($class, $command, @args) = @_;
-    my $self = fields::new($class);
-    $self->{command} = $command;
-    $self->{args} = \@args;
-    return bless($self, $class);
-}
-
-# read_file FILENAME
-# read_file HANDLE
-# Read a list of control statements from FILENAME. Each control statement may
-# be,
-#
-# isnew SPEC
-#   Mark areas matching the given SPEC as not corresponding to any existing
-#   area in the database.
-#
-# delete SPEC
-#   Delete areas from the newly loaded data which match the given SPEC.
-#
-# construct AREA SPEC
-#   Construct a new AREA consisting of the union of the areas identified by the
-#   list of SPECs. Its parent will be identified in the usual way.
-#
-# Each AREA is a string of the form
-#
-#   TYPE:"NAME"[;ONSCODE]
-#
-# where TYPE is an area type such as CTY or WMC, NAME is the area's full name,
-# and ONSCODE may optionally supply its ONS code number.
-# 
-# Each SPEC is a perl expression which is evaluated with $_ being a candidate
-# area. It should evaluate to true if $_ matches the spec, and false otherwise.
-# For instance,
-#
-#   $_->area_type() eq 'CED' && $_->parent()->name() =~ /^Suffolk/
-#
-# selects CEDs within Suffolk.
-#
-# \ continues a line; where a # is the first nonblank character on a line, it
-# introduces a comment.
-sub read_file ($) {
-    my ($file) = @_;
-    my $h;
-    if (!ref($file)) {
-        $h = new IO::File($file, O_RDONLY) || die "$file: $!";
-    } else {
-        $h = $file;
-        $file = '-';
-    }
-    my @cmds = ( );
-    
-    my $n = 0;
-    my $accum = '';
-    while (defined(my $line = $h->getline())) {
-        ++$n;
-        chomp($line);
-        next if ($line =~ /^\s*#/);
-        
-        my $continue = ($line =~ /^(.*)\\$/);
-        $accum .= $continue ? $1 : $line;
-
-        # If this is not a continuation line, actually parse it.
-        if (!$continue) {
-            my $area_regex = '[A-Z]{3}:"[^"]+"(?:|;[0-9A-Z]{3,7})';
-            $accum =~ s/^\s+//;
-            if ($accum =~ m#^isnew\s+(.*)#) {
-                push(@cmds, new Control('isnew', $1));
-            } elsif ($accum =~ m#^delete\s+(.*)#) {
-                push(@cmds, new Control('delete', $1));
-            } elsif ($accum =~ m#construct\s+($area_regex)\s+(.*)#) {
-                push(@cmds, new Control('construct', $1, $2));
-            } elsif ($accum =~ m#^\s*$#) {
-                # no action
-            } else {
-                die "$file: syntax error at line $n";
-            }
-            $accum = '';
-        }
-    }
-    die "$file: $!" if ($h->error());
-    $h->close();
-    return @cmds;
 }
 
 package main;
@@ -319,7 +209,7 @@ my %interesting_areas = map { $_ => 1 } (
 
  'EUR',   # European Region
 
-# 'CPC'    # Civil Parish
+ 'CPC'    # Civil Parish
     )
 );
 
@@ -332,11 +222,17 @@ my %parentmap = qw(
         UTW UTA
         UTE UTA
     );
+# Can't list CPC (parish) here, because a CPC may have either a DIS or UTA
+# parent.
 
 my %childmap;
 foreach (keys %parentmap) {
     $childmap{$parentmap{$_}}->{$_} = 1;
 }
+
+# But put CPC in here so that we can pick up parents of CPCs at load time.
+$childmap{DIS}->{CPC} = 1;
+$childmap{UTA}->{CPC} = 1;
 
 # @shapes
 # List of Area objects for each area we're interested in.
@@ -351,7 +247,11 @@ my %aaid_to_shape;
 die "arguments are Postgres database name, control file, and directories containing NTF files" unless (@ARGV > 2);
 my $dbname = shift(@ARGV);
 my $controlfile = shift(@ARGV);
-my @controlcommands = Control::read_file($controlfile);
+if (!defined(do $controlfile)) {
+    die "$controlfile: " . ($! || $@);
+} elsif (!exists(&control_function)) {
+    die "$controlfile: does not declare control_function(...)";
+}
 
 # Open database.
 my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
@@ -769,12 +669,13 @@ STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
 # the appropriate type.
 print STDERR "finding parent areas... ";
 
+$total_queries = 1 if ($total_queries == 0);
 $n = 0;
 foreach my $S (@shapes) {
     ++$n;
     STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes; total p-in-p tests: %d; average tests/query = %f", $n, scalar(@shapes), $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
 
-    my $needparent = exists($parentmap{$S->area_type()}) && !defined($S->parent());
+    my $needparent = ($S->area_type() eq 'CPC' || exists($parentmap{$S->area_type()})) && !defined($S->parent());
 
     # Even areas which do not have a proper parent need to have a country.
     my $country = undef;
@@ -785,10 +686,20 @@ foreach my $S (@shapes) {
     my $ptype = $parentmap{$S->area_type()};
     if (defined($S->ons_code())) {
         if ($needparent) {
-            my $newcode = substr($S->ons_code(), 0, length($S->ons_code()) - 2);
-            if (exists($onscode_to_shape{$newcode})) {
-                my $s = $onscode_to_shape{$newcode};
-                $parent = $s if ($s->area_type() eq $ptype);
+            my $newcode;
+            if ($S->area_type() eq 'CPC') {
+                # Parishes may be children of DIS or UTA, and their ONS codes
+                # are three characters longer than their parents'.
+                $newcode = substr($S->ons_code(), 0, length($S->ons_code()) - 3);
+                $parent = $onscode_to_shape{$newcode};
+                die "parish " . $S->name() . " #" . $S->ons_code() . " lacks a parent (should have ONS code #$newcode)"
+                    unless (defined($parent));
+            } else {
+                $newcode = substr($S->ons_code(), 0, length($S->ons_code()) - 2);
+                if (exists($onscode_to_shape{$newcode})) {
+                    my $s = $onscode_to_shape{$newcode};
+                    $parent = $s if ($s->area_type() eq $ptype);
+                }
             }
         }
 
@@ -870,34 +781,7 @@ STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes)
 # Accordingly, process control file commands.
 #
 
-foreach my $cmd (@controlcommands) {
-    if ($cmd->command() =~ m/^(isnew|delete)$/) {
-        my $C = $cmd->command();
-        my $cond = $cmd->args()->[0];
-        if ($C eq 'isnew') {
-            print STDERR "ISNEW";
-        } else {
-            print STDERR "DELETE";
-        }
-        print STDERR ": $cond\n";
-        my ($seen, $acted) = (0, 0);
-        foreach (@shapes) {
-            ++$seen;
-            if (eval($cond) && !$_->deleted()) {
-                ++$acted;
-                if ($C eq 'isnew') {
-                    $_->alreadyexists(0);
-                } else {
-                    $_->deleted(1);
-                }
-            }
-
-            print STDERR "\rProcessed $seen/", scalar(@shapes), "; $C $acted";
-        }
-        print STDERR "\rProcessed $seen/", scalar(@shapes), "; $C $acted\n";
-    } elsif ($cmd->comand() eq 'construct') {
-    }
-}
+control_function(\@shapes, \%onscode_to_shape, \%area_type_to_shape);
 
 #
 # Last step: where an area corresponds to an area which was already in the
@@ -942,16 +826,16 @@ sub match_db_areas ($$) {
 print STDERR "Finding existing database rows for areas...\n";
 
 # For each area type, associate names.
-foreach my $area_type (grep { !exists($parentmap{$_}) } @interesting_areas) {
+foreach my $area_type (grep { !exists($parentmap{$_}) && $_ ne 'CPC' } @interesting_areas) {
     print STDERR "$area_type...\n";
-    my @aa = grep { $_->alreadyexists() } @{$area_type_to_shape{$area_type}};
+    my @aa = grep { $_->alreadyexists() && !$_->deleted() } @{$area_type_to_shape{$area_type}};
     match_db_areas(\@aa, 'type = ' . $dbh->quote($area_type));
     
     # Now consider these shapes' children.
     if (exists($childmap{$area_type})) {
         foreach my $S (@aa) {
             print "--- children for ", $S->name(), "\n";
-            my @children = grep { $_->alreadyexists() } $S->children();
+            my @children = grep { $_->alreadyexists() && !$_->deleted() && $_->area_type() ne 'CPC' } $S->children();
             match_db_areas(\@children, 'parent_area_id = ' . $S->id());
         }
     }
