@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.4 2005-08-31 11:13:16 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.5 2005-08-31 15:37:14 chris Exp $
 #
 
 use Text::CSV;
@@ -126,6 +126,7 @@ sub control_function ($$$) {
     # Read CSV file which identifies the UTW wards which make up each new
     # Scottish constituency.
     open(C, "new-scottish-constituencies-council-wards.csv") or die "can't read WMCs CSV file: $!";
+    <C>;    # skip header
 
     my ($last_constituency, $last_council);
     while (my $line = <C>) {
@@ -163,7 +164,7 @@ sub control_function ($$$) {
 
     # Match named councils and wards to shapes.
     foreach my $name (keys %council_name) {
-        my $shape = find_best_match($name, grep { $_->country() eq 'S' } @{$area_type_idx->{UTA}});
+        my $shape = find_best_match($name, [grep { $_->country() eq 'S' } @{$area_type_idx->{UTA}}]);
         print STDERR "unitary authority $name -> ", $shape->name(), "\n";
         $council_name{$name} = $shape;
     }
@@ -171,7 +172,7 @@ sub control_function ($$$) {
     foreach my $council (keys %ward_name) {
         print STDERR "wards in $council...\n";
         foreach my $ward (keys %{$ward_name{$council}}) {
-            my $shape = find_best_match($ward, @{$council_name{$council}->children()});
+            my $shape = find_best_match($ward, $council_name{$council}->children());
             $ward_name{$council}->{$ward} = $shape;
             print "    ward $ward -> ", $shape->name(), "\n";
         }
