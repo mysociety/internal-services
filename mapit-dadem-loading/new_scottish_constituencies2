@@ -1,0 +1,41 @@
+#!/usr/bin/perl -w -I../../perllib
+#
+# new_scottish_constituencies2:
+# Small database modifications for the new Scottish constituencies.
+#
+# Specifically, when we put in kludges after the 2005 election for the new
+# constituencies, we did not update the generation number; and the new
+# constituencies were not given type 'O' (Ordnance Survey) names, but only
+# 'L' (legislative) names. For the constituencies to match when we load in the
+# new version of Boundary Line, both of these things must be corrected.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: new_scottish_constituencies2,v 1.1 2005-09-01 10:30:27 chris Exp $';
+
+use strict;
+
+use Common;
+
+my $dbh = connect_to_mapit_database();
+
+my $new_generation = $dbh->selectrow_array('select id from new_generation');
+print STDERR "new generation is $new_generation\n";
+
+# Compose the new names.
+my $s = $dbh->prepare("select id, name from area, area_name where type = 'WMC' and area.id = area_name.area_id and name_type = 'L'");
+$s->execute();
+while (my ($id, $name) = $s->fetchrow_array()) {
+    my $osname = $name;
+    $osname =~ s/Burgh Constituency$/Burgh Const/;
+    $osname =~ s/County Constituency$/Co Const/;
+
+    print "$id $name -> $osname\n";
+    
+    # idempotence
+    $dbh->do("delete from area_name where area_id = ? and name_type = 'O'", {}, $id);
+    $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'O', ?)", {}, $id, $osname);
+    $dbh->do("update area set generation_high = ? where id = ? and generation_high < ?", {}, $new_generation, $id, $new_generation);
+}
