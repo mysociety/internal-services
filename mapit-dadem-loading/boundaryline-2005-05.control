@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.7 2005-08-31 17:29:29 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.8 2005-09-06 15:00:32 chris Exp $
 #
 
 use Text::CSV;
@@ -29,7 +29,9 @@ sub control_function ($$$) {
     # New Boundary Line codes the Isles of Scilly as a county. We don't,
     # instead treating them as a special case, which is what they are.
     my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
-    foreach ($ios, $ios->children()) {
+    # Remove those areas from the type index.
+    $ios->deleted(1);
+    foreach ($ios->children()) {
         $_->deleted(1);
     }
 

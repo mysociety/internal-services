@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.25 2005-08-31 17:31:00 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.26 2005-09-06 15:00:32 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -588,75 +588,85 @@ sub find_containing_areas ($$;$) {
 # they are and put the shape in each bucket within a rough convex hull of the
 # polygon's vertices. This must be done separately for each part, since shapes
 # may have several disconnected convex parts (e.g. islands).
-my $n = 0;
-foreach my $S (@shapes) {
-    # Add the buckets in which vertices of the shape lie.
-    foreach my $part (@{$S->parts()}) {
-        my ($minx, $maxx);
-        my @miny = ( );
-        my @maxy = ( );
-    
-        # Don't rasterise holes.
-        next if ($part->[0] == -1);
-        my @vv = unpack('d*', $part->[1]);
+my @assigned_to_buckets;
+sub assign_shapes_to_buckets () {
+    my $n = 0;
+    my $i = -1;
+    foreach my $S (@shapes) {
+        ++$i;
+        ++$n;
+        next if ($assigned_to_buckets[$i]);
+        $assigned_to_buckets[$i] = 1;
+        # Add the buckets in which vertices of the shape lie.
+        foreach my $part (@{$S->parts()}) {
+            my ($minx, $maxx);
+            my @miny = ( );
+            my @maxy = ( );
+        
+            # Don't rasterise holes.
+            next if ($part->[0] == -1);
+            my @vv = unpack('d*', $part->[1]);
 
-        my ($ox, $oy);
-        # NB: must close polygon
-        for (my $i = 0; $i <= @vv; $i += 2) {
-            my ($E, $N) = ($vv[$i % @vv], $vv[($i + 1) % @vv]);
-            
-            my ($x, $y) = (int($E / $tilesize), int($N / $tilesize));
+            my ($ox, $oy);
+            # NB: must close polygon
+            for (my $i = 0; $i <= @vv; $i += 2) {
+                my ($E, $N) = ($vv[$i % @vv], $vv[($i + 1) % @vv]);
+                
+                my ($x, $y) = (int($E / $tilesize), int($N / $tilesize));
 
-            # Cope with the case where we've moved >1 tile horizontally.
-            if (defined($ox) and $ox != $x and abs($ox - $x) > 1) {
-                my ($a, $b) = sort($ox, $x);
-                my ($A, $B) = sort($oy, $y);
-                for (my $i = $a; $i <= $b; ++$i) {
-                    $miny[$i] = $A if (!defined($miny[$i]) || $A < $miny[$i]);
-                    $maxy[$i] = $B if (!defined($maxy[$i]) || $B > $maxy[$i]);
+                # Cope with the case where we've moved >1 tile horizontally.
+                if (defined($ox) and $ox != $x and abs($ox - $x) > 1) {
+                    my ($a, $b) = sort($ox, $x);
+                    my ($A, $B) = sort($oy, $y);
+                    for (my $i = $a; $i <= $b; ++$i) {
+                        $miny[$i] = $A if (!defined($miny[$i]) || $A < $miny[$i]);
+                        $maxy[$i] = $B if (!defined($maxy[$i]) || $B > $maxy[$i]);
+                    }
+                }
+
+                $minx = $x if (!defined($minx) || $x < $minx);
+                $maxx = $x if (!defined($maxx) || $x > $maxx);
+
+                $miny[$x] = $y if (!defined($miny[$x]) || $y < $miny[$x]);
+                $maxy[$x] = $y if (!defined($maxy[$x]) || $y > $maxy[$x]);
+                
+                $ox = $x;
+                $oy = $y;
+            }
+
+            if (!defined($minx) || !defined($maxx)) {
+                print STDERR "\r[2Kshape '", $S->name(), "' has no vertices\n";
+                next;
+            }
+
+            # Fill the buckets between the shape bounds.
+            my (@miny2, @maxy2);
+            for (my $x = $minx; $x <= $maxx; ++$x) {
+                die "no \$miny[$x]" unless (defined($miny[$x]));
+                die "no \$maxy[$x]" unless (defined($maxy[$x]));
+                $miny2[$x] = $miny[$x];
+                $maxy2[$x] = $maxy[$x];
+                for (my $X = $x - 1; $X <= $x + 1; ++$X) {
+                    next if ($X < $minx || $X > $maxx);
+                    $miny2[$x] = $miny[$X] if ($miny[$X] < $miny2[$x]);
+                    $maxy2[$x] = $maxy[$X] if ($maxy[$X] > $maxy2[$x]);
                 }
             }
 
-            $minx = $x if (!defined($minx) || $x < $minx);
-            $maxx = $x if (!defined($maxx) || $x > $maxx);
-
-            $miny[$x] = $y if (!defined($miny[$x]) || $y < $miny[$x]);
-            $maxy[$x] = $y if (!defined($maxy[$x]) || $y > $maxy[$x]);
-            
-            $ox = $x;
-            $oy = $y;
-        }
-
-        if (!defined($minx) || !defined($maxx)) {
-            print STDERR "\r[2Kshape '", $S->name(), "' has no vertices\n";
-            next;
-        }
-
-        # Fill the buckets between the shape bounds.
-        my (@miny2, @maxy2);
-        for (my $x = $minx; $x <= $maxx; ++$x) {
-            die "no \$miny[$x]" unless (defined($miny[$x]));
-            die "no \$maxy[$x]" unless (defined($maxy[$x]));
-            $miny2[$x] = $miny[$x];
-            $maxy2[$x] = $maxy[$x];
-            for (my $X = $x - 1; $X <= $x + 1; ++$X) {
-                next if ($X < $minx || $X > $maxx);
-                $miny2[$x] = $miny[$X] if ($miny[$X] < $miny2[$x]);
-                $maxy2[$x] = $maxy[$X] if ($maxy[$X] > $maxy2[$x]);
+            for (my $x = $minx; $x <= $maxx; ++$x) {
+                for (my $y = $miny2[$x]; $y <= $maxy2[$x]; ++$y) {
+                    push(@{$tiles->[$x]->[$y]}, $S);
+                }
             }
         }
 
-        for (my $x = $minx; $x <= $maxx; ++$x) {
-            for (my $y = $miny2[$x]; $y <= $maxy2[$x]; ++$y) {
-                push(@{$tiles->[$x]->[$y]}, $S);
-            }
-        }
+        ++$n;
+        STDERR->printf("\rfilling buckets: %d/%d shapes", $n, scalar(@shapes)) if (0 == ($n % 100));
     }
-
-    ++$n;
-    STDERR->printf("\rfilling buckets: %d/%d shapes", $n, scalar(@shapes)) if (0 == ($n % 100));
+    STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
 }
-STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
+
+assign_shapes_to_buckets();
 
 # Pass 3:
 # Compute area parents for those which should have parents.
@@ -670,7 +680,7 @@ STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
 print STDERR "finding parent areas... ";
 
 $total_queries = 1 if ($total_queries == 0);
-$n = 0;
+my $n = 0;
 foreach my $S (@shapes) {
     ++$n;
     STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes; total p-in-p tests: %d; average tests/query = %f", $n, scalar(@shapes), $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
@@ -783,6 +793,9 @@ STDERR->printf("\r[2Kfinding parent areas: %d/%d shapes\n", $n, scalar(@shapes)
 
 control_function(\@shapes, \%onscode_to_shape, \%area_type_to_shape);
 
+# Having done this, we need to rasterise the new shapes.
+assign_shapes_to_buckets();
+
 #
 # Last step: where an area corresponds to an area which was already in the
 # data, identify the ID of the old area so that we can keep it for the new
@@ -840,6 +853,54 @@ foreach my $area_type (grep { !exists($parentmap{$_}) && $_ ne 'CPC' } @interest
         }
     }
 }
+
+# Now write the areas into the database, either doing updates to generations
+# and names where the areas already exist, or creating them anew where they do
+# not.
+$n = 0;
+foreach my $S (@shapes) {
+    next if ($S->deleted() || $S->area_type() eq 'CPC');
+    my $id = $S->id();
+    if (defined($id)) {
+        # existing area
+        $dbh->do("delete from area_name where area_id = ? and name_type = 'O'", {}, $id);
+        $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'O', ?)", {}, $id, $S->name());
+        $dbh->do("update area set generation_high = ? where id = ?", {}, $generation, $id);
+    } else {
+        # new area
+        $id = $dbh->selectrow_array("select nextval('area_id_seq')");
+        $S->id($id);
+
+        if ($S->ons_code()) {
+            my $a = $dbh->selectrow_hashref('select * from area where ons_code = ?', {}, $S->ons_code());
+            if (defined($a)) {
+                my $n = $dbh->selectrow_array("select name from area_name where area_id = ? and name_type = 'O'", {}, $a->{id});
+                die "was about to insert area '", $S->name(), "' with ONS Code ", $S->ons_code(), ", but an area #$a->{id} '$n' already exists\n";
+            }
+        }
+        
+        $dbh->do("insert into area (
+                            id,
+                            parent_area_id,
+                            unit_id, ons_code,
+                            type, country,
+                            generation_low, generation_high
+                        ) values (
+                            ?,
+                            ?,
+                            ?, ?,
+                            ?, ?,
+                            ?, ?
+                        )", {},
+                            $id,
+                            defined($S->parent()) ? $S->parent()->id() : undef,
+                            $S->aaid(), $S->ons_code(),
+                            $S->area_type(), $S->country(),
+                            $generation, $generation);
+    }
+    printf STDERR "\rUpdating database: %d/%d shapes", $n++, scalar(@shapes) if (($n % 100) == 0);
+}
+printf STDERR "\rUpdating database: %d/%d shapes\n", $n, scalar(@shapes) if (($n % 100) == 0);
 
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
