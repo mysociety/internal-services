@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.26 2005-09-06 15:00:32 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.27 2005-09-13 16:52:43 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -659,8 +659,6 @@ sub assign_shapes_to_buckets () {
                 }
             }
         }
-
-        ++$n;
         STDERR->printf("\rfilling buckets: %d/%d shapes", $n, scalar(@shapes)) if (0 == ($n % 100));
     }
     STDERR->printf("\rfilling buckets: %d/%d shapes\n", $n, scalar(@shapes));
@@ -858,7 +856,8 @@ foreach my $area_type (grep { !exists($parentmap{$_}) && $_ ne 'CPC' } @interest
 # and names where the areas already exist, or creating them anew where they do
 # not.
 $n = 0;
-foreach my $S (@shapes) {
+foreach my $S ((grep { !defined($_->parent()) } @shapes), (grep { defined($_->parent()) } @shapes)) {
+    ++$n;
     next if ($S->deleted() || $S->area_type() eq 'CPC');
     my $id = $S->id();
     if (defined($id)) {
@@ -878,7 +877,7 @@ foreach my $S (@shapes) {
                 die "was about to insert area '", $S->name(), "' with ONS Code ", $S->ons_code(), ", but an area #$a->{id} '$n' already exists\n";
             }
         }
-        
+ 
         $dbh->do("insert into area (
                             id,
                             parent_area_id,
@@ -897,8 +896,10 @@ foreach my $S (@shapes) {
                             $S->aaid(), $S->ons_code(),
                             $S->area_type(), $S->country(),
                             $generation, $generation);
+
+        $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'O', ?)", {}, $S->id(), $S->name());
     }
-    printf STDERR "\rUpdating database: %d/%d shapes", $n++, scalar(@shapes) if (($n % 100) == 0);
+    printf STDERR "\rUpdating database: %d/%d shapes", $n, scalar(@shapes) if (($n % 100) == 0);
 }
 printf STDERR "\rUpdating database: %d/%d shapes\n", $n, scalar(@shapes) if (($n % 100) == 0);
 
@@ -947,6 +948,7 @@ $total_shape_tests = $total_queries = 0;
        
         my $pcid = get_postcode_id($dbh, $pc, $E, $N);
         foreach my $S (grep { defined($_) } values %areas) {
+            next if ($S->deleted() || $S->area_type() eq 'CPC');
             $dbh->do('delete from postcode_area where postcode_id = ? and area_id = ?', {}, $pcid, $S->id());
             $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->id());
         }
