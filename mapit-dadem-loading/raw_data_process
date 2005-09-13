@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.10 2005-02-09 15:18:27 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.11 2005-09-13 16:56:02 chris Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -27,11 +27,13 @@ my $d_dbh = connect_to_dadem_database();
 mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
 my $verbosity = 1;
+my $generation = $m_dbh->selectrow_array('select id from current_generation');
 
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref(
-        q#select area_name.name, area.id from area, area_name
+        qq#select area_name.name, area.id from area, area_name
             where area_name.area_id = area.id and
+            generation_low <= $generation and $generation <= generation_high and
             area_name.name_type = 'F' and
             (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#,
         'id');
@@ -50,8 +52,9 @@ if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m
             ];
         }
         my $wardnames = $m_dbh->selectall_hashref(
-                q#select * from area_name, area where area_name.area_id = area.id  
-                and (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#, 
+                qq#select * from area_name, area where area_name.area_id = area.id and
+                generation_low <= $generation and $generation <= generation_high and
+                (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#, 
                 'name', {});
         my $wardnamescanon;
         do { $wardnamescanon->{mySociety::CouncilMatch::canonicalise_council_name($_)} = $wardnames->{$_} } for keys %$wardnames;

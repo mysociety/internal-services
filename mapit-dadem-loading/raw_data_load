@@ -19,9 +19,11 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.15 2005-07-27 19:15:02 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.16 2005-09-13 16:56:02 chris Exp $';
 
 use strict;
+require 5.8.0;
+
 $| = 1; # flush STDOUT afer each write
 
 use DBI;
@@ -40,12 +42,15 @@ my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
+my $generation = $m_dbh->selectrow_array('select id from current_generation');
+
 # values from 0 to 3 with increasing verbosity
-my $verbose = 2;
+my $verbose = 3;
 
 # Delete existing GovEval name data for councils of 'C' type
 $m_dbh->do(
-        q#delete from area_name where area_id in (select area_id from area where
+        qq#delete from area_name where area_id in (select area_id from area where
+            generation_low <= $generation and $generation <= generation_high and
             (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)) 
             and name_type = ?;#, {}, 'C'
 );
@@ -56,16 +61,18 @@ my %parent_to_id;
 
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref(
-        q#select * from area
+        qq#select * from area
             where 
+            generation_low <= $generation and $generation <= generation_high and
             (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#,
         'id');
 
 # Cache of name-->id map of all the parent area types (District Council,
 # Unitary Authority etc....)
 my $s = $m_dbh->prepare(
-        q#select area_id, name from area_name, area
-            where area_name.area_id = area.id
+        qq#select distinct area_id, name from area_name, area
+            where area_name.area_id = area.id and
+            generation_low <= $generation and $generation <= generation_high
             and (name_type = 'O' or name_type = 'S')
             and (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#
     );
@@ -74,6 +81,7 @@ $s->execute();
 while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
     my $canon = mySociety::CouncilMatch::canonicalise_council_name($name);
+print "#$area_id '$name' -> '$canon'\n";
     #print "dbname $name $area_id canon $canon\n";
     if (exists($parent_to_id{$canon})) {
         if ($parent_to_id{$canon} != $area_id) {
