@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.17 2005-05-12 11:54:34 francis Exp $
+-- $Id: mapit-schema.sql,v 1.18 2005-09-13 16:55:41 chris Exp $
 --
 
 -- generations, for currency of data
@@ -24,7 +24,7 @@ create view new_generation as select id from generation where not active order b
 create table area (
     id serial not null primary key,
     parent_area_id integer references area(id),
-    unit_id integer,        -- ESRI shapefile unit ID
+    unit_id integer,        -- ESRI shapefile unit ID (really admin area ID)
     ons_code varchar(7),    -- 6+-digit ward code
     geom_hash char(40),     -- SHA1 hash of geometry (see process_boundary_line)
     type char(3) not null,  -- 'CTY' or whatever
