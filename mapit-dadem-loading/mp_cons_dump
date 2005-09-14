@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.1 2005-05-29 23:19:19 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.2 2005-09-14 16:22:33 francis Exp $';
 
 use strict;
 
@@ -15,7 +15,6 @@ use Data::Dumper;
 use Common;
 use mySociety::Parties;
 use mySociety::VotingArea;
-use mySociety::CouncilMatch;
 use DaDem;
 #DBI->trace(1);
 

@@ -6,13 +6,13 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.16 2005-05-12 11:54:33 francis Exp $
+# $Id: Common.pm,v 1.17 2005-09-14 16:22:33 francis Exp $
 #
 
 package Common;
 
 use strict;
-use mySociety::CouncilMatch;
+use CouncilMatch;
 use mySociety::Config;
 mySociety::Config::set_file("../conf/general");
 
@@ -235,8 +235,8 @@ sub placename_match_metric ($$) {
     $match2 = lc($match2);
 
     # Move compass points to start
-    $match1 = mySociety::CouncilMatch::move_compass_to_start($match1);
-    $match2 = mySociety::CouncilMatch::move_compass_to_start($match2);
+    $match1 = CouncilMatch::move_compass_to_start($match1);
+    $match2 = CouncilMatch::move_compass_to_start($match2);
 
     # Then find common substrings
     my $ixes = String::Ediff::ediff($match1, $match2);

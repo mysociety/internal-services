@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.26 2005-09-14 15:41:44 francis Exp $
+# $Id: match.cgi,v 1.27 2005-09-14 16:22:34 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.26 2005-09-14 15:41:44 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.27 2005-09-14 16:22:34 francis Exp $';
 
 use strict;
 
@@ -27,7 +27,7 @@ use Data::Dumper;
 use POSIX;
 
 use Common;
-use mySociety::CouncilMatch;
+use CouncilMatch;
 use mySociety::WatchUpdate;
 use mySociety::VotingArea;
 use MaPit;
@@ -35,7 +35,7 @@ my $W = new mySociety::WatchUpdate();
 
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
-mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
+CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 my ($area_id, $name_data, $area_data, $status_data);
 
 sub html_head($$) {
@@ -193,7 +193,7 @@ sub do_council_info ($) {
             into raw_council_extradata (council_id, councillors_url, make_live) values (?,?,?)#, 
             {}, $area_id, $q->param('councillors_url'), defined($q->param('make_live')) ? 't' : 'f');
         $d_dbh->commit();
-        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
+        my $result = CouncilMatch::process_ge_data($area_id, 0);
         print $q->redirect($q->param('r'));
         return;
     }
@@ -269,7 +269,7 @@ sub do_council_info ($) {
     print $q->end_form();
 
     # Show GE list of councillors
-    my @reps = mySociety::CouncilMatch::get_raw_data($area_id);
+    my @reps = CouncilMatch::get_raw_data($area_id);
     @reps = sort { $a->{ward_name} cmp $b->{ward_name}  } @reps;
     my $prevward = "";
     my $wards_counter; do { $wards_counter->{$_->{ward_name}} =1 } for @reps;
@@ -385,13 +385,13 @@ sub do_council_edit ($) {
         }
     
         # Make alteration
-        mySociety::CouncilMatch::edit_raw_data($area_id, 
+        CouncilMatch::edit_raw_data($area_id, 
                 $name_data->{'name'}, $area_data->{'type'}, $area_data->{'ons_code'},
                 \@newdata, $q->remote_user() || "*unknown*");
         $d_dbh->commit();
 
         # Regenerate stuff
-        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
+        my $result = CouncilMatch::process_ge_data($area_id, 0);
 
         # Redirect if it's Save and Done
         if ($q->param('Save and Done')) {
@@ -401,7 +401,7 @@ sub do_council_edit ($) {
     } 
     
     # Fetch data from database
-    my @reps = mySociety::CouncilMatch::get_raw_data($area_id);
+    my @reps = CouncilMatch::get_raw_data($area_id);
     my $sort_by = $q->param("sort_by") || "ward_name";
     @reps = sort { $a->{$sort_by} cmp $b->{$sort_by}  } @reps;
     my $c = 1;
@@ -517,7 +517,7 @@ sub do_mapit_names_edit ($) {
         $m_dbh->commit();
 
         # Regenerate stuff
-        my $result = mySociety::CouncilMatch::process_ge_data($area_id, 0);
+        my $result = CouncilMatch::process_ge_data($area_id, 0);
 
         # Redirect if it's Save and Done
         if ($q->param('Save and Done')) {

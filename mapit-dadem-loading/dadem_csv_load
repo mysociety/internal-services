@@ -28,7 +28,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.3 2005-05-12 18:05:58 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.4 2005-09-14 16:22:33 francis Exp $';
 
 use strict;
 
@@ -38,7 +38,7 @@ use Data::Dumper;
 use Common;
 use mySociety::Parties;
 use mySociety::VotingArea;
-use mySociety::CouncilMatch;
+use CouncilMatch;
 use DaDem;
 #DBI->trace(1);
 
@@ -155,7 +155,7 @@ my $canon_repnames;
 $count = 0;
 for my $rep_info (values %$reps_info) {
     $count++;
-    my $canon_repname = mySociety::CouncilMatch::canonicalise_person_name($rep_info->{'name'});
+    my $canon_repname = CouncilMatch::canonicalise_person_name($rep_info->{'name'});
     $canon_repnames->{$rep_info->{'voting_area'}}->{$canon_repname} = $rep_info;
 }
 #die if $count != 659;
@@ -258,7 +258,7 @@ while (my $line = <MAIN>) {
     }
 
     # Make appropriate addition or alteration
-    my $canon_finalname = mySociety::CouncilMatch::canonicalise_person_name($finalname);
+    my $canon_finalname = CouncilMatch::canonicalise_person_name($finalname);
     
     my $existing_repinfo = $canon_repnames->{$area_id}->{$canon_finalname};
     if (defined($existing_repinfo)) {
@@ -332,8 +332,8 @@ if ($deleted_file) {
         map { die "Not valid field in $line" if (!defined $_) } $C->fields();
         my ($deleted_name, $deleted_cons, @dummy) = map { trim_spaces($_) } $C->fields();
 
-        my $deleted_canon_name = mySociety::CouncilMatch::canonicalise_person_name($deleted_name);
-        my $deleted_canon_cons = mySociety::CouncilMatch::canonicalise_constituency_name($deleted_cons);
+        my $deleted_canon_name = CouncilMatch::canonicalise_person_name($deleted_name);
+        my $deleted_canon_cons = CouncilMatch::canonicalise_constituency_name($deleted_cons);
 
         $expected_deleted->{$deleted_canon_cons}->{$deleted_canon_name} = 1;
     }
@@ -344,10 +344,10 @@ foreach my $area_id (keys %$canon_repnames){
     foreach my $repinfo (values %{$canon_repnames->{$area_id}}) {
         # If we didn't get them above
         if (!defined($repinfo->{got})) {
-            my $canon_repname = mySociety::CouncilMatch::canonicalise_person_name($repinfo->{name});
+            my $canon_repname = CouncilMatch::canonicalise_person_name($repinfo->{name});
             my ($cons) = $m_dbh->selectrow_array("select name from area_name where area_id = ?
                     and name_type = 'F'", {}, $area_id);
-            my $canon_cons = mySociety::CouncilMatch::canonicalise_constituency_name($cons);
+            my $canon_cons = CouncilMatch::canonicalise_constituency_name($cons);
             if ($deleted_file) {
                 if (!defined($expected_deleted->{$canon_cons}->{$canon_repname})) {
                     print STDERR "Wanting to delete " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " but not in CSV of expected deletions\n";

@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.18 2005-09-14 15:41:44 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.19 2005-09-14 16:22:33 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -30,17 +30,18 @@ use DBI;
 use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
-use mySociety::VotingArea;
-use mySociety::CouncilMatch;
-use mySociety::ArrayUtils;
 use Encode;
 use Storable;
 
+use mySociety::VotingArea;
+use mySociety::ArrayUtils;
+
 use Common;
+use CouncilMatch;
 
 my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
-mySociety::CouncilMatch::set_db_handles($m_dbh, $d_dbh);
+CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
 my $generation = $m_dbh->selectrow_array('select id from current_generation');
 
@@ -80,7 +81,7 @@ $s->execute();
 
 while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
-    my $canon = mySociety::CouncilMatch::canonicalise_council_name($name);
+    my $canon = CouncilMatch::canonicalise_council_name($name);
     print "#$area_id '$name' -> '$canon'\n";
     if (exists($parent_to_id{$canon})) {
         if ($parent_to_id{$canon} != $area_id) {
@@ -135,7 +136,7 @@ while (my $line = <STDIN>) {
     # Special case for areas with elected mayors.
     next if $vdiv eq "Elected Mayor";
     
-    my $canon = mySociety::CouncilMatch::canonicalise_council_name($council);
+    my $canon = CouncilMatch::canonicalise_council_name($council);
     #print "gename $council canon $canon\n";
 
     die "no council in database matches canonical name '$canon'\nline $line_number: $line" unless (exists($parent_to_id{$canon}));
@@ -193,14 +194,14 @@ print "doing $council_id\n";
     # Get data we loaded last time, i.e. before mySociety edits
     # We use the second parameter to get_raw_data to do this -- it gives the 
     # state just after the user "import" last edited things.
-    my @reps_prev_import = mySociety::CouncilMatch::get_raw_data($council_id, 1);
+    my @reps_prev_import = CouncilMatch::get_raw_data($council_id, 1);
     my $reps_prev_import;
     foreach my $rep (@reps_prev_import) {
         $reps_prev_import->{$rep->{key}} = $rep;
     }
 
     # Get data as modified by mySociety
-    my @reps_mysociety_mod = mySociety::CouncilMatch::get_raw_data($council_id);
+    my @reps_mysociety_mod = CouncilMatch::get_raw_data($council_id);
     my $reps_mysociety_mod;
     foreach my $rep (@reps_mysociety_mod) {
         $reps_mysociety_mod->{$rep->{key}} = $rep;
@@ -439,12 +440,12 @@ print "doing $council_id\n";
 
         # First a user "import" load the full new data for later reference (we
         # go back to this position when we next do a load)
-        mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
+        CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
             $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
             [values %$reps_new_import], "import");
 
         # Then on top of that apply the merges
-        mySociety::CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
+        CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
             $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
             [values %$reps_merged], "merge");
 

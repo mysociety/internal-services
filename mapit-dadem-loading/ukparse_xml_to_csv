@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: ukparse_xml_to_csv,v 1.1 2005-05-12 09:53:44 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: ukparse_xml_to_csv,v 1.2 2005-09-14 16:22:33 francis Exp $';
 
 use strict;
 
@@ -28,7 +28,6 @@ use Text::CSV_XS;
 
 use Common;
 use mySociety::VotingArea;
-use mySociety::CouncilMatch;
 
 my $all_members_xml = shift(@ARGV);
 die "specify all-members.xml from Public Whip" if (!defined($all_members_xml));

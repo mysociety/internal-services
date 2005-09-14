@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.2 2005-05-12 15:36:37 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.3 2005-09-14 16:22:33 francis Exp $';
 
 use strict;
 
@@ -31,15 +31,16 @@ use DBD::Pg;
 use Text::CSV_XS;
 use Data::Dumper;
 
-use Common;
 use mySociety::VotingArea;
-use mySociety::CouncilMatch;
+
+use Common;
+use CouncilMatch;
 
 my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
 my $types;
 my $name_type_char;
-my $canon_function = \&mySociety::CouncilMatch::canonicalise_constituency_name;
+my $canon_function = \&CouncilMatch::canonicalise_constituency_name;
 if ($kind eq "mep") {
     $types = [qw(EUR)];
     $name_type_char = 'G';
@@ -58,7 +59,7 @@ if ($kind eq "mep") {
 } elsif ($kind eq "ds") {
     $types = $mySociety::VotingArea::council_parent_types;
     $name_type_char = 'M';
-    $canon_function = \&mySociety::CouncilMatch::canonicalise_council_name
+    $canon_function = \&CouncilMatch::canonicalise_council_name
 } else {
     die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
 }
