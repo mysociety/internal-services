@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.16 2005-09-13 16:56:02 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.17 2005-09-14 14:52:44 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -261,7 +261,8 @@ foreach my $council_id (keys %$councils) {
     my $reps_merged = Storable::dclone($reps_new_import);
 
     #################################################################
-    # Find keys which are added/deleted by either mySociety or GE
+    # Find keys which are added/deleted by either mySociety or GE,
+    # and resolve what to have in reps_merged.
 
     # Look for differences in the keys
     my $common_keys;
@@ -418,7 +419,7 @@ foreach my $council_id (keys %$councils) {
     }
 
     #################################################################
-    # Go for it
+    # Make modifications to raw input table in database
 
     if (($ge_change && $ms_add_del) || ($ms_change && $ge_add_del)) {
         $this_clashes .= "Add/del by one, small mods by other. ";
