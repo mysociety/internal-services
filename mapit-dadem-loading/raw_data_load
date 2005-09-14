@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.17 2005-09-14 14:52:44 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.18 2005-09-14 15:41:44 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -81,8 +81,7 @@ $s->execute();
 while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
     my $canon = mySociety::CouncilMatch::canonicalise_council_name($name);
-print "#$area_id '$name' -> '$canon'\n";
-    #print "dbname $name $area_id canon $canon\n";
+    print "#$area_id '$name' -> '$canon'\n";
     if (exists($parent_to_id{$canon})) {
         if ($parent_to_id{$canon} != $area_id) {
             die "Already have id for canonicalised $canon, being " .  $parent_to_id{$canon} .  "\n";
@@ -161,6 +160,7 @@ foreach my $parent (keys %parent_to_id) {
 my $councils_count = 0;
 my $clashes_count = 0;
 foreach my $council_id (keys %$councils) {
+print "doing $council_id\n";
     $councils_count++;
     my $this_clashes = "";
 

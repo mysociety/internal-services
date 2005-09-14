@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.25 2005-07-27 19:09:53 francis Exp $
+# $Id: match.cgi,v 1.26 2005-09-14 15:41:44 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.25 2005-07-27 19:09:53 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.26 2005-09-14 15:41:44 francis Exp $';
 
 use strict;
 
@@ -119,7 +119,10 @@ sub do_summary ($) {
             q#select area_name.name, area.id from area, area_name
                 where area_name.area_id = area.id and
                 area_name.name_type = 'F' and
-                (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#,
+                (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)
+                and generation_low <= (select id from current_generation) 
+                and (select id from current_generation) <= generation_high
+                #,
             'id');
 
     # Get status of every council
@@ -336,7 +339,7 @@ sub do_council_info ($) {
             }
             print $q->end_Tr();
         }
-        if ($row->{alteration} eq "delete") {
+        if ($row->{alteration} && $row->{alteration} eq "delete") {
             delete $prevrow->{$key};
         } else {
             $prevrow->{$key} = $row;
@@ -535,10 +538,14 @@ sub do_mapit_names_edit ($) {
     my $os_names = $m_dbh->selectall_hashref(q#
         select area_id, name, name_type from area, area_name where
         area.id = area_name.area_id and parent_area_id = ? and name_type = 'O'
+        and generation_low <= (select id from current_generation) and
+            (select id from current_generation) <= generation_high
         #, 'area_id', {}, $area_id);
     my $m_names = $m_dbh->selectall_hashref(q#
         select area_id, name, name_type from area, area_name where
         area.id = area_name.area_id and parent_area_id = ? and name_type = 'M'
+        and generation_low <= (select id from current_generation) and
+            (select id from current_generation) <= generation_high
         #, 'area_id', {}, $area_id);
     
     # Put it in CGI parameters
