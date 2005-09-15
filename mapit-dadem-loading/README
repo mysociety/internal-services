@@ -1,18 +1,30 @@
-$Id: README,v 1.6 2005-09-14 14:52:44 francis Exp $
+$Id: README,v 1.7 2005-09-15 09:37:46 francis Exp $
+
+General
+-------
+
+README - This file contains descriptions of every other file
+README-check - Use this one-liner to test for files that need adding to this README
 
 NAMETYPES - Types of voting area names in MaPit.
 dadem-schema.sql, mapit-schema.sql - Database schemas.
+Common.pm - some shared functions
 
 Postcode / Boundary Loading
 ---------------------------
 
+create_new_generation - Create new generation in MaPit, if there isn't one already.
 process_boundary_line - Create postcode to voting area mappings for GB.
-boundaryline-*.control - Control files for import of specific versions of Boundary Line.
-process_codepoint_ni - Create postcode to voting area mappings for NI.
+boundaryline-2005-05.control - Control file for import of 2005-05 version of Boundary Line.
+boundaryline-2005-05-missing-CEDs.csv - For county councils with new boundaries
 
-new_scottish_constituencies new-scottish-constituencies-council-wards.csv
-new-scottish-constituencies-update-generations.sql - These are all for boundary
-changes in effect in Scotland for 2005 General Election.
+new_scottish_constituencies new_scottish_constituencies2
+new-scottish-constituencies-council-wards.csv
+new-scottish-constituencies-update-generations.sql - For boundary changes in
+effect in Scotland for 2005 General Election.
+
+process_codepoint_ni - Create postcode to voting area mappings for NI.
+process_codepoint_scilly - Create postcode to voting area mappings for Isles of Scilly.
 
 Voting Area Name Matching
 -------------------------
@@ -35,24 +47,28 @@ raw_data_load - Load raw councillor CSV files from GovEval into database.
 raw_data_process - Command line ward matching for GovEval to OS ward names.
 ../web-admin/match.cgi - CGI interface for fixing up ward names
 nicknames - Lots of nicknames e.g. Tim, Timmy --> Timothy
+email_user_corrections - Report for GovEval of user submitted corrections to councillor data.
+CouncilMatch.pm - functions to do with matching council ward names (used also in web-admin)
 
-Throwaway Scripts
------------------
+General Scripts
+---------------
 
 writetothemfympconv.py - Matches FaxYourMP names to DaDem constituencies.
 councils-without-contacts - Scans GovEval data and reports missing info.
 dumppoly - Dump coordinates of first part of a shape file
+ntfdump - Simple dump of an NTF file (BoundaryLine comes in this format)
+parsentf - Dump NTF file geometry data
 
-Shared Code
------------
+parse_ced_si - Screen scraper for Statutory Instruments creating new County Electoral Divisions
+scrapers/msp - Screen scrape representatives from Scottish Parliament website
 
-Common.pm - some shared functions
+oneoffs/council-elections-2005.sql - Mark invalid councils as "recent_election"
+oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
+oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
 Probably Not Needed?
 --------------------
 
 ni-electoral-areas.csv
-create_new_generation
 
-# $Id: README,v 1.6 2005-09-14 14:52:44 francis Exp $
-# for X in `ls -1`; do grep $X README >/dev/null || echo Missing $X; done
+# $Id: README,v 1.7 2005-09-15 09:37:46 francis Exp $

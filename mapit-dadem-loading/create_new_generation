@@ -2,12 +2,13 @@
 
 #
 # create_new_generation:
+# Create new generation in MaPit, if there isn't one already.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.2 2005-05-12 15:36:37 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.3 2005-09-15 09:37:46 francis Exp $';
 
 use strict;
 

@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.17 2005-09-14 16:22:33 francis Exp $
+# $Id: Common.pm,v 1.18 2005-09-15 09:37:46 francis Exp $
 #
 
 package Common;
@@ -85,7 +85,9 @@ sub current_generation ($) {
 }
 
 # new_generation DBH
-# Return the new generation ID, creating a new generation if necessary.
+# Return the new generation ID, creating a new generation if necessary.  This
+# is not to be confused with new_generation in the SQL, which just returns the
+# current new generation, and doesn't make a new one.
 sub new_generation ($) {
     my ($dbh) = @_;
     my $id = $dbh->selectrow_array('select id from new_generation');

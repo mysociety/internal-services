@@ -1,0 +1,13 @@
+#! /bin/bash
+
+# Display files that aren't documented in README
+
+for X in `
+    find . | 
+        egrep -v "(CVS|_Inline|.cvsignore|nicknames|.swp)" | 
+        sed "s#./##"
+    `
+do 
+    grep $X README >/dev/null || echo $X
+done
+
