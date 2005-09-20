@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.8 2005-09-06 15:00:32 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.9 2005-09-20 14:18:35 chris Exp $
 #
 
 use Text::CSV;
@@ -70,7 +70,7 @@ sub control_function ($$$) {
             my ($cty) = grep { $_->name() =~ /\Q$county\E/ } @{$area_type_idx->{CTY}};
             die "can't find shape for county '$county'" unless ($cty);
         
-            my $a = new Area(area_type => 'CED', name => "$ced ED", devolved => 'E', country => 'E', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 0, parts => [ ]);
+            my $a = new Area(area_type => 'CED', name => "$ced ED", devolved => 'E', country => 'E', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 0, parts => [ ], parent => $cty);
             $cty->children($a);
             push(@$shapes, $a);
             push(@{$area_type_idx->{CED}}, $a);
