@@ -34,7 +34,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.27 2005-09-13 16:52:43 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.28 2005-09-20 12:25:12 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -575,6 +575,7 @@ sub find_containing_areas ($$;$) {
     foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
         next if ($S->deleted());
         next if (exists($found{$S->area_type()}));  # only care about one shape of each type.
+        next if ($S->area_type() eq 'CPC');         # don't care about parishes at this stage
         ++$total_shape_tests;
         $found{$S->area_type()} = $S if (is_point_in_shape($S, $E, $N));
     }
@@ -901,7 +902,7 @@ foreach my $S ((grep { !defined($_->parent()) } @shapes), (grep { defined($_->pa
     }
     printf STDERR "\rUpdating database: %d/%d shapes", $n, scalar(@shapes) if (($n % 100) == 0);
 }
-printf STDERR "\rUpdating database: %d/%d shapes\n", $n, scalar(@shapes) if (($n % 100) == 0);
+printf STDERR "\rUpdating database: %d/%d shapes\n", $n, scalar(@shapes);
 
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
@@ -947,9 +948,9 @@ $total_shape_tests = $total_queries = 0;
         }
        
         my $pcid = get_postcode_id($dbh, $pc, $E, $N);
+        $dbh->do('delete from postcode_area where postcode_id = ?', {}, $pcid);
         foreach my $S (grep { defined($_) } values %areas) {
             next if ($S->deleted() || $S->area_type() eq 'CPC');
-            $dbh->do('delete from postcode_area where postcode_id = ? and area_id = ?', {}, $pcid, $S->id());
             $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->id());
         }
 
