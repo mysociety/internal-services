@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-05.control,v 1.9 2005-09-20 14:18:35 chris Exp $
+# $Id: boundaryline-2005-05.control,v 1.10 2005-09-21 14:51:37 chris Exp $
 #
 
 use Text::CSV;
@@ -74,10 +74,11 @@ sub control_function ($$$) {
             $cty->children($a);
             push(@$shapes, $a);
             push(@{$area_type_idx->{CED}}, $a);
-            $shape = $cedscreated{$county}->{$ced} = $a;
+            $cedscreated{$county}->{$ced} = $a;
 
-            print STDERR "Creating new CED: ", $shape->name(), " in $county\n";
+            print STDERR "Creating new CED: ", $a->name(), " in $county\n";
         }
+        $shape = $cedscreated{$county}->{$ced};
 
         # Need to identify the associated district.
         if (!exists($districts{$district})) {
@@ -88,10 +89,10 @@ sub control_function ($$$) {
 
         my $othershape;
         if (defined($ward)) {
-            my $othershape = find_best_match($ward, [grep { $_->area_type() eq 'DIW' } $districts{$district}->children()]);
+            $othershape = find_best_match($ward, [grep { $_->area_type() eq 'DIW' } $districts{$district}->children()]);
             print STDERR "  CED contains ward ", $othershape->name(), "\n";
         } elsif (defined($parish) && !defined($parishward)) {
-            my $othershape = find_best_match($parish, [grep { $_->area_type() eq 'CPC' } $districts{$district}->children()]);
+            $othershape = find_best_match($parish, [grep { $_->area_type() eq 'CPC' } $districts{$district}->children()]);
             print STDERR "  CED contains parish ", $othershape->name(), "\n";
         } else {
             # anything else: can't cope with this
