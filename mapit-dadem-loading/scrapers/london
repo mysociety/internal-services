@@ -1,0 +1,115 @@
+#! /usr/bin/python
+
+import os
+from sys import stderr
+from urllib import unquote
+from urllib2 import urlopen
+from urlparse import urljoin
+from HTMLParser import HTMLParser
+from threading import Thread
+
+
+LIST_PAGE = 'http://www.london.gov.uk/assembly/lams_facts_cont.jsp'
+
+
+class HeadedTableParser( HTMLParser ):
+    def __init__( self ):
+        HTMLParser.__init__( self )
+        self._state = 'START'
+        self.tables = {}
+        self._currentHeader = None
+        self._data = ''
+        self._url = None
+    def handle_starttag( self, tag, attrs ):
+        if self._state == 'CONTENT' and tag == 'h2':
+            self._state = 'HEADER'
+            self._data = ''
+        elif self._state == 'CONTENT' and tag == 'table':
+            self._state = 'TABLE'
+            self._currentTable = []
+            self.tables[self._currentHeader.upper()] = self._currentTable
+        elif self._state == 'TABLE' and tag == 'tr':
+            self._state = 'ROW'
+            self._currentRow = []
+        elif self._state == 'ROW' and tag == 'td':
+            self._state = 'COLUMN'
+            self._data = ''
+            self._url = None
+        elif self._state == 'COLUMN' and tag == 'a':
+            self._url = [ value for key, value in attrs if key == 'href' ][0]
+    def handle_endtag( self, tag ):
+        if self._state == 'HEADER' and tag == 'h2':
+            self._state = 'CONTENT'
+            self._currentHeader = self.tidy_data()
+        elif self._state == 'ROW' and tag == 'tr':
+            self._state = 'TABLE'
+            if self._currentRow:
+                self._currentTable.append( self._currentRow )
+        elif self._state == 'COLUMN' and tag == 'td':
+            self._state = 'ROW'
+            if self._url:
+                self._currentRow.append( (self.tidy_data(), self._url) )
+            else:
+                self._currentRow.append( self.tidy_data() )
+        elif self._state == 'TABLE' and tag == 'table':
+            self._state = 'CONTENT'
+    def handle_data( self, data ):
+        self._data += data
+    def handle_comment( self, comment ):
+        if comment == ' BeginEditablePageContent ':
+            self._state = 'CONTENT'
+        elif comment == ' EndEditablePageContent ':
+            self._state = 'END'
+    def tidy_data( self ):
+        return ' '.join( self._data.strip().split() )
+
+
+class DetailPageParser( HTMLParser ):
+    def __init__( self ):
+        HTMLParser.__init__( self )
+        self._state = 'START'
+        self.email = None
+    def handle_comment( self, comment ):
+        if comment == ' BeginEditablePageContent ':
+            self._state = 'CONTENT'
+        elif comment == ' EndEditablePageContent ':
+            self._state = 'END'
+    def handle_starttag( self, tag, attrs ):
+        if self._state == 'CONTENT' and tag == 'a':
+            hrefs = [ value for key, value in attrs if key == 'href' ]
+            if hrefs:
+                url = hrefs[0]
+                if url.startswith( 'mailto:' ):
+                    self.email = unquote(url[7:]).strip().lower()
+
+
+def splitName( name ):
+    names = name.split()
+    return names[-1], names[0]
+
+
+page = urlopen( LIST_PAGE )
+parser = HeadedTableParser()
+parser.feed( page.read() )
+
+constituency_members = parser.tables['CONSTITUENCY MEMBERS']
+list_members = parser.tables['LONDON LIST MEMBERS']
+
+for constituency, (name, url), party in constituency_members:
+    constituency = constituency.split( '(', 1 )[0].strip()
+    surname, forename = splitName( name )
+    url = urljoin( LIST_PAGE, url )
+    page = urlopen( url )
+    parser = DetailPageParser()
+    parser.feed( page.read() )
+    email = parser.email
+    print '"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, party, email or "")
+
+for (name, url), party in list_members:
+    surname, forename = splitName( name )
+    url = urljoin( LIST_PAGE, url )
+    page = urlopen( url )
+    parser = DetailPageParser()
+    parser.feed( page.read() )
+    email = parser.email
+    print '"%s","%s","","%s","%s",""' % (forename, surname, party, email or "")
