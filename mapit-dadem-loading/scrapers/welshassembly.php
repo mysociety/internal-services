@@ -1,0 +1,477 @@
+<?php
+/**
+ * Welsh Assembly members screenscraper for MySociety
+ */
+
+//CONFIG VARS
+$debug=0;
+
+$list_source_url="http://www.wales.gov.uk/who/constit_e.htm";
+
+$list_source_block_start='BeginEditable "Content"[^>]*>';
+$list_source_block_end='<[^>]*EndEditable';
+
+$party_trans=array('Lab'=>'Labour','Lib Dem'=>'Liberal Democrat','Con'=>'Conservative','Plaid'=>'Plaid Cymru');
+
+$bio_source_block_start=$address_source_block_start=$list_source_block_start;
+$bio_source_block_end=$address_source_block_end=$list_source_block_end;
+
+//END CONFIG
+
+//	First,Last,Constituency,Party,Email,Fax
+//"Mike","Tuffrey","Proportionally Elected Member","Liberal Democrat","mike.tuffrey@london.gov.uk",""
+
+//Get the base file
+$list_data=file_get_contents($list_source_url);
+
+//Normalise it
+$list_data=preg_replace("/\n/",' ',$list_data);
+$list_data=preg_replace("/\s+/",' ',$list_data);
+
+//Grab the section we're intereted in (see vars above)
+if($list_data=preg_match("/$list_source_block_start(.*)$list_source_block_end/",$list_data,$matches)) {
+	$list_data=$matches[1];
+} else { 
+	die("ERROR: Source page format has changed"); 
+}
+//Put any entities in CDATA sections so the parser can't choke on them
+$list_data=preg_replace("/(&\S+;)/",'<![CDATA[\1]]>',$list_data);
+#print(htmlentities($list_data));
+if($debug) {
+	header('Content-type: text/plain');
+} else {
+#	header('Content-type: text/comma-separated-values');
+}
+
+//First page is actually clean HTML, that can be converted to XHTML easily enough 
+ //to make XML-based parsing possible
+
+$lpp=&new listPageParser($list_source_url);
+$lpp->parse('<assm>'.$list_data.'</assm>');
+
+//grab the basic results
+$members=$lpp->member;
+
+//then grab the pages on which the biographies are found
+ // (email addresses and links to the pages containing fax/phone)
+foreach ($lpp->biourls as $bu=>$trueval) {
+	
+	//split the base URL down so we can create relative URLs later
+	preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$bu,$urlparts);
+	list($url,$proto,$host,$filepath,$dir,$file)=$urlparts;
+
+	// grab the file
+	$bio_data=file_get_contents($bu);
+
+	//normalise
+	$bio_data=preg_replace("/\n/",' ',$bio_data);
+	$bio_data=preg_replace("/\s+/",' ',$bio_data);
+	
+ 	//extract useful section
+	if($bio_data=preg_match("/$bio_source_block_start(.*)$bio_source_block_end/",$bio_data,$matches)) {
+		$bio_data=$matches[1];
+	} else { 
+		die("ERROR: Source page format has changed"); 
+	}
+
+/* Bio HTML is too broken to use - do PREG grabs instead!
+	//Sanitise the HTML 
+	$bio_data=preg_replace("/<br>/",'<br />',$bio_data);
+	$bio_data=preg_replace("/&(\W)/",'&amp;\1',$bio_data);
+	$bio_data=preg_replace("/&([^;]*)/",'&amp;\1',$bio_data);
+	$bio_data=preg_replace("/<img([^>]+)>/i",'<img\1 />',$bio_data);
+	//XXX HACK! - use a proper general case strtolower!
+	$bio_data=preg_replace("/<P>/",'<p>',$bio_data);
+	$bio_data=preg_replace("/<\/P>/",'</p>',$bio_data);
+	$bio_data=preg_replace("/(&\S+;)/",'<![CDATA[\1]]>',$bio_data);
+
+	print("BD:\n$bio_data");
+	$bpp=&new bioPageParser($bu);
+	$bpp->parse('<assm>'.$bio_data.'</assm>');
+	print("\nCONTACTS\n");
+	print_r($bpp->contact);
+	foreach($bpp->contact as $tag=>$contact) {
+		$allbios[$tag]=$contact;
+	}		  
+	print_r($bpp->contacturls);
+*/
+
+// find all <a name> and <a href> tags - this is where the data hides! 
+	preg_match_all('/<a\s+(\w+)\s*=\s*["\']([^"]+)["\']/i',$bio_data,$matches,PREG_SET_ORDER);
+
+	#print_r($matches);
+	foreach($matches as $anchor) {
+			if($anchor[1] === 'name') {
+				$biotag=$anchor[2];
+			} else if (($anchor[1] === 'href') && !$contacturl[$biotag]) {
+//get a canonical URL for the contact page (where phone and fax data hide
+				if(preg_match('/^mailto:(.*)/',$anchor[2],$mailmatch)) {
+					$email[$biotag]=$mailmatch[1];
+				} else if(!preg_match('/jpg$/',$anchor[2]) &&  !preg_match('/gif$/',$anchor[2])){
+					$url=$anchor[2];
+				if(0 && preg_match('#^http://#',$url)) {
+					$contacturl[$biotag]=$fu=$url;
+					$fu=preg_replace('/#.*/','',$fu);
+					$contacturls[$fu]=true;	
+				} else if (preg_match('#^/#',$url)) {
+					$contacturl[$biotag]=$fu=$proto.$host.$url;
+					$fu=preg_replace('/#.*/','',$fu);
+					$contacturls[$fu]=true;	
+				} else {
+					$contacturl[$biotag]=$fu=$proto.$host.'/'.$dir.'/'.$url;
+					$fu=preg_replace('/#.*/','',$fu);
+					$contacturls[$fu]=true;	
+				}		  
+			}	
+		}
+	}
+}
+#print_r($email);
+
+
+
+foreach ($contacturls as $cu=>$trueval) {
+	
+		preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$cu,$urlparts);
+		list($url,$proto,$host,$filepath,$dir,$file)=$urlparts;
+	$contact_data=@file_get_contents($cu); //plenty of dud URLs in this site!
+	$contact_data=preg_replace("/\n/",' ',$contact_data);
+	$contact_data=preg_replace("/\s+/",' ',$contact_data);
+	
+	if($contact_data=preg_match("/$contact_source_block_start(.*)$contact_source_block_end/",$contact_data,$matches)) {
+		$contact_data=$matches[1];
+	} else { 
+		die("ERROR: Source page format has changed"); 
+	}
+
+	$contact_data=preg_replace("/<br>/",'<br />',$contact_data);
+	$contact_data=preg_replace("/&(\W)/",'&amp;\1',$contact_data);
+	$contact_data=preg_replace("/&([^;]*)/",'&amp;\1',$contact_data);
+	$contact_data=preg_replace("/<img([^>]+)>/i",'<img\1 />',$contact_data);
+/* Bio HTML is too broken to use - do PREG grabs instead!
+	//XXX HACK! - use a proper general case strtolower!
+	$contact_data=preg_replace("/<P>/",'<p>',$contact_data);
+	$contact_data=preg_replace("/<\/P>/",'</p>',$contact_data);
+	$contact_data=preg_replace("/(&\S+;)/",'<![CDATA[\1]]>',$contact_data);
+
+	print("BD:\n$contact_data");
+	$bpp=&new contactPageParser($cu);
+	$bpp->parse('<assm>'.$contact_data.'</assm>');
+	print("\nCONTACTS\n");
+	print_r($bpp->contact);
+	foreach($bpp->contact as $tag=>$contact) {
+		$allcontacts[$tag]=$contact;
+	}		  
+	print_r($bpp->contacturls);
+*/
+
+	preg_match_all('/(<a\s+(\w+)\s*=\s*["\']([^"]+)["\'])|((Tel:?\s+([0-9()\s]+)[^>]*)(Fax:?\s+([0-9()\s]+)[^>]*)<)/i',$contact_data,$matches,PREG_SET_ORDER);
+// 2: 'name' or 'href', 3: contact tag, 4: address string, 6: phone, 8:Fax
+
+if($debug) {
+print("\nCONTACT\n");
+print_r($matches);
+}
+	foreach($matches as $anchor) {
+		#foreach($anchorset as $anchor) {
+			if($anchor[2] === 'name') {
+				$contacttag=$anchor[3];
+			} else if ($anchor[4]) {
+				$phone[$contacttag]=trim($anchor[6]);
+				$fax[$contacttag]=trim($anchor[8]);
+			}
+		#}
+	}
+
+	#die();
+	
+}
+
+if($debug) {
+print("PHONE:\n");
+print_r($phone);
+print("FAX:\n");
+print_r($fax);
+}
+
+
+foreach ($members as $member) {
+		   $biotag=preg_replace('/^(.*#)/','',$member['detailsurl']);
+		 	$member['email']=$email[$biotag];
+		 	$member['contacturl']=$contacturl[$biotag];
+		   $contacttag=preg_replace('/^(.*#)/','',$member['contacturl']);
+if($debug) {
+	print("Member: $member[membername]; contacttag: '$contacttag'\n");
+}
+		 	$member['phone']=$phone[$contacttag];
+		 	$member['fax']=$fax[$contacttag];
+		 	//$member['contacturl']=$allbios[$biotag]['url'];
+
+			preg_match('/^\s*(\S.*)\s(\S+)\s*/',$member['membername'],$matches);
+			$member['firstname']=$matches[1];
+			$member['firstname']=preg_replace('/^Rt\.? Hon\.?\s*/','',$member['firstname']);
+			$member['firstname']=preg_replace('/^Hon\.?\s*/','',$member['firstname']);
+//XXX might need to strip out other honorifics in future...
+			$member['surname']=$matches[2];
+
+			$member['fullparty']=$party_trans[$member['party']]?$party_trans[$member['party']]:$member['party'];
+
+			foreach($member as $k=>$v) {
+				$member[$k]=preg_replace('/"/','\"',$v);
+if($debug) {
+				print("[$k]:$v,   ");
+}
+			}
+if($debug) {
+			print("\n");
+}
+//	First,Last,Constituency,Party,Email,Fax
+			print("\"$member[firstname]\",\"$member[surname]\",\"$member[constituency]\",\"$member[fullparty]\",\"$member[email]\",\"$member[fax]\"");
+			print("\n");
+		}		  
+			  
+	
+class listPageParser {
+
+	var $data;
+	var $output;
+	var $tagstack=array();
+	var $textpending;
+	var $membercount=0;
+	var $member;
+
+	function __construct($base_url) {
+
+		$this->base_url=$base_url;
+		preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$base_url,$matches);
+		list($url,$this->proto,$this->host,$filepath,$this->dir,$this->file)=$matches;
+		#print("($url,$proto,$host,$filepath,$dir,$file)");	
+		#print_r($matches);
+		
+		$this->xml_parser = xml_parser_create();
+		
+		xml_parser_set_option($this->xml_parser, XML_OPTION_CASE_FOLDING,0);
+
+		xml_set_element_handler($this->xml_parser, array(&$this,'startElement'), array(&$this,'endElement'));
+		#xml_set_default_handler($this->xml_parser, array(&$this,'defaultHandler'));
+		xml_set_character_data_handler($this->xml_parser, array(&$this,'cdataHandler'));
+		#xml_set_processing_instruction_handler($this->xml_parser, array(&$this,'piHandler'));
+		#xml_set_external_entity_ref_handler($this->xml_parser, array(&$this,'externalEntityRefHandler')); 
+	}
+
+
+	function parse($data) {
+		$this->data = $data;
+		if (!xml_parse($this->xml_parser, $data, true)) {
+		   $this->output='<error>'.(sprintf("XML error in template: %s at line %d",
+			xml_error_string(xml_get_error_code($this->xml_parser)),
+			xml_get_current_line_number($this->xml_parser))).'</error>';
+			print("\n");
+			print('ERROR: bad parse'. $this->output);
+
+		}
+		xml_parser_free($this->xml_parser);
+
+	
+		#		print_r($this->biourls);
+		#return($this->output);
+	}
+
+
+	function startElement($parser, $name, $attrs) {
+			 $name=strtolower($name);
+		
+		switch($name) {
+
+			case 'li':
+				break;	
+
+			case 'a':
+				$this->member[$this->membercount]['constituency']=preg_replace('/\s*-\s*$/','',$this->textpending);	
+				$this->member[$this->membercount]['detailsurlrel']=$url=$attrs['href'];
+				if(preg_match('#^http://#',$url)) {
+					$this->member[$this->membercount]['detailsurl']=$fu=$url;
+					$fu=preg_replace('/#.*/','',$fu);
+					$this->biourls[$fu]=true;	
+				} else if (preg_match('#^/#',$url)) {
+					$this->member[$this->membercount]['detailsurl']=$fu=$this->proto.$this->host.$url;
+					$fu=preg_replace('/#.*/','',$fu);
+					$this->biourls[$fu]=true;	
+				} else {
+					$this->member[$this->membercount]['detailsurl']=$fu=$this->proto.$this->host.'/'.$this->dir.'/'.$url;
+					$fu=preg_replace('/#.*/','',$fu);
+					$this->biourls[$fu]=true;	
+				}		  
+
+			}		
+		$this->textpending=''; // Only one valid textblock can be open at once in our spec!
+	}
+
+	function endElement($parser, $name) {
+			 $name=strtolower($name);
+		switch($name) {
+
+			case 'h2':
+				$this->membertype=$this->textpending;
+				break;	
+
+			case 'h3':
+				$this->constituency=$this->textpending;
+				break;	
+
+			case 'a':
+				$this->member[$this->membercount]['membername']=$this->textpending;	
+				break;	
+
+			case 'li':	
+				$this->member[$this->membercount]['party']=preg_replace('/\s*[()]\s*/','',$this->textpending);	
+				$this->member[$this->membercount]['membertype']=$this->membertype;	
+				if($this->constituency && !($this->member[$this->membercount]['constituency'])) {
+					$this->member[$this->membercount]['constituency']=$this->constituency;
+				}		  
+
+				$this->membercount++;
+
+		}
+		$this->textpending=''; // Only one valid textblock can be open at once in our spec!
+	}
+
+	function cdataHandler($parser,$data) {
+		if(!preg_match("/^\s+$/",$data)) 
+			$this->textpending.=$data;
+	}
+	
+}
+
+class bioPageParser {
+
+	var $data;
+	var $output;
+	var $tagstack=array();
+	var $textpending;
+	var $membercount=0;
+	var $member;
+	var $contact=array();
+
+	function __construct($base_url) {
+
+		$this->base_url=$base_url;
+		preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$base_url,$matches);
+		list($url,$this->proto,$this->host,$filepath,$this->dir,$this->file)=$matches;
+		#print("($url,$proto,$host,$filepath,$dir,$file)");	
+		#print_r($matches);
+		
+		$this->xml_parser = xml_parser_create();
+		
+		xml_parser_set_option($this->xml_parser, XML_OPTION_CASE_FOLDING,0);
+
+		xml_set_element_handler($this->xml_parser, array(&$this,'startElement'), array(&$this,'endElement'));
+		#xml_set_default_handler($this->xml_parser, array(&$this,'defaultHandler'));
+		xml_set_character_data_handler($this->xml_parser, array(&$this,'cdataHandler'));
+		#xml_set_processing_instruction_handler($this->xml_parser, array(&$this,'piHandler'));
+		#xml_set_external_entity_ref_handler($this->xml_parser, array(&$this,'externalEntityRefHandler')); 
+	}
+
+
+	function parse($data) {
+		$this->data = $data;
+		if (!xml_parse($this->xml_parser, $data, true)) {
+		   $this->output='<error>'.(sprintf("XML error in template: %s at line %d char %d",
+			xml_error_string(xml_get_error_code($this->xml_parser)),
+			xml_get_current_line_number($this->xml_parser),
+			xml_get_current_column_number($this->xml_parser))).'</error>';
+			print("\n");
+			print('ERROR: bad parse'. $this->output);
+		}
+		xml_parser_free($this->xml_parser);
+
+		/*
+		foreach ($this->member as $member) {
+			foreach($member as $k=>$v) {
+				print("[$k]:$v,   ");
+			}
+			print("\n");
+		}		  
+		
+		print_r($this->biourls); */
+		#return($this->output);
+	}
+
+
+	function startElement($parser, $name, $attrs) {
+			 $name=strtolower($name);
+		
+		switch($name) {
+
+			case 'li':
+				break;	
+
+			case 'a':
+				if($attrs['href']) {
+
+					if(preg_match('#^mailto:(.*)#',$attrs['href'],$matches)) {
+						$this->contact[$this->anchor]['email']=$matches[1];
+					} else {		  
+						$url=$attrs['href'];
+						if(preg_match('#^http://#',$url)) {
+							$this->contact[$this->anchor]['url']=$fu=$url;
+							$fu=preg_replace('/#.*/','',$fu);
+							$this->contacturls[$fu]=true;	
+						} else if (preg_match('#^/#',$url)) {
+							$this->contact[$this->anchor]['url']=$fu=$this->proto.$this->host.$url;
+							$fu=preg_replace('/#.*/','',$fu);
+							$this->contacturls[$fu]=true;	
+						} else {
+							$this->contact[$this->anchor]['url']=$fu=$this->proto.$this->host.'/'.$this->dir.'/'.$url;
+							$fu=preg_replace('/#.*/','',$fu);
+							$this->contacturls[$fu]=true;	
+						}		  
+			 		}
+		 		} else if($attrs['name']) {
+					$this->anchor=$attrs['name'];
+			  	}
+
+			}		
+		$this->textpending=''; // Only one valid textblock can be open at once in our spec!
+	}
+
+	function endElement($parser, $name) {
+			 $name=strtolower($name);
+			 /*
+		switch($name) {
+
+			case 'h2':
+				$this->membertype=$this->textpending;
+				break;	
+
+			case 'h3':
+				$this->constituency=$this->textpending;
+				break;	
+
+			case 'a':
+				$this->member[$this->membercount]['membername']=$this->textpending;	
+				break;	
+
+			case 'li':	
+				$this->member[$this->membercount]['party']=$this->textpending;	
+				$this->member[$this->membercount]['membertype']=$this->membertype;	
+				if($this->constituency && !($this->member[$this->membercount]['constituency'])) {
+					$this->member[$this->membercount]['constituency']=$this->constituency;
+				}		  
+
+				$this->membercount++;
+
+		}
+			*/
+		$this->textpending=''; // Only one valid textblock can be open at once in our spec!
+	}
+
+	function cdataHandler($parser,$data) {
+		if(!preg_match("/^\s+$/",$data)) 
+			$this->textpending.=$data;
+	}
+	
+}
+
+
+?>
