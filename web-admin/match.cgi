@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.27 2005-09-14 16:22:34 francis Exp $
+# $Id: match.cgi,v 1.28 2005-09-30 14:57:03 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.27 2005-09-14 16:22:34 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.28 2005-09-30 14:57:03 francis Exp $';
 
 use strict;
 
@@ -129,6 +129,11 @@ sub do_summary ($) {
     my $status_data = $d_dbh->selectall_arrayref(
             q#select council_id, status, error from raw_process_status#);
     do { $_->[2] = defined($_->[2]) ? ($_->[2] =~ tr/\n/\n/) : 0 } for @$status_data;
+    foreach my $a (@$status_data) {
+        if (!defined($area_id_data->{$a->[0]})) {
+            warn "failed " . $a->[0] . "\n";
+        }
+    }
     @$status_data = sort 
         { 
         $a->[2] <=> $b->[2] ||
@@ -199,8 +204,8 @@ sub do_council_info ($) {
     }
  
     my $name = $name_data->{'name'};
-    print html_head($q, $name . " - Status");
-    print $q->h1($name . " " . $area_id . " &mdash; Status");
+    print html_head($q, $name);
+    print $q->h1($name . " " . $area_id);
     print $q->p($status_titles->{$status_data->{status}});
 
     if ($status_data->{status} eq "made-live") {

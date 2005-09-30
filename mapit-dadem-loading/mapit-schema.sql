@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.18 2005-09-13 16:55:41 chris Exp $
+-- $Id: mapit-schema.sql,v 1.19 2005-09-30 14:57:02 francis Exp $
 --
 
 -- generations, for currency of data
@@ -17,8 +17,13 @@ create table generation (
 
 -- views for the "current" generation, i.e. the data which should be returned
 -- to users; and the "new" generation, i.e. the data which are being built
-create view current_generation as select id from generation where active order by id desc limit 1;
-create view new_generation as select id from generation where not active order by id desc limit 1;
+create view current_generation as 
+    select id from generation 
+    where active 
+    order by id desc limit 1;
+create view new_generation as 
+    select id from generation 
+    where not active and id >= (select last_value from generation_id_seq);
 
 -- description of areas
 create table area (

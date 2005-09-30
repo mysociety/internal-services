@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.1 2005-09-14 16:22:33 francis Exp $
+# $Id: CouncilMatch.pm,v 1.2 2005-09-30 14:57:02 francis Exp $
 #
 
 package CouncilMatch;
@@ -152,11 +152,11 @@ sub refresh_live_data($$) {
             # update
             my $rows_affected = $d_dbh->do(q#update representative set
                 name = ?, party = ?, method = ?, email = ?, fax = ?
-                where import_key = ?#, {}, 
+                where import_key = ? and area_id = ?#, {}, 
                 $row->{rep_first} . " " . $row->{rep_last},
                 $row->{rep_party}, $row->{method}, 
                 $row->{rep_email}, $row->{rep_fax},
-                $update_key);
+                $update_key, $row->{ward_id});
             throw Error::Simple("refresh_live_data: update affected $rows_affected rows, not one") if $rows_affected != 1;
             $details .= "Making live: Updated $update_key ".$row->{rep_first}." ".$row->{rep_last}
                 . " (" . $row->{rep_party} . ")"

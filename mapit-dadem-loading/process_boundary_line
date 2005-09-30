@@ -4,37 +4,52 @@
 # Load the Boundary-Line polygons into memory, and compare postcodes (e.g.
 # from CodePoint) against their areas, to form the database used by MaPit.
 #
-# The strategy here is as follows: For each area, we read each polygon from the
-# OS-supplied NTF files. We represent these in memory as packed arrays of
-# doubles (otherwise the memory requirement exceeded poor caesious's little
-# mind). This also makes use of the C pnpoly function (see below) more
-# convenient, which speeds things up a little. We assemble a "spatial hash"
-# which maps square regions (presently of size 1km) to the
-# electoral/administrative areas which overlap them. Now we are ready to
-# compute point-polygon intersections. We read the CodePoint data from the
-# OS-supplied CSV files, ignoring data for Northern Ireland (processed
-# separately, since Boundary-Line only covers GB) and determine the locations
-# in which each point lies. We cheat a little here and end each search once we
-# have sufficient electoral geography for each point, so errors which arise
-# from overlapping polygons in Boundary-Line will not be detected (this would
-# correspond to one point lying in two constituencies, say). This doesn't
-# matter too much, because (a) there shouldn't be any such overlaps (and
-# weren't when I tested this exhaustively); and (b) there wouldn't be a whole
-# lot we could do even if there were.
+# The strategy here is as follows: 
 #
-# Call with two or more arguments; the first should be the name of a Postgres
-# database (with schema already constructed from mapit-schema.sql) and the
-# remainder being directories containing .shp files from Boundary-Line.
+# a. For each area, we read each polygon from the OS-supplied NTF files. We
+#    represent these in memory as packed arrays of doubles (otherwise the
+#    memory requirement exceeded poor caesious's little mind). This also makes
+#    use of the C pnpoly function (see below) more convenient, which speeds
+#    things up a little.  
+#
+#    We assemble a "spatial hash" which maps square regions (presently of size
+#    1km) to the electoral/administrative areas which overlap them. 
+#
+# b. Now we are ready to compute point-polygon intersections. We read the
+#    CodePoint data from the OS-supplied CSV files, ignoring data for Northern
+#    Ireland (processed separately, since Boundary-Line only covers GB) and
+#    determine the locations in which each point lies. 
+#
+#    We cheat a little here and end each search once we have sufficient
+#    electoral geography for each point, so errors which arise from overlapping
+#    polygons in Boundary-Line will not be detected (this would correspond to
+#    one point lying in two constituencies, say). This doesn't matter too much,
+#    because (a) there shouldn't be any such overlaps (and weren't when I
+#    tested this exhaustively); and (b) there wouldn't be a whole lot we could
+#    do even if there were.
+#
+# Call with three or more arguments; 
+# - the first should be the name of a Postgres database (with schema already
+# constructed from mapit-schema.sql)
+# - the second should be the name of a .control file with BoundaryLine version
+# specific instructions in it
+# - the remainder being directories containing .NTF files from Boundary-Line.
 # Feed postcodes from codepoint in on a pipe.
 #
+# For example run like this:
+# cat ~/toobig/geodata-mysociety/codepoint-2004-11/*.csv | ./process_boundary_line mapit boundaryline-2005-05.control ~/toobig/geodata-mysociety/boundaryline-2005-05-31/boundaryline-2005-05
+#
+# You'll need to call create_new_generation first to make the new generation in
+# the db.
+#
 # See http://www.mysociety.org/cgi-bin/moin.cgi/MaPitDaDemDataLoading
-# for details.
+# for details on how to use this.
 #
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.28 2005-09-20 12:25:12 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.29 2005-09-30 14:57:02 francis Exp $';
 
 #
 # Simple object to represent a single area.

@@ -15,6 +15,9 @@
 # available in the ONS SNAC ("Standard Names and Codes") product, from
 #   http://www.statistics.gov.uk/geography/snac.asp
 #
+# For example run like this:
+# ./process_codepoint_ni ~/toobig/geodata-mysociety/snac-2003/cons2ward.csv ni-electoral-areas.csv ~/toobig/geodata-mysociety/codepoint-2004-11/bt.csv
+#
 # If you want to undo what this script puts into MaPit so you can run it
 # again, you might find these commands helpful:
 #   delete from postcode_area where (select postcode from postcode where postcode_id = id) like 'BT%';
@@ -25,7 +28,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.10 2005-05-12 12:00:33 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.11 2005-09-30 14:57:02 francis Exp $';
 
 use strict;
 

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib -I../DaDem 
+#!/usr/bin/perl -w -I../../perllib -I../DaDem -I .
 #
 # Dump info on current MPs in database
 #
@@ -6,9 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-die "Query of area table needs fixing to use generations";
-
-my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.1 2005-09-15 09:37:46 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.2 2005-09-30 14:57:02 francis Exp $';
 
 use strict;
 
@@ -29,11 +27,15 @@ my $d_dbh = connect_to_dadem_database();
 # Get all areas
 my @area_ids;
 my $s = $m_dbh->prepare(q#select id from area
-            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
+            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)
+            and generation_low <= (select id from current_generation) and
+                (select id from current_generation) <= generation_high
+            #);
 $s->execute();
 while (my ($area_id) = $s->fetchrow_array()) {
     push(@area_ids, $area_id);
 }
+print "Area count ". scalar(@area_ids)."\n";
 
 # Find out all current reps
 my @curr_reps;
@@ -45,7 +47,7 @@ for my $area_id (@area_ids){
     push(@curr_reps, @folded);
 }
 #die if $count != 659;
-print "Count $count\n";
+print "Rep count $count\n";
 my $reps_info = DaDem::get_representatives_info(\@curr_reps);
 
 # Loop through all the members we have

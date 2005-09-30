@@ -1,0 +1,25 @@
+#!/usr/bin/perl -w -I../../perllib
+
+#
+# make_new_generation_active:
+# Make new generation active in MaPit.
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: make_new_generation_active,v 1.1 2005-09-30 14:57:02 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+
+use Common;
+
+die "only argument should be name of Pg database" unless (@ARGV == 1);
+my $dbname = shift @ARGV;
+my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+make_new_generation_active($dbh);
+$dbh->commit();
+$dbh->disconnect();

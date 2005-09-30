@@ -1,4 +1,4 @@
-$Id: NAMETYPES,v 1.5 2005-05-12 11:54:33 francis Exp $
+$Id: NAMETYPES,v 1.6 2005-09-30 14:57:02 francis Exp $
 
 Several types of name may be defined for each area. Each type of name is
 identified by a one-letter code:
@@ -21,6 +21,11 @@ S   Office of National Statistics (ONS) Name
     Assembly electoral areas, which are coterminous with parliamentary
     constituencies and are named as such).
 
+L   Legislation Name
+
+    Name as given in legislation (e.g. Electoral Changes Order) which defines
+    the area.
+
 M   mySociety Name
 
     Names which we have made up. e.g. "Northern Ireland" as the name of the
@@ -38,11 +43,6 @@ X   FaxYourMP Name
     These are names as used in the dataset exported from FaxYourMP. So
     it only applies for House of Commons constituencies.  Also applies to
     data from Public Whip XML file.
-
-L   Legislation Name
-
-    Name as given in legislation (e.g. Electoral Changes Order) which defines
-    the area.
 
 F   Friendly Name
 

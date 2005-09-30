@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.32 2005-07-12 19:51:46 adam Exp $
+-- $Id: dadem-schema.sql,v 1.33 2005-09-30 14:57:02 francis Exp $
 --
 
 -- data about status of an area in relation to its representatives
@@ -33,7 +33,11 @@ create table representative (
     import_key text
 );
 create index representative_area_id_idx on representative(area_id);
-create unique index representative_import_key_idx on representative(import_key);
+-- sometimes the same goveval key applies to two areas, for example when a councillor moves
+-- ward and GovEval keep same id (then duplicate will apply briefly until update system has
+-- updated both), or their ward alters boundaries and is given a new id by us (when the 
+-- councillor is permanently present in both, although one area will have an old generation)
+create unique index representative_import_key_idx on representative(import_key, area_id);
 
 -- data edited from web interface
 -- NULL values mean leave unchanged
