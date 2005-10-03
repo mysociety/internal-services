@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.2 2005-09-30 14:57:02 francis Exp $
+# $Id: CouncilMatch.pm,v 1.3 2005-10-03 13:42:56 francis Exp $
 #
 
 package CouncilMatch;
@@ -136,12 +136,14 @@ sub refresh_live_data($$) {
     }
 
     # Get any existing data from representatives table
+    my $ward_list = join(",", map { '?' } keys %$ward_ids);
     my $current_by_id = $d_dbh->selectall_hashref(q#select * from representative
-        where area_id in (# . join(",", map { '?' } keys %$ward_ids) .  q#)#, 'id',
+        where area_id in (# . $ward_list .  q#)#, 'id',
         {}, keys %$ward_ids);
     my $current_keys;
     foreach $curr (values %$current_by_id) {
         throw Error::Simple("refresh_live_data: Existing data does not have import key for rep id " . $curr->{id}) if (!defined($curr->{import_key}));
+        throw Error::Simple("refresh_live_data: Existing data has duplicate key $curr->{import_key}") if exists($current_keys->{$curr->{import_key}});
         $current_keys->{$curr->{import_key}} = $curr;
     }
 
@@ -151,14 +153,17 @@ sub refresh_live_data($$) {
         if (exists($current_keys->{$update_key})) {
             # update
             my $rows_affected = $d_dbh->do(q#update representative set
+                area_id = ?, area_type = ?,
                 name = ?, party = ?, method = ?, email = ?, fax = ?
-                where import_key = ? and area_id = ?#, {}, 
+                where import_key = ? and area_id in (# . $ward_list . q#)#, {}, 
+                $row->{ward_id}, $row->{ward_type},
                 $row->{rep_first} . " " . $row->{rep_last},
                 $row->{rep_party}, $row->{method}, 
                 $row->{rep_email}, $row->{rep_fax},
-                $update_key, $row->{ward_id});
-            throw Error::Simple("refresh_live_data: update affected $rows_affected rows, not one") if $rows_affected != 1;
-            $details .= "Making live: Updated $update_key ".$row->{rep_first}." ".$row->{rep_last}
+                $update_key, keys %$ward_ids);
+            throw Error::Simple("refresh_live_data: update of $update_key, $row->{ward_id} affected $rows_affected rows, not one") if $rows_affected != 1;
+            $details .= "Making live: Updated $update_key to " . $row->{ward_id} . " "
+                .$row->{rep_first}." ".$row->{rep_last}
                 . " (" . $row->{rep_party} . ")"
                 . " method: " . $row->{method}
                 . " fax: " . $row->{rep_fax} . " email: " . $row->{rep_email} 
@@ -589,10 +594,10 @@ sub match_council_wards ($$) {
             if ($#$longest_matches == 0) {
                 push @{$longest_matches->[0]->{used}}, $g;
                 $g->{id} = $longest_matches->[0]->{id};
-                print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n" if $verbosity > 0;
+                print "Best is: " . $g->{name} . " is " .  $longest_matches->[0]->{name} . " " .  $longest_matches->[0]->{id} . "\n" if $verbosity > 1;
             } else {
                 foreach my $longest_match (@{$longest_matches}) {
-                    print "Ambiguous are: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} .  "\n" if $verbosity > 0;
+                    print "Ambiguous are: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} .  "\n" if $verbosity > 1;
                 }
 
             }
@@ -625,7 +630,7 @@ sub match_council_wards ($$) {
                 push @{$longest_match->{used}}, $g;
                 $g->{id} = $longest_match->{id};
                 $g->{matches} = \@left;
-                print "Resolved is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n" if $verbosity > 0;
+                print "Resolved is: " . $g->{name} . " is " .  $longest_match->{name} . " " .  $longest_match->{id} . "\n" if $verbosity > 1;
                 $more = 1;
             }
         }

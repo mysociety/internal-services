@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.12 2005-09-14 16:22:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.13 2005-10-03 13:42:56 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -15,11 +15,37 @@ use DBI;
 use DBD::Pg;
 use Text::CSV;
 use Data::Dumper;
+use Getopt::Long;
 
 use mySociety::VotingArea;
 
 use Common;
 use CouncilMatch;
+
+# Options
+sub help {
+print <<END
+
+Usage: raw_data_process [OPTION]
+
+Options are:
+    --verbose=n   Choose 0 (no progress) to 2 (full debug), defaults to 2
+
+END
+}
+our $verbose = 1;
+our $help;
+if (!GetOptions(
+        "verbose=i" => \$verbose,
+        "help" => \$help
+    )) {
+    help();
+    exit(1);
+}
+if ($help) {
+    help();
+    exit(0);
+}
 
 my $param1 = shift(@ARGV);
 my $param2 = shift(@ARGV);
@@ -27,7 +53,6 @@ my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
-my $verbosity = 1;
 my $generation = $m_dbh->selectrow_array('select id from current_generation');
 
 # Cache of area_id->type etc.
@@ -41,7 +66,7 @@ my $area_id_data = $m_dbh->selectall_hashref(
 
 if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m/^\d+$/)) {
     if ($param1 eq "london" or $param1 eq "top") {
-        print "Processing London councils\n";
+        print "Processing London councils\n" if $verbose > 0;
         my $specialcouncils;
         if ($param1 eq "london") {
             $specialcouncils = [
@@ -64,19 +89,19 @@ if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m
             my $canon = CouncilMatch::canonicalise_council_name($specialcouncil);
             die "none for $specialcouncil" if (!exists($wardnamescanon->{$canon}));
             my $londonid = $wardnamescanon->{$canon}->{id};
-            print "\"$specialcouncil\", $londonid\n";
-            my $result = CouncilMatch::process_ge_data($londonid, $verbosity);
+            print "\"$specialcouncil\", $londonid\n" if $verbose > 0;
+            my $result = CouncilMatch::process_ge_data($londonid, $verbose);
         }
     } else {
         # Process just one council
-        print "Processing one council " . $area_id_data->{$param1}->{name} . " $param1\n";
-        my $result = CouncilMatch::process_ge_data($param1, $verbosity);
+        print "Processing one council " . $area_id_data->{$param1}->{name} . " $param1\n" if $verbose > 0;
+        my $result = CouncilMatch::process_ge_data($param1, $verbose);
         if ($result->{error}) {
-            print "Failed\n";
-            print $result->{details};
-            print $result->{error};
+            print "Failed\n" if $verbose > 0;
+            print $result->{details} if $verbose > 0;
+            print $result->{error} if $verbose > 0;
         } else {
-            print "Success\n";
+            print "Success\n" if $verbose > 0;
         }
     }
 } else {
@@ -88,21 +113,21 @@ if (defined $param1 and ($param1 eq "london" or $param1 eq "top" or $param1 =~ m
         my $current_status =  CouncilMatch::get_process_status($id);
         next if ((defined $param1) and ($param1 eq "status") and ($current_status ne $param2));
 
-        printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id;
+        printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id if $verbose > 0;
 
-        my $result = CouncilMatch::process_ge_data($id, $verbosity);
+        my $result = CouncilMatch::process_ge_data($id, $verbose);
         if ($result->{error}) {
-            print " FAIL\n";
+            print " FAIL\n" if $verbose > 0;
         } else {
             $success++;
-            print " ok\n";
+            print " ok\n" if $verbose > 0;
         }
 
         $count++;
     }
-    print "\n";
-    print "Success for $success/$count councils\n";
-    print "Failed for " . ($count-$success) . " councils\n";
+    print "\n" if $verbose > 0;
+    print "Success for $success/$count councils\n" if $verbose > 0;
+    print "Failed for " . ($count-$success) . " councils\n" if $verbose > 0;
 }
 
 $m_dbh->disconnect();

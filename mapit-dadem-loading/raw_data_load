@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.19 2005-09-14 16:22:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.20 2005-10-03 13:42:56 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -32,6 +32,7 @@ use Text::CSV;
 use Data::Dumper;
 use Encode;
 use Storable;
+use Getopt::Long;
 
 use mySociety::VotingArea;
 use mySociety::ArrayUtils;
@@ -45,8 +46,34 @@ CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
 my $generation = $m_dbh->selectrow_array('select id from current_generation');
 
+# Options
+sub help {
+print <<END
+
+Usage: raw_data_load [OPTION]
+
+Standard input must contain a file of the same format as councillorsWithID.csv
+from GovEval.
+
+Options are:
+    --verbose=n   Choose 0 (no progress) to 3 (full debug), defaults to 2
+
+END
+}
 # values from 0 to 3 with increasing verbosity
-my $verbose = 3;
+our $verbose = 2;
+our $help;
+if (!GetOptions(
+        "verbose=i" => \$verbose,
+        "help" => \$help
+    )) {
+    help();
+    exit(1);
+}
+if ($help) {
+    help();
+    exit(0);
+}
 
 # Delete existing GovEval name data for councils of 'C' type
 $m_dbh->do(
@@ -82,7 +109,7 @@ $s->execute();
 while (my ($area_id, $name) = $s->fetchrow_array()) {
     # Create canonical version of name and also hash it as lookup
     my $canon = CouncilMatch::canonicalise_council_name($name);
-    print "#$area_id '$name' -> '$canon'\n";
+    print "#$area_id '$name' -> '$canon'\n" if $verbose > 1;
     if (exists($parent_to_id{$canon})) {
         if ($parent_to_id{$canon} != $area_id) {
             die "Already have id for canonicalised $canon, being " .  $parent_to_id{$canon} .  "\n";
@@ -161,7 +188,7 @@ foreach my $parent (keys %parent_to_id) {
 my $councils_count = 0;
 my $clashes_count = 0;
 foreach my $council_id (keys %$councils) {
-print "doing $council_id\n";
+    print "doing $council_id\n" if $verbose > 0;
     $councils_count++;
     my $this_clashes = "";
 
@@ -412,9 +439,9 @@ print "doing $council_id\n";
         } else {
             # Same
             if ($prev_mysociety || $prev_new) {
-                #print "Both made same change\n" if $verbose > 2;
-                #print "\tMS change: $prev_mysociety\n" if $verbose > 2;
-                #print "\tGE change: $prev_new\n" if $verbose > 2;;
+                print "Both made same change\n" if $verbose > 2;
+                print "\tMS change: $prev_mysociety\n" if $verbose > 2;
+                print "\tGE change: $prev_new\n" if $verbose > 2;;
             }
         }
     }
@@ -451,13 +478,13 @@ print "doing $council_id\n";
 
     } else {
         die "Unexpected clashes when no GE changes:\n$this_clashes" if $this_clashes;
-        print $out;
-        print "Nothing to do\n";
+        print $out if $verbose > 0;
+        print "Nothing to do\n" if $verbose > 0;
     }
 }
 
-print "-" x 70 . "\n";
-print "All done.  $clashes_count/$councils_count clash a bit\n";
+print "-" x 70 . "\n" if $verbose > 0;
+print "All done.  $clashes_count/$councils_count clash a bit\n" if $verbose > 0;
 
 $m_dbh->commit();
 $d_dbh->commit();
