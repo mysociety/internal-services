@@ -28,16 +28,16 @@
 #    tested this exhaustively); and (b) there wouldn't be a whole lot we could
 #    do even if there were.
 #
-# Call with three or more arguments; 
-# - the first should be the name of a Postgres database (with schema already
-# constructed from mapit-schema.sql)
-# - the second should be the name of a .control file with BoundaryLine version
+# Call with two or more arguments; 
+# - the first should be the name of a .control file with BoundaryLine version
 # specific instructions in it
 # - the remainder being directories containing .NTF files from Boundary-Line.
-# Feed postcodes from codepoint in on a pipe.
+# Feed postcodes from codepoint in on a pipe. Specify database to
+# connect to in ../conf/general.
 #
 # For example run like this:
-# cat ~/toobig/geodata-mysociety/codepoint-2004-11/*.csv | ./process_boundary_line mapit boundaryline-2005-05.control ~/toobig/geodata-mysociety/boundaryline-2005-05-31/boundaryline-2005-05
+# cat ~/toobig/geodata-mysociety/codepoint-2004-11/*.csv | ./process_boundary_line boundaryline-2005-05.control ~/toobig/geodata-mysociety/boundaryline-2005-05-31/boundaryline-2005-05
+# cat ~/codepoint-2004-11/*.csv | ./process_boundary_line mapit boundaryline-2005-05.control ~/boundaryline-2005-05
 #
 # You'll need to call create_new_generation first to make the new generation in
 # the db.
@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.30 2005-10-03 14:40:55 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.31 2005-10-03 16:21:32 dademcron Exp $';
 
 #
 # Simple object to represent a single area.
@@ -93,6 +93,7 @@ sub new ($%) {
     $self->{alreadyexists} = 1; # whether the area should already be in the db
                                 # (assume yes until told otherwise)
     foreach (keys %values) {
+        $self->{$_} = $values{$_};  # syntax checks?
         $self->{$_} = $values{$_};  # syntax checks?
     }
     return bless($self, $class);
@@ -259,8 +260,7 @@ my %area_type_to_shape;
 # amalgamate them before writing them to the database.
 my %aaid_to_shape;
 
-die "arguments are Postgres database name, control file, and directories containing NTF files" unless (@ARGV > 2);
-my $dbname = shift(@ARGV);
+die "arguments are control file, and directories containing NTF files" unless (@ARGV > 1);
 my $controlfile = shift(@ARGV);
 if (!defined(do $controlfile)) {
     die "$controlfile: " . ($! || $@);
@@ -269,7 +269,7 @@ if (!defined(do $controlfile)) {
 }
 
 # Open database.
-my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+my $dbh = Common::connect_to_mapit_database();
 my $generation = $dbh->selectrow_array('select id from new_generation');
 die "no new generation available" if (!defined($generation));
 
@@ -980,4 +980,3 @@ $total_shape_tests = $total_queries = 0;
 }
 
 $dbh->commit();
-$dbh->disconnect();
