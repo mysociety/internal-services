@@ -13,13 +13,13 @@
 # distribution. The SNAC ward codes are as commented in process_codepoint_ni.
 #
 # For example, run like this:
-# ./process_codepoint_scilly ~/toobig/geodata-mysociety/snac-2003/cons2ward.csv ~/toobig/geodata-mysociety/codepoint-2004-11/tr.csv
+# ./process_codepoint_scilly snac-2003-cons2ward.csv ~/toobig/geodata-mysociety/codepoint-2004-11/tr.csv
 #
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.4 2005-09-30 14:57:02 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.5 2005-10-03 14:31:54 francis Exp $';
 
 use strict;
 

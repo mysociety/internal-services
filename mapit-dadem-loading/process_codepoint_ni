@@ -14,9 +14,10 @@
 # distribution is BT.CSV. The mapping from ward codes to constituencies is
 # available in the ONS SNAC ("Standard Names and Codes") product, from
 #   http://www.statistics.gov.uk/geography/snac.asp
+# snac-2003-cons2ward.csv is a version of this converted to CSV.
 #
 # For example run like this:
-# ./process_codepoint_ni ~/toobig/geodata-mysociety/snac-2003/cons2ward.csv ni-electoral-areas.csv ~/toobig/geodata-mysociety/codepoint-2004-11/bt.csv
+# ./process_codepoint_ni snac-2003-cons2ward.csv ni-electoral-areas.csv ~/toobig/geodata-mysociety/codepoint-2004-11/bt.csv
 #
 # If you want to undo what this script puts into MaPit so you can run it
 # again, you might find these commands helpful:
@@ -28,7 +29,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.11 2005-09-30 14:57:02 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.12 2005-10-03 14:31:54 francis Exp $';
 
 use strict;
 
