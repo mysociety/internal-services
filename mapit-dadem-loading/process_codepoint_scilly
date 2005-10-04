@@ -3,7 +3,7 @@
 # process_codepoint_scilly:
 # Read CodePoint postcodes, coordinates, and ONS ward codes, and use them to
 # generate a mapping from postcodes to electoral geography in the Isles of
-# Scilly.
+# Scilly. COI = Council of the Isles, COP = Parish within it.
 #
 # Call with two arguments:
 #   - CSV file generated from the ward to constituency mapping in SNAC;
@@ -19,7 +19,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.5 2005-10-03 14:31:54 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.6 2005-10-04 14:12:37 dademcron Exp $';
 
 use strict;
 
@@ -51,6 +51,10 @@ $dbh->do("update area set type = 'COI' where ons_code = '15UH' and type = 'CTY'"
 my $la_id = $dbh->selectrow_array("select id from area where ons_code = '15UH'");
 my $const_id = $dbh->selectrow_array("select id from area, area_name where area.id = area_name.area_id and name_type = 'O' and name = 'St. Ives Co Const'");
 my $euro_area_id = $dbh->selectrow_array("select id from area, area_name where area.id = area_name.area_id and name_type = 'O' and name = 'South West Euro Region'");
+
+# Set generation for COI parent type (COP child ones set in get_area_id below)
+my $gen = new_generation($dbh);
+$dbh->do("update area set generation_high = ? where type = 'COI'", {}, $gen);
 
 print STDERR "reading ward/constituency codes... ";
 foreach (read_csv_file($onscodesfile, 1)) {
