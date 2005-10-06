@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.20 2005-10-03 13:42:56 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.21 2005-10-06 14:29:53 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -153,7 +153,10 @@ while (my $line = <STDIN>) {
     my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
-    warn "invalid geid $geid\nline $line_number: $line\n" unless $geid =~ m/^[1-9][0-9]+$/;
+    unless ($geid =~ m/^[1-9][0-9]+$/) {
+        warn "skipping invalid geid $geid\nline $line_number: $line\n";
+        next;
+    }
     next if (!$first && !$last && $vdiv);  # GovEval sometimes use this to mark pending byelection, so no member ...
     # ... we still check we don't have individual empty strings
     warn "first name is empty geid $geid" if !$first;
@@ -180,7 +183,10 @@ foreach my $parent (keys %parent_to_id) {
     my $id = $parent_to_id{$parent};
     die "\$parent_to_id{'$parent'} not present" unless (defined($id));
     if (!exists($councils->{$id})) {
-        print STDERR "Missing $parent id $id from GovEval data\n"; 
+        # Suppress error message for Isles of Scilly, as we don't expect GE data for them
+        if ($parent ne "isles of scilly") {
+            print STDERR "Missing $parent id $id from GovEval data\n"; 
+        }
     }
 }
 
@@ -459,11 +465,10 @@ foreach my $council_id (keys %$councils) {
         # Count clashes
         if ($this_clashes) {
             $clashes_count++;
-            print "CLASH REASONS: " . $this_clashes . "\n";
+            print "CLASH REASONS: " . $this_clashes . "\n" if $verbose > 2;
         }       
         
         # Edit the data
-        print "Modifying\n";
 
         # First a user "import" load the full new data for later reference (we
         # go back to this position when we next do a load)
