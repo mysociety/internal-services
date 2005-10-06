@@ -8,10 +8,10 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.3 2005-09-14 16:22:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.4 2005-10-06 16:13:34 francis Exp $';
 
 use strict;
-$| = 1; # flush STDOUT afer each write
+$| = 1; # flush STDOUT after each write
 
 use DBI;
 use DBD::Pg;
@@ -27,20 +27,10 @@ use DaDem;
 
 my $d_dbh = connect_to_dadem_database();
 my $m_dbh = connect_to_mapit_database();
-
-# Report header
-my $date = strftime("%e %b %Y at %H:%M:%S", localtime);
-print <<END;
-WriteToThem User-Submitted Corrections
-======================================
-
-Reported generated on $date.  Contains corrections 
-to councillor data submitted by users to the WriteToThem.com website.
-These are sorted alphabetically by council and then by ward.  They are
-not filtered or edited; double check the information before using it.
-
-
-END
+my $to = shift(@ARGV);
+if (!$to) {
+    die "Specify email addresses, comma separated, to send mail to";
+}
 
 # Cache of area_id->type etc.
 my $area_id_data = $m_dbh->selectall_hashref( q#select * from area#, 'id');
@@ -53,12 +43,52 @@ my $s = $d_dbh->prepare(q#select * from user_corrections
     order by whenentered#);
 $s->execute();
 my $corrections;
+my $corrections_count = 0;
 while (my $row = $s->fetchrow_hashref()) {
     my $user_correction_id = $row->{user_correction_id};
     my $area_id = $row->{voting_area_id};
     my $parent_id = $area_id_data->{$area_id}->{parent_area_id};
+    if ($row->{representative_id}) {
+        my $orig_info = DaDem::get_representative_info($row->{representative_id});
+        if (!$orig_info) {
+            #print STDERR "Representative ".$row->{representative_id}." no longer there\n";
+            next;
+        }
+    }
     $corrections->{$parent_id}->{$area_id}->{$user_correction_id} = $row;
+    $corrections_count++;
 }
+# ... give up if there are none
+if (!$corrections_count) {
+    $m_dbh->disconnect();
+    $d_dbh->disconnect();
+    exit;
+}
+
+# Connect to SENDMAIL
+open(STDOUT, "|/usr/lib/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
+print <<END;
+Subject: WriteToThem User-Submitted Corrections
+From: Francis Irving <francis\@mysociety.org>
+To: $to
+
+END
+
+# Report header
+my $date = strftime("%e %b %Y at %H:%M:%S", localtime);
+print <<END;
+WriteToThem User-Submitted Corrections
+======================================
+
+Report generated on $date. Contains corrections 
+to councillor data submitted by users to the WriteToThem.com website.
+Only new submissions since the last report are included. The
+submissions are sorted alphabetically by council and then by ward.
+They are not filtered or edited; double check the information before
+using it.
+
+
+END
 
 # Print them out
 foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names->{$b}->{name} } keys %$corrections) {
@@ -76,10 +106,16 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
         my $child_hash = $parent_hash->{$child_id};
         foreach my $user_correction_id (keys %$child_hash) {
             my $c = $child_hash->{$user_correction_id};
+
+            # Store we have done it
+            $d_dbh->do("update user_corrections set when_goveval = ? where user_correction_id = ?", 
+                {}, time(), $user_correction_id);
+
             my $rep_id = $c->{representative_id};
             my $orig_info;
             if ($rep_id) {
                 $orig_info = DaDem::get_representative_info($rep_id);
+                die if (!$orig_info);
             }
 
             print "   "; # . $user_correction_id . ". ";
@@ -88,17 +124,20 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
             } elsif ($c->{alteration} eq "add") {
                 print "Add '$c->{name}' party '$c->{party}'\n";
             } elsif ($c->{alteration} eq "modify") {
-                print "Change ";
                 my $name_change = ($c->{name} && ($c->{name} ne $orig_info->{name}));
                 my $party_change = ($c->{party} && ($c->{party} ne $orig_info->{party}));
+                my $neither = (!$name_change && !$party_change);
                 if ($name_change) {
-                    print "name '$orig_info->{name}' to '$c->{name}' ";
+                    print "Change name '$orig_info->{name}' to '$c->{name}' ";
                 }
                 if ($party_change) {
-                    print "party '$orig_info->{party}' to '$c->{party}' ";
+                    print "Change party '$orig_info->{party}' to '$c->{party}' ";
                     if (!$name_change) {
                         print "for '$orig_info->{name}' ";
                     }
+                }
+                if ($neither) {
+                    print "Already made change for '$orig_info->{name}'";
                 }
                 print "\n";
             } else {
@@ -116,10 +155,6 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
             # Other fields in $c which we might want to use:
             #  'whenentered' => '1109002342',
             #  'user_email' => '',
-
-            # Store we have done it
-            $d_dbh->do("update user_corrections set when_goveval = ? where user_correction_id = ?", 
-                {}, time(), $user_correction_id);
         }
         print "\n";
     }
@@ -129,4 +164,6 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
 $d_dbh->commit();
 $m_dbh->disconnect();
 $d_dbh->disconnect();
+
+close(STDOUT);
 
