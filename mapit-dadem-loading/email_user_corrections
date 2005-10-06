@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.4 2005-10-06 16:13:34 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.5 2005-10-06 17:36:24 dademcron Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
@@ -66,7 +66,7 @@ if (!$corrections_count) {
 }
 
 # Connect to SENDMAIL
-open(STDOUT, "|/usr/lib/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
+open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
 print <<END;
 Subject: WriteToThem User-Submitted Corrections
 From: Francis Irving <francis\@mysociety.org>
