@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.46 2005-07-21 17:23:48 francis Exp $
+# $Id: DaDem.pm,v 1.47 2005-10-06 18:05:44 francis Exp $
 #
 
 package DaDem;
@@ -332,7 +332,9 @@ sub get_bad_contacts () {
                   ) 
                   and coalesce(representative_edited.method, representative.method) <> 'via'
                   and not(coalesce(representative_edited.deleted, false))
-            order by representative.area_type, representative.area_id, representative.name
+            order by representative.area_type, 
+                substring(representative.name from position(' ' in representative.name)+ 1),
+                representative.name, representative.area_id
         #);
 
     $s->execute();
