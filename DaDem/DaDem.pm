@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.47 2005-10-06 18:05:44 francis Exp $
+# $Id: DaDem.pm,v 1.48 2005-10-07 10:08:50 francis Exp $
 #
 
 package DaDem;
@@ -527,25 +527,35 @@ sub get_representative_history ($) {
     my ($id) = @_;
     my @ret;
 
+    # Get original data
+    my $sth = dbh()->prepare('select * from representative where id = ?');
+    $sth->execute($id);
+    throw RABX::Error("get_representative_history: not exactly one original row for '$id'") if ($sth->rows != 1);
+    my $original_data = $sth->fetchrow_hashref();
+    $original_data->{'order_id'} = 0;
+    $original_data->{'note'} = "Original data";
+    $original_data->{'editor'} = 'import';
+    $original_data->{'whenedited'} = 0;
+    $original_data->{'deleted'} = 0;
+    push @ret, $original_data;
+
     # Get historical data
-    my $sth = dbh()->prepare('select * from representative_edited where representative_id = ? order by order_id desc');
+    $sth = dbh()->prepare('
+            select id, area_id, area_type, order_id, whenedited, editor, note,
+                coalesce(representative_edited.name, representative.name) as name,
+                coalesce(representative_edited.party, representative.party) as party,
+                coalesce(representative_edited.email, representative.email) as email,
+                coalesce(representative_edited.fax, representative.fax) as fax,
+                coalesce(representative_edited.method, representative.method) as method,
+                coalesce(representative_edited.deleted, false) as deleted
+            from representative left join representative_edited on representative.id = representative_edited.representative_id
+            where (representative_id = ?)
+            order by order_id');
     $sth->execute($id);
     while (my $hash_ref = $sth->fetchrow_hashref()) {
         push @ret, $hash_ref;
     }
     
-    # Get original
-    $sth = dbh()->prepare('select * from representative where id = ?');
-    $sth->execute($id);
-    while (my $hash_ref = $sth->fetchrow_hashref()) {
-        $hash_ref->{'order_id'} = 0;
-        $hash_ref->{'note'} = "Original data";
-        $hash_ref->{'editor'} = 'import';
-        $hash_ref->{'whenedited'} = 0;
-        $hash_ref->{'deleted'} = 0;
-        push @ret, $hash_ref;
-    }
-
     return \@ret;
 } 
 
@@ -555,8 +565,9 @@ Alters data for a representative, updating the override table
 representative_edited. ID contains the representative id, or undefined
 to make a new one (in which case DETAILS needs to contain area_id and
 area_type).  DETAILS is a hash from name, party, method, email and fax to their
-new values, or DETAILS is not defined to delete the representative. Not every
-value has to be present.  Any modification counts as an undeletion.  EDITOR is
+new values, or DETAILS is not defined to delete the representative. Every
+value has to be present - or else values are reset to their initial ones when
+import first happened.  Any modification counts as an undeletion.  EDITOR is
 the name of the person who edited the data.  NOTE is any explanation of why /
 where from.  Returns ID, or if ID was undefined the new id.
 
@@ -667,7 +678,8 @@ sub admin_mark_failing_contact ($$$$$) {
         } else {
             $newmethod = 'email';
         }
-        admin_edit_representative($id, { method => $newmethod }, $editor, "Failed delivery with contact '$x': $comment");
+        $r->{method} = $newmethod;
+        admin_edit_representative($id, $r, $editor, "Failed delivery with contact '$x': $comment");
     }
 
     dbh()->commit();
@@ -697,6 +709,38 @@ sub admin_get_raw_council_status() {
     my $count = dbh()->selectrow_array('select count(*) from raw_process_status
         where status <> \'made-live\'');
     return $count;
+}
+
+=item admin_get_diligency_council TIME
+
+Returns how many edits each administrator has made to the raw council data
+since unix time TIME.  Data is returned as an array of pairs of count, name
+with largest counts first.
+
+=cut
+
+sub admin_get_diligency_council($) {
+    my ($from_time) = @_;
+    my $edit_activity = dbh()->selectall_arrayref("select count(*) as c, editor 
+        from raw_input_data_edited where whenedited >= ? 
+        group by editor order by c desc", {}, $from_time);
+    return $edit_activity;
+}
+
+=item admin_get_diligency_reps TIME
+
+Returns how many edits each administrator has made to representatives since
+unix time TIME.  Data is returned as an array of pairs of count, name with
+largest counts first.
+
+=cut
+
+sub admin_get_diligency_reps($) {
+    my ($from_time) = @_;
+    my $edit_activity = dbh()->selectall_arrayref("select count(*) as c, editor 
+        from representative_edited where whenedited >= ? 
+        group by editor order by c desc", {}, $from_time);
+    return $edit_activity;
 }
 
 1;
