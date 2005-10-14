@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.27 2005-06-28 16:40:21 francis Exp $
+# $Id: EvEl.pm,v 1.28 2005-10-14 18:48:20 chris Exp $
 #
 
 package EvEl::Error;
@@ -157,7 +157,7 @@ sub run_queue () {
         print_log('debug', "considering delivery of message $msg to recipient $recip <$d->{address}>");
 
         # Get a connection to the SMTP server, if needed.
-        if (!$smtp || $nsent > 10) {
+        if (!$smtp || $nsent >= 10) {
             if ($smtp) {
                 print_log('debug', "disconnecting from SMTP server after sending $nsent mails");
                 $smtp->quit();
