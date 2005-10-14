@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.5 2005-10-06 17:36:24 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.6 2005-10-14 12:42:53 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
@@ -29,7 +29,8 @@ my $d_dbh = connect_to_dadem_database();
 my $m_dbh = connect_to_mapit_database();
 my $to = shift(@ARGV);
 if (!$to) {
-    die "Specify email addresses, comma separated, to send mail to";
+    print "Running in test mode, not sending email or committing.\n";
+    print "(specify email addresses as first parameter to run for real)";
 }
 
 # Cache of area_id->type etc.
@@ -51,12 +52,18 @@ while (my $row = $s->fetchrow_hashref()) {
     if ($row->{representative_id}) {
         my $orig_info = DaDem::get_representative_info($row->{representative_id});
         if (!$orig_info) {
-            #print STDERR "Representative ".$row->{representative_id}." no longer there\n";
+            print STDERR "Representative ".$row->{representative_id}." no longer there\n";
+            $d_dbh->do("update user_corrections set when_goveval = ? where user_correction_id = ?", 
+                {}, time(), $user_correction_id);
             next;
         }
     }
     $corrections->{$parent_id}->{$area_id}->{$user_correction_id} = $row;
     $corrections_count++;
+}
+if ($to) {
+    # commit reps no longer there
+    $d_dbh->commit();
 }
 # ... give up if there are none
 if (!$corrections_count) {
@@ -64,15 +71,19 @@ if (!$corrections_count) {
     $d_dbh->disconnect();
     exit;
 }
+print "test abandon";
+exit;
 
 # Connect to SENDMAIL
-open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
+if ($to) {
+    open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
 print <<END;
 Subject: WriteToThem User-Submitted Corrections
 From: Francis Irving <francis\@mysociety.org>
 To: $to
 
 END
+}
 
 # Report header
 my $date = strftime("%e %b %Y at %H:%M:%S", localtime);
@@ -161,7 +172,12 @@ foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names-
     print "\n";
 }
 
-$d_dbh->commit();
+if ($to) {
+    $d_dbh->commit();
+} else {
+    print "Rolling back\n";
+    $d_dbh->rollback();
+}
 $m_dbh->disconnect();
 $d_dbh->disconnect();
 
