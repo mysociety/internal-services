@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.27 2005-07-10 00:40:24 francis Exp $
+# $Id: MaPit.pm,v 1.28 2005-10-15 00:13:55 francis Exp $
 #
 
 package MaPit;
@@ -278,6 +278,28 @@ sub get_voting_areas_info ($) {
     return { (map { $_ => get_voting_area_info($_) } @$ary) };
 }
 
+=item get_areas_by_type TYPE
+
+Returns an array of ids of all the voting areas of type TYPE.
+TYPE is the three letter code such as WMC.
+
+=cut
+sub get_areas_by_type ($) {
+    my ($type) = @_;
+
+    throw RABX::Error("Please specify type") unless $type;
+    throw RABX::Error("Type must be three capital letters") unless $type =~ m/^[A-Z][A-Z][A-Z]$/;
+    throw RABX::Error("Type unknown") unless defined($mySociety::VotingArea::known_types{$type});
+
+    my $generation = get_generation();
+    my $ret = dbh()->selectcol_arrayref('
+        select id from area 
+            where generation_low <= ? and ? <= generation_high
+            and type = ?
+        ', {}, $generation, $generation, $type);
+
+    return $ret;
+}
 =item get_example_postcode ID
 
 Given an area ID, returns one postcode that maps to it.

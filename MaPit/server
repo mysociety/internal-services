@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.8 2005-07-10 00:40:24 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.9 2005-10-15 00:13:55 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -34,6 +34,9 @@ while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'MaPit.get_voting_areas' => sub {
                 return MaPit::get_voting_areas($_[0]);
+            },
+            'MaPit.get_areas_by_type' => sub {
+                return MaPit::get_areas_by_type($_[0]);
             },
             'MaPit.get_example_postcode' => sub {
                 return MaPit::get_example_postcode($_[0]);
