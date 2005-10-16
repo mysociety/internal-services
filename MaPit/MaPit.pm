@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.28 2005-10-15 00:13:55 francis Exp $
+# $Id: MaPit.pm,v 1.29 2005-10-16 20:24:43 francis Exp $
 #
 
 package MaPit;
@@ -300,6 +300,7 @@ sub get_areas_by_type ($) {
 
     return $ret;
 }
+
 =item get_example_postcode ID
 
 Given an area ID, returns one postcode that maps to it.
