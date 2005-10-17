@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.28 2005-10-14 18:48:20 chris Exp $
+# $Id: EvEl.pm,v 1.29 2005-10-17 15:27:25 chris Exp $
 #
 
 package EvEl::Error;
@@ -40,7 +40,7 @@ use utf8;
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
-use mySociety::Util qw(random_bytes print_log);
+use mySociety::Util qw(random_bytes print_log is_valid_email);
 
 BEGIN {
     mySociety::DBHandle::configure(
@@ -262,57 +262,13 @@ sub process_bounce ($$) {
     return 1;
 }
 
-# is_valid_address ADDRESS
-# Restricted syntax-check for ADDRESS. We check for what RFC2821 calls a
-# "mailbox", which is "local-part@domain", with the restriction of no
-# address-literal domains (e.g "[127.0.0.1]"). We also don't do bang paths.
-sub is_valid_address ($) {
-    my $addr = shift;
-    our $is_valid_address_re;
-
-    if (!defined($is_valid_address_re)) {
-        # mailbox = local-part "@" domain
-        # local-part = dot-string | quoted-string
-        # dot-string = atom ("." atom)*
-        # atom = atext+
-        # atext = any character other than space, specials or controls
-        # quoted-string = '"' (qtext|quoted-pair)* '"'
-        # qtext = any character other than '"', '\', or CR
-        # quoted-pair = "\" any character
-        # domain = sub-domain ("." sub-domain)* | address-literal
-        # sub-domain = [A-Za-z0-9][A-Za-z0-9-]*
-        # XXX ignore address-literal because nobody uses those...
-
-        my $specials = '()<>@,;:\\\\".\\[\\]';
-        my $controls = '\\000-\\037\\177';
-        my $highbit = '\\200-\\377';
-        my $atext = "[^$specials $controls$highbit]";
-        my $atom = "$atext+";
-        my $dot_string = "$atom(\\s*\\.\\s*$atom)*";
-        my $qtext = "[^\"\\\\\\r\\n$highbit]";
-        my $quoted_pair = '\\.';
-        my $quoted_string = "\"($qtext|$quoted_pair)*\"";
-        my $local_part = "($dot_string|$quoted_string)";
-        my $sub_domain = '[A-Za-z0-9][A-Za-z0-9-]*';
-        my $domain = "$sub_domain(\\s*\\.\\s*$sub_domain)*";
-
-        $is_valid_address_re = "^$local_part\\s*@\\s*$domain\$";
-    }
- 
-    if ($addr =~ m#$is_valid_address_re#) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
 # recipient_id ADDRESS
 # Get/create a recipient ID for ADDRESS, and return it.
 sub recipient_id ($) {
     my $addr = shift;
 
     throw EvEl::Error("'$addr' is not a valid email-address")
-        if (!is_valid_address($addr));
+        if (!is_valid_email($addr));
     
     my $id = dbh()->selectrow_array('
                         select id
