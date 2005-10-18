@@ -8,6 +8,8 @@
  *
  */
 
+require_once '../../../phplib/phpcgi';
+
 //CONFIG VARS
 $debug=0;
 
@@ -29,7 +31,7 @@ $translatetag=array(
 
 //END CONFIG
 
-//	First,Last,Constituency,Party,Email,Fax
+print "First,Last,Constituency,Party,Email,Fax,Image\n";
 //"Mike","Tuffrey","Proportionally Elected Member","Liberal Democrat","mike.tuffrey@london.gov.uk",""
 
 //Get the base file
@@ -111,9 +113,7 @@ foreach ($lpp->biourls as $baseurl=>$alwaystrueval) {
 // find all <a name> and <a href> tags - this is where the data hides! 
 	preg_match_all('/(<a\s+(\w+)\s*=\s*["\']([^"]+)["\'])|(<img[^>]*src="([^"]*)")/i',$bio_data,$matches,PREG_SET_ORDER);
 
-if($debug) {
-	print_r($matches);
-}
+    if($debug) { print_r($matches); }
 	foreach($matches as $anchor) {
 		$aparam=$anchor[2];
 		$avalue=$anchor[3];
@@ -139,13 +139,12 @@ if($debug) {
 	}
 }
 if($debug) {
-print("EMAIL:");
-print_r($email);
-print("\nIMAGE:");
-print_r($image);
-print("\n");
+    print("EMAIL:");
+    print_r($email);
+    print("\nIMAGE:");
+    print_r($image);
+    print("\n");
 }
-
 
 foreach ($contacturls as $cu=>$trueval) {
 	
@@ -185,10 +184,7 @@ foreach ($contacturls as $cu=>$trueval) {
 	preg_match_all('/(<a\s+(\w+)\s*=\s*["\']([^"]+)["\'])|((Tel:?\s+([0-9()\s]+)[^>]*)(Fax:?\s+([0-9()\s]+)[^>]*)<)/i',$contact_data,$matches,PREG_SET_ORDER);
 // 2: 'name' or 'href', 3: contact tag, 4: address string, 6: phone, 8:Fax
 
-if($debug) {
-print("\nCONTACT\n");
-print_r($matches);
-}
+    if($debug) { print("\nCONTACT\n"); print_r($matches); }
 	foreach($matches as $anchor) {
 		#foreach($anchorset as $anchor) {
 			if($anchor[2] === 'name') {
@@ -206,13 +202,15 @@ print_r($matches);
 }
 
 if($debug) {
-print("PHONE:\n");
-print_r($phone);
-print("FAX:\n");
-print_r($fax);
+    print("PHONE:\n");
+    print_r($phone);
+    print("FAX:\n");
+    print_r($fax);
 }
 
 //iterate through member list to add email,image and phone/fax data
+$count = 0;
+$mouse = array();
 foreach ($members as $member) {
 		   $biotag=preg_replace('/^(.*#)/','',$member['detailsurl']);
 		 	$member['email']=$email[$biotag];
@@ -249,20 +247,27 @@ if($debug) {
 			$member['fullparty']=$party_trans[$member['party']]?$party_trans[$member['party']]:$member['party'];
 
 		//protect "'s so as to avoid breaking CSV format
+        //unescape ampersands
 			foreach($member as $k=>$v) {
-				$member[$k]=preg_replace('/"/','\"',$v);
-if($debug) {
-				print("[$k]:$v,   ");
-}
-			}
-if($debug) {
+                if($debug) { print("[$k]:$v,   "); } 
+                $v=str_replace('&amp;','&',$v);
+                $v=preg_replace('/"/','\"',$v);
+				$member[$k]=$v;
+            }
+            if($debug) { print("\n"); }
+            //	First,Last,Constituency,Party,Email,Fax, image
+			print("\"$member[firstname]\",\"$member[surname]\",\"$member[constituency]\",\"$member[fullparty]\",\"$member[email]\",\"$member[fax]\",\"$member[image]\"");
 			print("\n");
-}
-//	First,Last,Constituency,Party,Email,Fax ADDED: phone, image
-			print("\"$member[firstname]\",\"$member[surname]\",\"$member[constituency]\",\"$member[fullparty]\",\"$member[email]\",\"$member[fax]\",\"$member[phone]\",\"$member[image]\"");
-			print("\n");
+            $count ++;
 		}		  
-			  
+
+if ($count != 60) {
+    err("Expected to get exactly 60 Welsh Assembly members, but got $count");
+    exit(1);
+}
+
+// Success
+exit(0);
 	
 class listPageParser {
 
@@ -282,7 +287,7 @@ class listPageParser {
 		
 		$this->xml_parser = xml_parser_create();
         if (!$this->xml_parser)
-            trigger_error("failed to call xml_parser_create");
+            err("failed to call xml_parser_create");
 		
 		xml_parser_set_option($this->xml_parser, XML_OPTION_CASE_FOLDING,0);
 
@@ -297,9 +302,8 @@ class listPageParser {
 		   $this->output='<error>'.(sprintf("XML error in template: %s at line %d",
 			xml_error_string(xml_get_error_code($this->xml_parser)),
 			xml_get_current_line_number($this->xml_parser))).'</error>';
-			print("\n");
-			print('ERROR: bad parse'. $this->output);
-
+			fwrite(STDERR, 'ERROR: bad parse'. $this->output);
+            exit(1);
 		}
 		xml_parser_free($this->xml_parser);
 
@@ -400,8 +404,8 @@ class bioPageParser {
 			xml_error_string(xml_get_error_code($this->xml_parser)),
 			xml_get_current_line_number($this->xml_parser),
 			xml_get_current_column_number($this->xml_parser))).'</error>';
-			print("\n");
-			print('ERROR: bad parse'. $this->output);
+			fwrite(STDERR, 'ERROR: bad parse'. $this->output);
+            exit(1);
 		}
 		xml_parser_free($this->xml_parser);
 

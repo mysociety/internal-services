@@ -1,4 +1,12 @@
-#! /usr/bin/python
+#! /usr/bin/env python
+
+# london:
+# Screen scrape representatives from London assembly website
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: jonathan@onegoodidea.com; WWW: http://www.mysociety.org/
+#
+# $Id: london,v 1.2 2005-10-18 18:09:01 francis Exp $
 
 import os
 from sys import stderr
@@ -8,9 +16,7 @@ from urlparse import urljoin
 from HTMLParser import HTMLParser
 from threading import Thread
 
-
 LIST_PAGE = 'http://www.london.gov.uk/assembly/lams_facts_cont.jsp'
-
 
 class HeadedTableParser( HTMLParser ):
     def __init__( self ):
@@ -95,6 +101,14 @@ parser.feed( page.read() )
 constituency_members = parser.tables['CONSTITUENCY MEMBERS']
 list_members = parser.tables['LONDON LIST MEMBERS']
 
+if len(constituency_members) != 14:
+    raise StandardError, "Expected 14 constituency MEPs, got %d" % len(constituency_members)    
+if len(list_members) != 11:
+    raise StandardError, "Expected 11 list MEPs, got %d" % len(list_members)    
+
+
+print "First,Last,Constituency,Party,Email,Fax\n";
+
 for constituency, (name, url), party in constituency_members:
     constituency = constituency.split( '(', 1 )[0].strip()
     surname, forename = splitName( name )
@@ -113,3 +127,6 @@ for (name, url), party in list_members:
     parser.feed( page.read() )
     email = parser.email
     print '"%s","%s","","%s","%s",""' % (forename, surname, party, email or "")
+
+
+
