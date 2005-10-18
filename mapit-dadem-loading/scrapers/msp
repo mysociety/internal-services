@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.3 2005-10-18 18:09:01 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.4 2005-10-18 18:32:22 francis Exp $';
 
 use strict;
 
@@ -61,10 +61,9 @@ while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
     my $mspname = decode("iso-8859-1", $heading->as_text());
     $mspname =~ s#&nbsp;# #g;
     $mspname =~ s#\s+# #g;
-    $mspname =~ s# MSP$##;
-    $mspname =~ s#^Lord |Dr |Hon |hon |rah |rh |Mrs |Ms |Mr |Miss |Rt Hon |Reverend |The Rev |The Reverend |Sir |Dame |Rev |Prof ##;
-    $mspname =~ s# MP| CBE| OBE| MBE| QC| BEM| rh| RH| Esq| QPM| JP| FSA| Bt| B.Ed \(Hons\)$##;
-    $mspname =~ m#^([^ ]+) ([^ ]+)$#;
+    while ($mspname =~ s#^(Lord |Dr |Hon |hon |rah |rh |Mrs |Ms |Mr |Miss |Rt Hon |Reverend |The Rev |The Reverend |Sir |Dame |Rev |Prof )##) {};
+    while ($mspname =~ s#( MSP| MP| CBE| OBE| MBE| QC| BEM| rh| RH| Esq| QPM| JP| FSA| Bt| B.Ed \(Hons\))$##) {};
+    $mspname =~ m#^([^ ]+) (.+)$#;
     die "Failed to split name into first, last for '$mspname'" if (!$1 || !$2);
     my ($msp_first, $msp_last) = ($1, $2);
 

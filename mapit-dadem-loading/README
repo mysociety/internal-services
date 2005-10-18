@@ -1,4 +1,4 @@
-$Id: README,v 1.8 2005-10-18 14:00:12 francis Exp $
+$Id: README,v 1.9 2005-10-18 18:32:22 francis Exp $
 
 General
 -------
@@ -36,9 +36,9 @@ load_friendly_names - Deletes all 'F' type names and remakes them from 'O' ones.
 Representative Info Loading
 ---------------------------
 
-dadem_csv_load - Load reps into DaDem from CSV file from GovEval.
+dadem_csv_load - Load reps into DaDem from CSV file from GovEval or the like.
 dadem_mysociety_load - Quick hack, just loads WSCC at the moment.
-ukparse_xml_to_csv - Convert XML file from UKParse (PublicWhip/TheyWorkForYou) to CSV
+ukparse_xml_to_csv - Convert XML file from ukparse (PublicWhip/TheyWorkForYou) to CSV
 
 Councillor Matching
 --------------------
@@ -73,4 +73,4 @@ Probably Not Needed?
 
 ni-electoral-areas.csv
 
-# $Id: README,v 1.8 2005-10-18 14:00:12 francis Exp $
+# $Id: README,v 1.9 2005-10-18 18:32:22 francis Exp $
