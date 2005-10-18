@@ -1,4 +1,4 @@
-$Id: README,v 1.7 2005-09-15 09:37:46 francis Exp $
+$Id: README,v 1.8 2005-10-18 14:00:12 francis Exp $
 
 General
 -------
@@ -61,6 +61,8 @@ parsentf - Dump NTF file geometry data
 
 parse_ced_si - Screen scraper for Statutory Instruments creating new County Electoral Divisions
 scrapers/msp - Screen scrape representatives from Scottish Parliament website
+scrapers/london - Screen scrape representatives from London Assembly website
+scrapers/welshassembly.php - Screen scrape representatives from Welsh Assembly website
 
 oneoffs/council-elections-2005.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
@@ -71,4 +73,4 @@ Probably Not Needed?
 
 ni-electoral-areas.csv
 
-# $Id: README,v 1.7 2005-09-15 09:37:46 francis Exp $
+# $Id: README,v 1.8 2005-10-18 14:00:12 francis Exp $

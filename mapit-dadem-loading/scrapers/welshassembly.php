@@ -1,9 +1,10 @@
+#!/usr/local/bin/php -q
 <?php
 /**
  * Welsh Assembly members screenscraper for MySociety
  *
  * @copyright Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
- * Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+ * Email: richard@phase.org; WWW: http://www.mysociety.org/
  *
  */
 
@@ -272,8 +273,7 @@ class listPageParser {
 	var $membercount=0;
 	var $member;
 
-	function __construct($base_url) {
-
+	function listPageParser($base_url) {
 		$this->base_url=$base_url;
 		preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$base_url,$matches);
 		list($url,$this->proto,$this->host,$filepath,$this->dir,$this->file)=$matches;
@@ -281,6 +281,8 @@ class listPageParser {
 		#print_r($matches);
 		
 		$this->xml_parser = xml_parser_create();
+        if (!$this->xml_parser)
+            trigger_error("failed to call xml_parser_create");
 		
 		xml_parser_set_option($this->xml_parser, XML_OPTION_CASE_FOLDING,0);
 
