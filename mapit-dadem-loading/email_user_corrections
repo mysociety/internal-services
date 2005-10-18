@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.6 2005-10-14 12:42:53 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.7 2005-10-18 23:07:22 dademcron Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
@@ -30,7 +30,10 @@ my $m_dbh = connect_to_mapit_database();
 my $to = shift(@ARGV);
 if (!$to) {
     print "Running in test mode, not sending email or committing.\n";
-    print "(specify email addresses as first parameter to run for real)";
+    print "(specify email addresses as first parameter to run for real)\n";
+    print "NOTE: Bad user correction data for delete reps is still marked\n";
+    print "even in this otherwise non-commit mode.\n";
+    print "\n";
 }
 
 # Cache of area_id->type etc.
@@ -53,26 +56,22 @@ while (my $row = $s->fetchrow_hashref()) {
         my $orig_info = DaDem::get_representative_info($row->{representative_id});
         if (!$orig_info) {
             print STDERR "Representative ".$row->{representative_id}." no longer there\n";
-            $d_dbh->do("update user_corrections set when_goveval = ? where user_correction_id = ?", 
-                {}, time(), $user_correction_id);
+            $d_dbh->do("update user_corrections set admin_done = 't' where user_correction_id = ?", 
+                {}, $user_correction_id);
             next;
         }
     }
     $corrections->{$parent_id}->{$area_id}->{$user_correction_id} = $row;
     $corrections_count++;
 }
-if ($to) {
-    # commit reps no longer there
-    $d_dbh->commit();
-}
+# commit reps no longer there
+$d_dbh->commit();
 # ... give up if there are none
 if (!$corrections_count) {
     $m_dbh->disconnect();
     $d_dbh->disconnect();
     exit;
 }
-print "test abandon";
-exit;
 
 # Connect to SENDMAIL
 if ($to) {

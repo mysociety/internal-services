@@ -52,9 +52,6 @@ $list_data=preg_replace("/(&\S+;)/",'<![CDATA[\1]]>',$list_data);
 #print(htmlentities($list_data));
 if($debug) {
 	header('Content-type: text/plain');
-} else {
-#	header('Content-type: text/csv');
-	header('Content-type: text/plain');
 }
 
 //First page is actually clean HTML, that can be converted to XHTML easily enough 
