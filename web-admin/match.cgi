@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.28 2005-09-30 14:57:03 francis Exp $
+# $Id: match.cgi,v 1.29 2005-10-20 11:28:09 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.28 2005-09-30 14:57:03 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.29 2005-10-20 11:28:09 francis Exp $';
 
 use strict;
 
@@ -442,7 +442,8 @@ sub do_council_edit ($) {
                       {'area_id' => $area_id, 'page' => 'counciledit',
                       'r' => $q->param('r'), 'sort_by' => $_->[1]})}, $_->[0]) 
         } 
-        (['Ward (erase to del rep)', 'ward_name'],
+        (['Key', 'key'],
+        ['Ward (erase to del rep)', 'ward_name'],
         ['First', 'rep_first'],
         ['Last', 'rep_last'],
         ['Party', 'rep_party'],
@@ -454,6 +455,7 @@ sub do_council_edit ($) {
         my $c = shift;
         print $q->hidden(-name => "key$c", -size => 30);
         print $q->Tr({}, $q->td([ 
+            $q->param("key$c"),
             $q->textfield(-name => "ward_name$c", -size => 30),
             $q->textfield(-name => "rep_first$c", -size => 15),
             $q->textfield(-name => "rep_last$c", -size => 15),
@@ -464,6 +466,7 @@ sub do_council_edit ($) {
     };
 
     $q->param("ward_namenew", $newreptext);
+    $q->param("keynew", "");
     &$printrow("new");
     $c = 1;
     while ($q->param("key$c")) {
