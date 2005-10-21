@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.3 2005-10-03 13:42:56 francis Exp $
+# $Id: CouncilMatch.pm,v 1.4 2005-10-21 13:32:08 francis Exp $
 #
 
 package CouncilMatch;
@@ -192,8 +192,10 @@ sub refresh_live_data($$) {
         my $current_row = $current_keys->{$current_key};
         # Data is in representative table, but not in new data, so delete
         if (!exists($update_keys->{$current_key})) {
-            my $rows_affected = $d_dbh->do(q#delete from representative where import_key = ?#, {},
-                $current_key);
+            my $rows_affected = $d_dbh->do(q#delete from representative where import_key = ?
+                and area_id in (# . $ward_list . q#)#, {}, 
+                $current_key, keys %$ward_ids
+                );
             throw Error::Simple("refresh_live_data: delete affected $rows_affected rows, not one for key $current_key") if $rows_affected != 1;
             $details .= "Making live: Deleted $current_key ".$current_row->{name}."\n";
         }
