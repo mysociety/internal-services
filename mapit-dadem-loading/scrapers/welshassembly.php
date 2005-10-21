@@ -7,6 +7,8 @@
  * Email: richard@phase.org; WWW: http://www.mysociety.org/
  *
  */
+$short_opts = '';
+$long_opts = array();
 
 require_once '../../../phplib/phpcgi';
 
@@ -248,6 +250,7 @@ if($debug) {
 			foreach($member as $k=>$v) {
                 if($debug) { print("[$k]:$v,   "); } 
                 $v=str_replace('&amp;','&',$v);
+                $v=str_replace('&ocirc;','ô',$v);
                 $v=preg_replace('/"/','\"',$v);
 				$member[$k]=$v;
             }
@@ -344,7 +347,11 @@ class listPageParser {
 				break;	
 
 			case 'a':
-				$this->member[$this->membercount]['membername']=$this->textpending;	
+                $nametext = $this->textpending;	
+                # Fix incorrect hyphenation on index page
+                $nametext = str_replace("Elis Thomas", "Elis-Thomas", $nametext);
+                $nametext = str_replace("Tamsin Dunwoody", "Tamsin Dunwoody-Kneafsey", $nametext);
+				$this->member[$this->membercount]['membername']=$nametext;
 				break;	
 
 			case 'li':	
