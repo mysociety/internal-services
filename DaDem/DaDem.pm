@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.48 2005-10-07 10:08:50 francis Exp $
+# $Id: DaDem.pm,v 1.49 2005-10-21 10:32:33 francis Exp $
 #
 
 package DaDem;
@@ -325,14 +325,15 @@ sub get_bad_contacts () {
                 coalesce(representative_edited.email, representative.email) as email,
                 coalesce(representative_edited.fax, representative.fax) as fax,
                 coalesce(representative_edited.method, representative.method) as method,
-                coalesce(representative_edited.deleted, false) as deleted
+                coalesce(representative_edited.deleted, false) as deleted,
+                coalesce(representative_edited.editor, 'import') as editor
             from representative left join representative_edited on representative.id = representative_edited.representative_id
             where (order_id is null or order_id = 
                         (select max(order_id) from representative_edited where representative_id = representative.id)
                   ) 
                   and coalesce(representative_edited.method, representative.method) <> 'via'
                   and not(coalesce(representative_edited.deleted, false))
-            order by representative.area_type, 
+            order by representative.area_type, (editor = 'fyr-queue'),
                 substring(representative.name from position(' ' in representative.name)+ 1),
                 representative.name, representative.area_id
         #);
@@ -430,13 +431,14 @@ sub get_representatives_info ($) {
                     coalesce(representative_edited.email, representative.email) as email,
                     coalesce(representative_edited.fax, representative.fax) as fax,
                     coalesce(representative_edited.method, representative.method) as method,
-                    coalesce(representative_edited.deleted, false) as deleted
+                    coalesce(representative_edited.deleted, false) as deleted,
+                    coalesce(representative_edited.editor, 'import') as editor
                 from representative left join representative_edited on representative.id = representative_edited.representative_id
                 where (order_id is null
                        or order_id = (select max(order_id) from representative_edited where representative_id = representative.id)) and ($cond);
             #);
         $s->execute();
-        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted) = $s->fetchrow_array()) {
+        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted, $editor) = $s->fetchrow_array()) {
             $ret{$id} = {
                     id => $id,
                     voting_area => $area_id,
@@ -446,7 +448,8 @@ sub get_representatives_info ($) {
                     email => $email,
                     fax => $fax,
                     method => $method,
-                    deleted => $deleted
+                    deleted => $deleted,
+                    last_editor => $editor,
                 };
         }
 
