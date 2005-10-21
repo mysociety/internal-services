@@ -7,6 +7,9 @@
 # Requires that GovEval names are already in the area_name table in MaPit, use
 # load_goveval_name first to do that.
 #
+# See the scrapers/ folder for some screen scrapers which can make data to feed
+# this script.
+#
 # Parameters: 
 # $1 - 'test' for dry run, 'commit' to actually do it
 # $2 - kind of data, currently choose from: mep, mp, msp, wam, lam, ds
@@ -19,7 +22,7 @@
 # ./dadem_csv_load test mep ../../../repdata/goveval/mep-20041001.csv
 # ./dadem_csv_load test mp ~/devel/repdata/mysociety/mps-post-election2005.csv ~/devel/repdata/mysociety/mps-deleted-election2005.csv
 # ./dadem_csv_load test mp ../../../repdata/goveval/faxyourmp-mp-20041207-withcons.csv
-# ./dadem_csv_load test msp ../../../repdata/goveval/msp-sp{c,e}-20041001.csv
+# ./dadem_csv_load test msp ../../../repdata/scraped/msp.csv
 # ./dadem_csv_load test wam ../../../repdata/goveval/wam-20041001.csv
 # ./dadem_csv_load test lam ../../../repdata/goveval/gla-20041001.csv
 # ./dadem_csv_load test ds ../../../repdata/mysociety/democratic-services-rev7.csv
@@ -28,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.5 2005-10-18 18:32:22 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.6 2005-10-21 16:59:57 francis Exp $';
 
 use strict;
 
@@ -95,7 +98,7 @@ $s->execute();
 while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     #print "$area_id $name $type\n";
 
-    # "Durham" without specifcying "County" or "City" is no use
+    # "Durham" without specifying "County" or "City" is no use
     next if ($kind eq "ds" and $name eq "Durham");
 
     die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
@@ -247,15 +250,17 @@ while (my $line = <MAIN>) {
     }
 
     # Strip brackets from fax numbers
-    $finalfax =~ s/[()]//g;
-    die "Fax bad $finalfax" if ($finalfax !~ m/^[0-9\s]+$/);
+    if ($finalfax) {
+        $finalfax =~ s/[()]//g;
+        die "Fax bad $finalfax\nLine: $line" if ($finalfax !~ m/^\+?[0-9\s]+$/);
+    }
 
     die "unmatched CSV name '$finalcons', not in database" unless (exists($name_to_id{$finalcons}));
     my $area_id = $name_to_id{$finalcons};
     my $area_type = $name_to_type{$finalcons};
 
     $finalparty = $mySociety::Parties::canonical{$finalparty};
-    die "party not known for '$line'" if (!defined($finalparty));
+    die "party not known, add it to Parties.pm\nLine: $line" if (!defined($finalparty));
 
     if ((!$allow_multiples) && exists($already_done->{$area_id})) {
         die "got area $area_id '$finalcons' twice";
@@ -264,53 +269,111 @@ while (my $line = <MAIN>) {
     # Make appropriate addition or alteration
     my $canon_finalname = CouncilMatch::canonicalise_person_name($finalname);
     
-    my $existing_repinfo = $canon_repnames->{$area_id}->{$canon_finalname};
-    if (defined($existing_repinfo)) {
+    my $cur_repinfo = $canon_repnames->{$area_id}->{$canon_finalname};
+    if (defined($cur_repinfo)) {
         # Member already exists for this area
-        print "Already have $finalname, $finalcons\n";
+        #print "Already have $finalname, $finalcons:\n";
         my $updates_required = 0;
+        my $conflict = "";
 
-        # Check to see if details are the same, or only have expected changes
-        if ($existing_repinfo->{party} ne $finalparty) {
-            if (($existing_repinfo->{party} eq "Labour / Co-operative" && $finalparty eq "Labour")
-                or ($existing_repinfo->{party} eq "Deputy Speaker") ) {
-                # This change is fine
-                print "Note: Party changed " . $existing_repinfo->{party} . " to $finalparty\n";
+        # Changing party is a conflict
+        if ($cur_repinfo->{party} ne $finalparty) {
+            $updates_required = 1;
+            $conflict .= "Party changed ";
+        }
+        # ... changing name is also (even though it must have matched canonical name)
+        if ($cur_repinfo->{name} ne $finalname) {
+            $updates_required = 1;
+            $conflict .= "Name changed ";
+        }
+
+        # Use old fax/email if we don't have a new one
+        if (!$finalfax && $cur_repinfo->{fax}) {
+            $finalfax = $cur_repinfo->{fax};
+        }
+        if (!$finalemail && $cur_repinfo->{email}) {
+            $finalemail = $cur_repinfo->{email};
+        }
+
+        if ($finalmethod eq "unknown") {
+            $finalmethod = $cur_repinfo->{method};
+            $finalfax = $cur_repinfo->{fax};
+            $finalemail = $cur_repinfo->{email};
+        } else {
+            if ($cur_repinfo->{method} ne $finalmethod) {
                 $updates_required = 1;
-                die "Please test this carefully on staging server, that when party changes it doesn't break contact details";
-            } else {
-                die "Party changed " . $existing_repinfo->{party} . " to $finalparty" 
+                if ($cur_repinfo->{method} eq "either" && $finalmethod eq "email") {
+                    # OK to change from either to email method
+                } else {
+                    $conflict .= "Method changed ";
+                }
+            }
+
+            if (($cur_repinfo->{fax} || "NONE") ne ($finalfax || "NONE")) { 
+                my $fax_conflict = 1;
+                if ($finalfax && $cur_repinfo->{fax}) {
+                    # Check if same number, but spelt differently
+                    my $fax_before = $cur_repinfo->{fax};
+                    my $fax_after = $finalfax;
+                    $fax_before =~ s/\s//g;
+                    $fax_after =~ s/\s//g;
+                    $fax_before =~ s/^\+44/0/g;
+                    $fax_after =~ s/^\+44/0/g;
+                    if ($fax_before eq $fax_after) {
+                        $fax_conflict = 0;
+                    }
+                } 
+                if (($cur_repinfo->{type} eq 'SPC' || $cur_repinfo->{type} eq 'SPE') &&
+                    $finalfax && $cur_repinfo->{method} eq 'email') {
+                    # for Scottish Parliament, don't worry about fax change when method is email
+                    $fax_conflict = 0;
+                }
+                $updates_required = 1;
+                if ($fax_conflict) {
+                    $conflict .= "Fax changed ";
+                }
+            }
+
+            if (($cur_repinfo->{email} || "NONE") ne ($finalemail || "NONE")) {
+                $updates_required = 1;
+                if (($cur_repinfo->{type} eq 'SPC' || $cur_repinfo->{type} eq 'SPE')
+                        && $finalemail && $cur_repinfo->{email} && 
+                        (lc($finalemail) eq lc($cur_repinfo->{email}))
+                    ) {
+                    # for Scottish Parliament, case of email doesn't matter
+                } else  {
+                    $conflict .= "Email changed ";
+                }
             }
         }
-        die "Name changed " . $existing_repinfo->{name} . " to $finalname" if $existing_repinfo->{name} ne $finalname;
-        if ($finalmethod ne "unknown") {
-            die "Method changed " . $existing_repinfo->{method} . " to $finalmethod" 
-                if $existing_repinfo->{method} ne $finalmethod;
-            die "Fax changed from '" . $existing_repinfo->{fax} . "' to '$finalfax'" 
-                if ($existing_repinfo->{fax} || "NONE") ne ($finalfax || "NONE");
-            die "Email changed from '" . $existing_repinfo->{email} . "' to '$finalemail'" 
-                if ($existing_repinfo->{email} || "NONE") ne ($finalemail || "NONE");
-            #print "Method being updated for $finalname, $finalcons to $finalmethod, $finalfax, $finalemail\n";
-            #$updates_required = 1;
-        } else {
-            $finalmethod = $existing_repinfo->{method};
-            $finalfax = $existing_repinfo->{fax};
-            $finalemail = $existing_repinfo->{email};
+
+        # Overwrite changes to things that were done by scripts like us, rather than humans
+        if ($conflict && ($cur_repinfo->{last_editor} eq "import" || $cur_repinfo->{last_editor} eq "dadem_csv_load")) {
+            # print "Conflict ignored, as last edit was by " . $cur_repinfo->{last_editor} . "\n";
+            $conflict = 0;
         }
 
         # Make any updates
-        if ($updates_required) {
-            my $dadem_rep_id = $existing_repinfo->{id};
+        my $dadem_rep_id = $cur_repinfo->{id};
+        if ($conflict) {
+            print "Conflict $dadem_rep_id, not updated --- $conflict\n";
+            print "\tLast edited by: " . $cur_repinfo->{last_editor} . "\n";
+            print "\tCur: " . $cur_repinfo->{name} . " (".$cur_repinfo->{party}.") ".$cur_repinfo->{method} . " " . ($cur_repinfo->{fax} || "NOFAX") . " " . ($cur_repinfo->{email} || "NOEMAIL"). "\n";
+            print "\tNew: ".$finalname." (".$finalparty.") ".$finalmethod." ". ($finalfax || 'NOFAX') . " " . ($finalemail || 'NOEMAIL'). "\n";
+        } elsif ($updates_required) {
+            print "Updating rep $dadem_rep_id\n";
+            print "\tCur: " . $cur_repinfo->{name} . " (".$cur_repinfo->{party}.") ".$cur_repinfo->{method} . " " . ($cur_repinfo->{fax} || "NOFAX") . " " . ($cur_repinfo->{email} || "NOEMAIL"). "\n";
+            print "\tNew: ".$finalname." (".$finalparty.") ".$finalmethod." ". ($finalfax || 'NOFAX') . " " . ($finalemail || 'NOEMAIL'). "\n";
             my $new_data = { area_id => $area_id, area_type => $area_type,
                   name => $finalname, party => $finalparty, 
                   method => $finalmethod, email => $finalemail, fax => $finalfax };
             if ($commit) {
-                DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Updated by script dadem_csv_load");
+                DaDem::admin_edit_representative($dadem_rep_id, $new_data, "dadem_csv_load", "Updated by script dadem_csv_load");
             }
         }
- 
+     
         # Mark got representative
-        $existing_repinfo->{got} = 1;
+        $cur_repinfo->{got} = 1;
     } else {
         # Member needs adding
         print "Adding new $finalname, $finalcons\n";
@@ -321,7 +384,7 @@ while (my $line = <MAIN>) {
               method => $finalmethod, email => $finalemail, fax => $finalfax };
         
         if ($commit) {
-            DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Added by script dadem_csv_load");
+            DaDem::admin_edit_representative($dadem_rep_id, $new_data, "dadem_csv_load", "Added by script dadem_csv_load");
         }
     }
 
@@ -362,12 +425,12 @@ foreach my $area_id (keys %$canon_repnames){
             }
 
             # Then delete them
-            print "Deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . "\n";
+            print "Deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . "\n";
             
             my $dadem_rep_id = $repinfo->{id};
             my $new_data = undef;
             if ($commit) {
-                DaDem::admin_edit_representative($dadem_rep_id, $new_data, getlogin(), "Update by script dadem_csv_load ");
+                DaDem::admin_edit_representative($dadem_rep_id, $new_data, "dadem_csv_load", "Updated by script dadem_csv_load ");
             }
 
             # Remember we have deleted it

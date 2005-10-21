@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.4 2005-10-18 18:32:22 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.5 2005-10-21 16:59:57 francis Exp $';
 
 use strict;
 
@@ -85,6 +85,11 @@ while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
             $msparea = $2;
         } else {
             $mspparty = $2;
+            # Cases like 'Elected as Scottish Nationalist, but has no party
+            # allegiance while in his post as Presiding Officer'.
+            if ($mspparty =~ m/Presiding Officer/) {
+                $mspparty = 'Presiding Officer';
+            }
         }
     }
 

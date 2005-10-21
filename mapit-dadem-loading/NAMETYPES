@@ -1,4 +1,4 @@
-$Id: NAMETYPES,v 1.6 2005-09-30 14:57:02 francis Exp $
+$Id: NAMETYPES,v 1.7 2005-10-21 16:59:57 francis Exp $
 
 Several types of name may be defined for each area. Each type of name is
 identified by a one-letter code:
@@ -33,10 +33,11 @@ M   mySociety Name
 
 G   GovEval Name
 
-    These are the names which are used in GovEval's database; for instance,
-    "Welwyn Hatfield", "Grange Villa & West Pelton" or "Lincoln Moorland".
-    These don't bear a simple relationship with any of the official naming
-    schemes but must be matched up with them on an ad-hoc basis.
+    These are the names which are used in GovEval's database or that were
+    screen scraped into GovEval-like CSV files; for instance, "Welwyn
+    Hatfield", "Grange Villa & West Pelton" or "Lincoln Moorland".  These don't
+    bear a simple relationship with any of the official naming schemes but must
+    be matched up with them on an ad-hoc basis.
 
 X   FaxYourMP Name
 
