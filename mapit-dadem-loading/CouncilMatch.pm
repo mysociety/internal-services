@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.4 2005-10-21 13:32:08 francis Exp $
+# $Id: CouncilMatch.pm,v 1.5 2005-10-21 18:54:48 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -302,9 +302,10 @@ sub canonicalise_constituency_name ($) {
     s#S\. #South #;
     s#W\. #West #;
 
-    # Welsh Assembly regions
+    # Welsh Assembly 
     s# Assembly ER$##;
     s# Assembly Const$##;
+    s#^Brecon & Radnor$#Brecon & Radnorshire#;
 
     # London Assembly
     s# London$##;

@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.6 2005-10-21 16:59:57 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.7 2005-10-21 18:54:48 dademcron Exp $';
 
 use strict;
 
@@ -336,11 +336,12 @@ while (my $line = <MAIN>) {
 
             if (($cur_repinfo->{email} || "NONE") ne ($finalemail || "NONE")) {
                 $updates_required = 1;
-                if (($cur_repinfo->{type} eq 'SPC' || $cur_repinfo->{type} eq 'SPE')
+                if (($cur_repinfo->{type} eq 'SPC' || $cur_repinfo->{type} eq 'SPE'
+                    || $cur_repinfo->{type} eq 'WAC' || $cur_repinfo->{type} eq 'WAE')
                         && $finalemail && $cur_repinfo->{email} && 
                         (lc($finalemail) eq lc($cur_repinfo->{email}))
                     ) {
-                    # for Scottish Parliament, case of email doesn't matter
+                    # for Scottish Parliament and Welsh Assembly, case of email doesn't matter
                 } else  {
                     $conflict .= "Email changed ";
                 }
@@ -454,7 +455,6 @@ if ($commit) {
     # Note, most stuff is committed in calls to MaPit above (admin_edit_representative), this
     # commit probably does nothing.
     $d_dbh->commit();
-    print "All committed\n";
 } else {
     $d_dbh->rollback();
     print "Dry run completed\n";

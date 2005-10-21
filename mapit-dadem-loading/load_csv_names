@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.3 2005-09-14 16:22:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.4 2005-10-21 18:54:48 dademcron Exp $';
 
 use strict;
 
@@ -145,7 +145,7 @@ while (my $line = <STDIN>) {
 # Add name aliases to the database
 foreach my $name (keys %newnames) {
     my $id = $newnames{$name};
-    print "$id $name\n";
+    # print "$id $name\n";
     # Delete existing 'G' name data
     $dbh->do(q#delete from area_name where area_id = ? and name_type = ?#, {}, $id, $name_type_char);
     # Insert updated / new name data
