@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.49 2005-10-21 10:32:33 francis Exp $
+# $Id: DaDem.pm,v 1.50 2005-10-24 17:30:55 chris Exp $
 #
 
 package DaDem;
@@ -201,10 +201,11 @@ foreach (keys %dummy_representatives) {
 }
 
 
-=item get_representatives ID_OR_ARRAY
+=item get_representatives ID|ARRAY
 
 Given the ID of an area (or an ARRAY of IDs of several areas), return a list of
-the representatives returned by that area, or, on failure, an error code.
+the representatives returned by that area, or, for an array, a hash mapping
+area ID to a list of representatives for each; or, on failure, an error code.
 
 =cut
 sub get_representatives ($) {
