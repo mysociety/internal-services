@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: jonathan@onegoodidea.com; WWW: http://www.mysociety.org/
 #
-# $Id: london,v 1.2 2005-10-18 18:09:01 francis Exp $
+# $Id: london,v 1.3 2005-10-26 10:07:39 francis Exp $
 
 import os
 from sys import stderr
@@ -61,6 +61,13 @@ class HeadedTableParser( HTMLParser ):
             self._state = 'CONTENT'
     def handle_data( self, data ):
         self._data += data
+    def handle_entityref( self, ref ):
+        if ref == 'nbsp':
+            self._data += ' '
+        elif ref == 'amp':
+            self._data += '&'
+        else:
+            self._data += '&%s;' % ref
     def handle_comment( self, comment ):
         if comment == ' BeginEditablePageContent ':
             self._state = 'CONTENT'
@@ -107,7 +114,7 @@ if len(list_members) != 11:
     raise StandardError, "Expected 11 list MEPs, got %d" % len(list_members)    
 
 
-print "First,Last,Constituency,Party,Email,Fax\n";
+print "First,Last,Constituency,Party,Email,Fax";
 
 for constituency, (name, url), party in constituency_members:
     constituency = constituency.split( '(', 1 )[0].strip()
@@ -126,7 +133,7 @@ for (name, url), party in list_members:
     parser = DetailPageParser()
     parser.feed( page.read() )
     email = parser.email
-    print '"%s","%s","","%s","%s",""' % (forename, surname, party, email or "")
+    print '"%s","%s","Proportionally Elected Member","%s","%s",""' % (forename, surname, party, email or "")
 
 
 
