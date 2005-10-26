@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.7 2005-10-21 18:54:48 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.8 2005-10-26 09:43:20 francis Exp $';
 
 use strict;
 
@@ -424,6 +424,13 @@ foreach my $area_id (keys %$canon_repnames){
                     print STDERR "Wanting to delete " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " but not in CSV of expected deletions\n";
                 }
             }
+
+            # Overwrite changes to things that were done by scripts like us, rather than humans
+            if ($repinfo->{last_editor} ne "import" && $repinfo->{last_editor} ne "dadem_csv_load") {
+                print STDERR "Conflict, not deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . " as last altered by " . $repinfo->{last_editor} . "\n";
+                next;
+            }
+
 
             # Then delete them
             print "Deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . "\n";

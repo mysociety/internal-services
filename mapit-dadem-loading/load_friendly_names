@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.11 2005-05-12 14:41:02 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.12 2005-10-26 09:43:20 francis Exp $';
 
 use strict;
 
@@ -103,7 +103,7 @@ while (my ($area_id) = $s->fetchrow_array()) {
         $dbh->do(q#delete from area_name where area_id = ? and name_type = 'F'#, {}, $area_id);
         $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, 'F', ?)#, {}, $area_id, $friendly);
     }
-    print $area_id, " ", $friendly, "\n";
+    #print $area_id, " ", $friendly, "\n";
 }
 
 $dbh->commit();
