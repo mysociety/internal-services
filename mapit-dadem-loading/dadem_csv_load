@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.8 2005-10-26 09:43:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.9 2005-10-26 10:27:11 francis Exp $';
 
 use strict;
 
@@ -115,11 +115,22 @@ while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     $id_to_name{$area_id} = $name;
 }
 
+# Get all areas
+my @area_ids;
+$s = $m_dbh->prepare(q#select id from area
+            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
+$s->execute();
+while (my ($area_id) = $s->fetchrow_array()) {
+    push(@area_ids, $area_id);
+}
+
 # Special case, should perhaps have function in MaPit instead of the select
 # above, which includes the special cases there.
 if ($kind eq "lam") {
     $name_to_id{"London Assembly"} = mySociety::VotingArea::LAE_AREA_ID;
     $name_to_type{"London Assembly"} = "LAE";
+    $id_to_name{mySociety::VotingArea::LAE_AREA_ID} = "London Assembly";
+    push(@area_ids, mySociety::VotingArea::LAE_AREA_ID);
 }
 
 # Various forms of null
@@ -130,15 +141,6 @@ sub nullify_if_null($) {
     return undef if ($_ eq "NULL");
     return undef if ($_ eq "byelection");
     return $_;
-}
-
-# Get all areas
-my @area_ids;
-$s = $m_dbh->prepare(q#select id from area
-            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
-$s->execute();
-while (my ($area_id) = $s->fetchrow_array()) {
-    push(@area_ids, $area_id);
 }
 
 # Find out all current reps
@@ -418,6 +420,9 @@ foreach my $area_id (keys %$canon_repnames){
             my $canon_repname = CouncilMatch::canonicalise_person_name($repinfo->{name});
             my ($cons) = $m_dbh->selectrow_array("select name from area_name where area_id = ?
                     and name_type = 'F'", {}, $area_id);
+            if ($kind eq 'lam' && $area_id == mySociety::VotingArea::LAE_AREA_ID) {
+                $cons = "London Assembly";
+            }
             my $canon_cons = CouncilMatch::canonicalise_constituency_name($cons);
             if ($deleted_file) {
                 if (!defined($expected_deleted->{$canon_cons}->{$canon_repname})) {
