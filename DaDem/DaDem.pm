@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.51 2005-10-26 16:10:26 chris Exp $
+# $Id: DaDem.pm,v 1.52 2005-10-26 16:52:31 francis Exp $
 #
 
 package DaDem;
@@ -459,7 +459,6 @@ sub get_representatives_info ($) {
 
         $s->finish();
     }
- 
     return \%ret;
 }
 

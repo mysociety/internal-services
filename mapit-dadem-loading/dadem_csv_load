@@ -31,13 +31,15 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.9 2005-10-26 10:27:11 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.10 2005-10-26 16:52:31 francis Exp $';
 
 use strict;
 
 use DBI;
 use Text::CSV_XS;
 use Data::Dumper;
+use Devel::Peek;
+
 use Common;
 use mySociety::Parties;
 use mySociety::VotingArea;
@@ -103,6 +105,7 @@ while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
 
     die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
 
+    utf8::decode($name); # some kind of unicode train wreck :)
     $name_to_id{$name} = $area_id;
     $name_to_type{$name} = $type;
 }
@@ -153,6 +156,7 @@ for my $area_id (@area_ids){
     push(@curr_reps, @folded);
 }
 #die if $count != 659;
+
 my $reps_info = DaDem::get_representatives_info(\@curr_reps);
 
 # Map from canonicalised version of rep names
@@ -160,13 +164,18 @@ my $canon_repnames;
 $count = 0;
 for my $rep_info (values %$reps_info) {
     $count++;
+
+    $_ = $rep_info->{'party'};
+    utf8::encode($_); # more unicode train-wreckage
+    $rep_info->{'party'} = $_;
+
     my $canon_repname = CouncilMatch::canonicalise_person_name($rep_info->{'name'});
     $canon_repnames->{$rep_info->{'voting_area'}}->{$canon_repname} = $rep_info;
 }
-#die if $count != 659;
 #print Dumper($canon_repnames);
 
 # Read CSV file, load into dadem
+binmode(MAIN, ":utf8");
 my $C = new Text::CSV_XS({ binary => 1 });
 my $already_done;
 <MAIN>;    # header line
@@ -174,10 +183,16 @@ while (my $line = <MAIN>) {
     chomp($line);
     $C->parse($line);
     map { die "Not valid field in $line" if (!defined $_) } $C->fields();
+    my @fields;
+    foreach ($C->fields()) {
+        $_ = trim_spaces($_);
+        utf8::decode($_); # fix broken unicode handling of Text::CSV_XS
+        push @fields, $_;
+    }
 
     my ($finalcons, $finalname, $finalparty, $finalmethod, $finalemail, $finalfax);
     if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam") {
-        my ($first, $last, $constituency, $party, $email, $fax) = map { trim_spaces($_) } $C->fields();
+        my ($first, $last, $constituency, $party, $email, $fax) = @fields;
 
         $finalcons = $constituency;
         $finalname = "$first $last";
@@ -199,7 +214,7 @@ while (my $line = <MAIN>) {
         }
 
     } elsif ($kind eq "mp") {
-        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = map { trim_spaces($_) } $C->fields();
+        my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = @fields;
 
         $finalcons = $constituency;
         $finalname = $name;
@@ -226,7 +241,7 @@ while (my $line = <MAIN>) {
         }
 
     } elsif ($kind eq "ds") {
-        my ($council, $email, $fax, $web) = map { trim_spaces($_) } $C->fields();
+        my ($council, $email, $fax, $web) = @fields;
 
         $finalcons = $council;
         $finalname = "Democratic Services";
