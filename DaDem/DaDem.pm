@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.50 2005-10-24 17:30:55 chris Exp $
+# $Id: DaDem.pm,v 1.51 2005-10-26 16:10:26 chris Exp $
 #
 
 package DaDem;
@@ -440,6 +440,9 @@ sub get_representatives_info ($) {
             #);
         $s->execute();
         while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted, $editor) = $s->fetchrow_array()) {
+            # Force these to be undef if blank.
+            $email ||= undef;
+            $fax ||= undef;
             $ret{$id} = {
                     id => $id,
                     voting_area => $area_id,
