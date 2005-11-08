@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.29 2005-10-16 20:24:43 francis Exp $
+# $Id: MaPit.pm,v 1.30 2005-11-08 11:16:03 chris Exp $
 #
 
 package MaPit;
@@ -238,6 +238,9 @@ name of voting area;
 sub get_voting_area_info ($) {
     my ($id) = @_;
 
+    throw RABX::Error("ID must be defined", RABX::Error::INTERFACE)
+        if (!defined($id));
+
     my $ret;
     if (exists($special_cases{$id})) {
         $ret = $special_cases{$id};
@@ -275,7 +278,7 @@ sub get_voting_area_info ($) {
 =cut
 sub get_voting_areas_info ($) {
     my ($ary) = @_;
-    return { (map { $_ => get_voting_area_info($_) } @$ary) };
+    return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
 
 =item get_areas_by_type TYPE
