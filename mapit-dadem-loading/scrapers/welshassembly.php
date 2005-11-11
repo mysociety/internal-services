@@ -10,7 +10,7 @@
 $short_opts = '';
 $long_opts = array();
 
-require_once '../../../phplib/phpcgi';
+require_once '../../../phplib/phpcli.php';
 
 //CONFIG VARS
 $debug=0;
