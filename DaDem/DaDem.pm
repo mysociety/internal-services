@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.53 2005-10-27 14:59:14 francis Exp $
+# $Id: DaDem.pm,v 1.54 2005-11-13 12:13:53 francis Exp $
 #
 
 package DaDem;
@@ -393,7 +393,9 @@ or, on failure, an error code.
 =cut
 sub get_representative_info ($) {
     my ($id) = @_;
-    return get_representatives_info([$id])->{$id};
+    my $info = get_representatives_info([$id])->{$id};
+    throw RABX::Error("Representative ID '$id' not found", mySociety::DaDem::REP_NOT_FOUND) if (!$info);
+    return $info;
 }
 
 =item get_representatives_info ARRAY
