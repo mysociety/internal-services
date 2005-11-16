@@ -60,11 +60,12 @@ foreach($regionurls as $region => $regionurl) {
 #print("\n\nMATCH\n");
 #print_r($match);
 		$mep=$match[3];
+                if ($mep=='NICHOLSON OF WINTERBOURNE') $mep='NICHOLSON, Emma';
 		preg_match('/(.*),(.*)/',$mep,$name_match);
 		$members[$mep]['firstname']=trim($name_match[2]);
 		$surname=trim($name_match[1]);
 		preg_match('#(Ma?c)?(\w)(.*)#',$surname,$snmatch);
-		$surname=$snmatch[1].$snmatch[2].strtolower($snmatch[3]);
+		$surname=$snmatch[1].$snmatch[2].mb_strtolower($snmatch[3], 'UTF-8');
 		$surname=preg_replace('#([- ]\w)#e','strtoupper("\1")',$surname);
 		$members[$mep]['surname']=$surname;
 		$mepurl=$match[2];
