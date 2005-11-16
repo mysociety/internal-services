@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.30 2005-11-08 11:16:03 chris Exp $
+# $Id: MaPit.pm,v 1.31 2005-11-16 12:33:44 francis Exp $
 #
 
 package MaPit;
@@ -113,7 +113,7 @@ my %special_cases = (
         },
         1000006 => {
             type => 'WMC',
-            name => 'Your and My Society'
+            name => 'mySociety Test Constituency'
         },
         1000007 => {
             type => 'EUP',
@@ -215,8 +215,8 @@ sub get_voting_areas ($) {
 
 =item get_voting_area_info AREA
 
-Return information about the given voting. Return value is a reference to a
-hash containing elements,
+Return information about the given voting area. Return value is a reference to
+a hash containing elements,
 
 =over 4
 
@@ -232,6 +232,10 @@ name of voting area;
 
 (if present) the ID of the enclosing area.
 
+=item area_id
+
+the ID of the area itself
+
 =back
 
 =cut
@@ -244,6 +248,10 @@ sub get_voting_area_info ($) {
     my $ret;
     if (exists($special_cases{$id})) {
         $ret = $special_cases{$id};
+        $ret->{'area_id'} = $id;
+        if (!defined($ret->{'parent_area_id'})) {
+            $ret->{'parent_area_id'} = undef;
+        }
     } else {
         # Real data
         my ($type, $name, $parent_area_id);
