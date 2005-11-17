@@ -167,7 +167,7 @@ function cached_file_get_contents($url) {
 			err('Cache directory "'.MEP_CACHE_DIR.'" not writeable'."\n");
 		}
 		$local=MEP_CACHE_DIR.'/'.md5($url);
-		if(!is_writeable($local)) {
+		if(file_exists($local) && !is_writeable($local)) {
 			err('Cache file "'.$local.'" not writeable'."\n");
 		}
 		if(file_exists($local) && ((time()-filemtime($local))<6000)) {
