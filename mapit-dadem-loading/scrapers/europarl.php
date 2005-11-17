@@ -15,7 +15,28 @@ $regions_url='http://www.europarl.eu.int/members/public/geoSearch/zoneList.do?co
 require_once '../../../phplib/phpcli.php';
 
 //CONFIG VARS
-$debug=0;
+define('MEP_DEBUG',false); // true or false
+define('MEP_CACHE',true); // true or false
+define('MEP_CACHE_DIR','cache'); // absolute or relative
+
+//Translate peer titles (etc) to personal names
+$meptrans=array('NICHOLSON OF WINTERBOURNE' => 'NICHOLSON, Emma');
+
+//How many members per region should we expect?
+$expectmembers=array(
+	'East Midlands' =>6,
+	'Eastern' =>7,
+	'London' =>9,
+	'North East' =>3,
+	'North West' =>9,
+	'Northern Ireland' =>3,
+	'Scotland' =>7,
+	'South East' =>10,
+	'South West' =>7,
+	'Wales' =>4,
+	'West Midlands' =>7,
+	'Yorkshire and the Humber' =>6
+);
 
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 //"Mike","Tuffrey","Proportionally Elected Member","Liberal Democrat","mike.tuffrey@london.gov.uk",""
@@ -36,6 +57,7 @@ $regions_data=preg_replace('/<\/table>.*/s','',$regions_data);
 #print_r($matches);
 foreach($matches as $match) {
 	$region=preg_replace('/.*:\s+/','',$match[3]);
+	// Remove jsessionid to keep URLs constant (avoid flooding cache dir)
 	$disturl=preg_replace('/;jsessionid[^?]+\?/','?',$match[2]);
 	$disturl=preg_replace('/&amp;/','&',$disturl); // URLS musn't contain &amp;! 
 		//; has special meaning with these URLs
@@ -54,16 +76,29 @@ foreach($regionurls as $region => $regionurl) {
 	$meplist_data=preg_replace("/<br[^>]*>/",' ',$meplist_data);
 	#$meplist_data=preg_replace('/<\/table>.*/s','',$meplist_data);
 	preg_match_all('/(<a\s+href\s*=\s*["\']([^"]+)["\'])[^>]+>([^>]+)<\/a>([^<])*/',$meplist_data,$matches,PREG_SET_ORDER);
-	#print("region: ".$region." count ".count($matches)."\n");
-    if($debug) { print_r($matches); exit();}
+
+   if(MEP_DEBUG) { 
+		print("region: ".$region." count ".count($matches)."\n");
+		print_r($matches);
+	}
+
 	foreach($matches as $match) {
 #print("\n\nMATCH\n");
 #print_r($match);
 		$mep=$match[3];
-                if ($mep=='NICHOLSON OF WINTERBOURNE') $mep='NICHOLSON, Emma';
-		preg_match('/(.*),(.*)/',$mep,$name_match);
+		if(isset($meptrans[$mep])) {
+			$mep=$meptrans[$mep];
+		}
+
+		//European (French?) name format: SURNAME, firstname
+		if(!preg_match('/(.*),(.*)/',$mep,$name_match)) {
+			err("Failed to unpack MEP name '$mep'");			
+		}
+
 		$members[$mep]['firstname']=trim($name_match[2]);
 		$surname=trim($name_match[1]);
+
+		//Translate surnames from ALL CAPS to mixed case:
 		preg_match('#(Ma?c)?(\w)(.*)#',$surname,$snmatch);
 		$surname=$snmatch[1].$snmatch[2].mb_strtolower($snmatch[3], 'UTF-8');
 		$surname=preg_replace('#([- ]\w)#e','strtoupper("\1")',$surname);
@@ -100,24 +135,51 @@ foreach($members as $mep=>$data) {
    	$members[$mep]['fax'][]=$match[1];             
 	}
 
+	$mepsfound[$members[$mep]['region']]++;
 }
 
 foreach($members as $member) {
 $member['faxes']=join('/',$member['fax']);
+if(!preg_match("#\d+.*/.*\d+#",$member['faxes'])) {
+	err("Missing fax data for $member[firstname] $member[surname] ($member[region])\n");
+}
+if(strlen($member['party'])<4) {
+	err("Invalid party info for $member[firstname] $member[surname] ($member[region])\n");
+}
+
 print("$member[firstname],$member[surname],$member[region],$member[party],$member[email],$member[faxes],$member[image]\n");
+}
+
+foreach($expectmembers as $region => $expect) {
+	if(($expect!=$mepsfound[$region]) || ($expect!=$mepcount[$region])) {
+		err("Count mismatch of MEPs in '$region': expected $expect, declared $mepcount[$region], found $mepsfound[$region]\n");
+	}
 }
 
 #print_r($members);
 
 function cached_file_get_contents($url) {
-	$local='cache/'.md5($url);
-	if(file_exists($local) && ((time()-filemtime($local))<6000)) {
-		($content=file_get_contents($local)) || die("read err");
+	if(MEP_CACHE) {
+		if(!file_exists(MEP_CACHE_DIR)) {
+			err('Cache directory "'.MEP_CACHE_DIR.'" not found'."\n");
+		}
+		if(!is_writeable(MEP_CACHE_DIR)) {
+			err('Cache directory "'.MEP_CACHE_DIR.'" not writeable'."\n");
+		}
+		$local=MEP_CACHE_DIR.'/'.md5($url);
+		if(!is_writeable($local)) {
+			err('Cache file "'.$local.'" not writeable'."\n");
+		}
+		if(file_exists($local) && ((time()-filemtime($local))<6000)) {
+			($content=file_get_contents($local)) || die("read err");
+		} else {
+			$content=file_get_contents($url);
+			($lfh=fopen($local,'w')) || die("write err");
+			fwrite($lfh,$content);	
+			fclose($lfh);
+		}
 	} else {
 		$content=file_get_contents($url);
-		($lfh=fopen($local,'w')) || die("write err");
-		fwrite($lfh,$content);	
-		fclose($lfh);
 	}
 	return($content);
 }
@@ -127,7 +189,6 @@ function cached_file_get_contents($url) {
  * Convert http:// URL to absolute
  */ 
 function relativeUrlToAbsolute($baseurl,$relurl) {
-	global $debug;
 	if(!preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$baseurl,$urlparts)) {
 		return(false);
 	}
@@ -138,7 +199,7 @@ function relativeUrlToAbsolute($baseurl,$relurl) {
 		$absurl=$proto.$host.$relurl;
 	} else {
 		while(preg_match('#^../#',$relurl)) {
-			if($debug) {
+			if(MEP_DEBUG) {
 				print("Relurl: $relurl / Dir: $dir\n");
 			}
 			$relurl=preg_replace('#^../#','',$relurl,1);

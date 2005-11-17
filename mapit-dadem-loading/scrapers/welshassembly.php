@@ -1,4 +1,4 @@
-#!/usr/local/bin/php -q
+#!/usr/bin/php -q
 <?php
 /**
  * Welsh Assembly members screenscraper for MySociety
