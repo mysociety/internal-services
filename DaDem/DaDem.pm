@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.56 2005-11-25 14:54:25 francis Exp $
+# $Id: DaDem.pm,v 1.57 2005-11-25 16:27:15 francis Exp $
 #
 
 package DaDem;
@@ -22,6 +22,7 @@ use mySociety::DaDem;
 use mySociety::DBHandle qw(dbh);
 use mySociety::VotingArea;
 use mySociety::Config;
+use mySociety::MaPit;
 
 mySociety::DBHandle::configure(
         Name => mySociety::Config::get('DADEM_DB_NAME'),
@@ -38,6 +39,41 @@ DaDem
 =head1 DESCRIPTION
 
 Implementation of DaDem.
+
+=head1 CONSTANTS
+
+=head2 Error codes
+
+=over 4
+
+=item UNKNOWN_AREA 3001
+
+Area ID refers to a non-existent area.
+
+=item REP_NOT_FOUND 3002
+
+Representative ID refers to a non-existent representative.
+
+=item AREA_WITHOUT_REPS 3003
+
+Area ID refers to an area for which no representatives are returned.
+
+=back
+
+=head2 Other codes
+
+=over 4
+
+=item CONTACT_FAX 101
+
+Means of contacting representative is fax.
+
+=item CONTACT_EMAIL 102
+
+Means of contacting representative is email.
+
+=back
+
 
 =head1 FUNCTIONS
 
@@ -329,7 +365,8 @@ sub get_bad_contacts () {
                 coalesce(representative_edited.method, representative.method) as method,
                 coalesce(representative_edited.deleted, false) as deleted,
                 coalesce(representative_edited.editor, 'import') as editor,
-                coalesce(representative_edited.name, representative.name) as name
+                coalesce(representative_edited.name, representative.name) as name,
+                representative.area_id
             from representative left join representative_edited on representative.id = representative_edited.representative_id
             where (order_id is null or order_id = 
                         (select max(order_id) from representative_edited where representative_id = representative.id)
@@ -343,15 +380,40 @@ sub get_bad_contacts () {
 
     $s->execute();
     my @bad;
-    while (my ($id, $email, $fax, $method, $deleted, $editor, $name) = $s->fetchrow_array()) {
+    while (my ($id, $email, $fax, $method, $deleted, $editor, $name, $area_id) = $s->fetchrow_array()) {
         my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
         my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
 
+        my $bad = 1;
+        if ($name eq "Democratic Services") {
+            # If none of the representatives in the council have "via" set
+            # as their contact method, then it doesn't matter that it is bad
+
+            # Get all the child areas of the council ($area_id)
+
+            
+            # For each child, get current status
+            # get_representatives_info ARRAY
+
+            # Loop through children to see if any have via
+            my $child_has_via = 0;
+            {
+                $child_has_via = 1;
+            }
+
+            # If none have "via" set, then ignore this bad contact
+            if (!$child_has_via) {
+                $bad = 0;
+            }
+        }
+
         push(@bad, $id)
-            if (($method eq 'unknown')
+            if ($bad && 
+                (($method eq 'unknown')
                 or ($method eq 'email' and (!$emailvalid))
                 or ($method eq 'fax' and (!$faxvalid))
-                or ($method eq 'either' and (!$faxvalid or !$emailvalid)));
+                or ($method eq 'either' and (!$faxvalid or !$emailvalid))
+                ));
     }
 
     # Return results

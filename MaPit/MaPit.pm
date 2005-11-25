@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.31 2005-11-16 12:33:44 francis Exp $
+# $Id: MaPit.pm,v 1.32 2005-11-25 16:27:16 francis Exp $
 #
 
 package MaPit;
@@ -40,6 +40,25 @@ MaPit
 =head1 DESCRIPTION
 
 Implementation of MaPit
+
+=head1 CONSTANTS
+
+=over 4
+
+=item BAD_POSTCODE 2001
+
+String is not in the correct format for a postcode.
+
+=item POSTCODE_NOT_FOUND 2002
+
+The postcode was not found in the database.
+
+=item AREA_NOT_FOUND 2003
+
+The area ID refers to a non-existent area.
+
+=back
+
 
 =head1 FUNCTIONS
 
@@ -479,6 +498,8 @@ sub get_location ($;$) {
 }
 
 =item admin_get_stats
+
+Returns a hash of statistics about the database.
 
 =cut
 sub admin_get_stats () {
