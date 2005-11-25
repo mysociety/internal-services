@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.29 2005-10-17 15:27:25 chris Exp $
+# $Id: EvEl.pm,v 1.30 2005-11-25 14:56:32 matthew Exp $
 #
 
 package EvEl::Error;
@@ -338,9 +338,9 @@ sub do_template_substitution ($$) {
     $body =~ s#(^|[^\n])[ \t]*\n[ \t]*($|[^\n])#$1 $2#g;
 
     # Wrap text to 72-column lines.
-    local($Text::Wrap::columns = 72);
+    local($Text::Wrap::columns = 69);
     local($Text::Wrap::huge = 'overflow');
-    my $wrapped = Text::Wrap::wrap('', '', $body);
+    my $wrapped = Text::Wrap::wrap('     ', '     ', $body);
 
 #binmode(STDERR, ":utf8");
 #warn "Subject = $subject\n";
