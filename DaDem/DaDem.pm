@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.55 2005-11-16 12:47:23 francis Exp $
+# $Id: DaDem.pm,v 1.56 2005-11-25 14:54:25 francis Exp $
 #
 
 package DaDem;
@@ -328,7 +328,8 @@ sub get_bad_contacts () {
                 coalesce(representative_edited.fax, representative.fax) as fax,
                 coalesce(representative_edited.method, representative.method) as method,
                 coalesce(representative_edited.deleted, false) as deleted,
-                coalesce(representative_edited.editor, 'import') as editor
+                coalesce(representative_edited.editor, 'import') as editor,
+                coalesce(representative_edited.name, representative.name) as name
             from representative left join representative_edited on representative.id = representative_edited.representative_id
             where (order_id is null or order_id = 
                         (select max(order_id) from representative_edited where representative_id = representative.id)
@@ -342,7 +343,7 @@ sub get_bad_contacts () {
 
     $s->execute();
     my @bad;
-    while (my ($id, $email, $fax, $method, $deleted) = $s->fetchrow_array()) {
+    while (my ($id, $email, $fax, $method, $deleted, $editor, $name) = $s->fetchrow_array()) {
         my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
         my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
 
