@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.57 2005-11-25 16:27:15 francis Exp $
+# $Id: DaDem.pm,v 1.58 2005-11-25 16:50:01 francis Exp $
 #
 
 package DaDem;
@@ -384,36 +384,46 @@ sub get_bad_contacts () {
         my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
         my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
 
+        next if !(
+                (($method eq 'unknown')
+                or ($method eq 'email' and (!$emailvalid))
+                or ($method eq 'fax' and (!$faxvalid))
+                or ($method eq 'either' and (!$faxvalid or !$emailvalid))
+                ));
+
         my $bad = 1;
         if ($name eq "Democratic Services") {
             # If none of the representatives in the council have "via" set
             # as their contact method, then it doesn't matter that it is bad
 
             # Get all the child areas of the council ($area_id)
-
+            my $children = mySociety::MaPit::get_voting_area_children($area_id);
+            # And the representatives of them
+            my $child_reps = get_representatives($children);
+            my @child_reps;
+            foreach (keys %$child_reps) {
+                push @child_reps, @{$child_reps->{$_}};
+            }
             
-            # For each child, get current status
-            # get_representatives_info ARRAY
+            # For each representative, get current status
+            my $children_info = get_representatives_info(\@child_reps);
 
             # Loop through children to see if any have via
             my $child_has_via = 0;
-            {
-                $child_has_via = 1;
+            foreach (keys %$children_info) {
+                my $child_info = $children_info->{$_};
+                $child_has_via = 1 if $child_info->{method} eq 'via';
+                #warn "child via " . $child_info->{id} if $child_info->{method} eq 'via';
             }
 
             # If none have "via" set, then ignore this bad contact
             if (!$child_has_via) {
                 $bad = 0;
             }
+            #warn "$area_id " . $name . " $bad ";
         }
 
-        push(@bad, $id)
-            if ($bad && 
-                (($method eq 'unknown')
-                or ($method eq 'email' and (!$emailvalid))
-                or ($method eq 'fax' and (!$faxvalid))
-                or ($method eq 'either' and (!$faxvalid or !$emailvalid))
-                ));
+        push(@bad, $id) if $bad;
     }
 
     # Return results
