@@ -1,4 +1,4 @@
-#!/usr/bin/php -q
+#!/usr/local/bin/php -q
 <?php
 /**
  * European Parliament (UK site) screenscraper for MySociety
