@@ -7,6 +7,10 @@
  * Email: richard@phase.org; WWW: http://www.mysociety.org/
  *
  */
+
+print "This isn't used by mySociety, so would need testing (see europarlUK.php which is maintained)";
+exit(1);
+ 
 $short_opts = '';
 $long_opts = array();
 

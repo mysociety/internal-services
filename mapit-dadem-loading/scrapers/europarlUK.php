@@ -151,15 +151,23 @@ foreach($regionurls as $region => $regionurl) {
 #	$mepsfound[$members[$mep]['region']]++;
 #}
 
+if (count($members) != 78) {
+    fwrite(STDERR, "Expected 78 UK MEPs, got " . count($members) . "\n");
+    exit(1);
+}
 foreach($members as $member) {
-if(!preg_match("#\d+#",$member['fax'])) {
-	#err("Missing fax data for $member[firstname] $member[surname] ($member[region])\n");
-}
-if(strlen($member['party'])<4) {
-	err("Invalid party info for $member[firstname] $member[surname] ($member[region])\n");
-}
+    if(!preg_match("#\d+#",$member['fax'])) {
+        #err("Missing fax data for $member[firstname] $member[surname] ($member[region])\n");
+    }
+    if(strlen($member['party'])<4) {
+        err("Invalid party info for $member[firstname] $member[surname] ($member[region])\n");
+    }
 
-print("$member[firstname],$member[surname],$member[region],$member[party],$member[email],$member[fax],$member[image]\n");
+    foreach(array_keys($member) as $key) {
+        $member[$key] = utf8_encode($member[$key]);
+    }
+
+    print("$member[firstname],$member[surname],$member[region],$member[party],$member[email],$member[fax],$member[image]\n");
 }
 
 foreach($expectmembers as $region => $expect) {

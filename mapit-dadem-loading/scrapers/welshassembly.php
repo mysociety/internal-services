@@ -47,7 +47,8 @@ $list_data=preg_replace("/\s+/",' ',$list_data);
 if($list_data=preg_match("/$list_source_block_start(.*)$list_source_block_end/",$list_data,$matches)) {
 	$list_data=$matches[1];
 } else { 
-	die("ERROR: Source page format (list page) has changed"); 
+    fwrite(STDERR, "ERROR: Source page format (list page) has changed");
+    exit(1);
 }
 //Put any entities in CDATA sections so the parser can't choke on them
 $list_data=preg_replace("/(&\S+;)/",'<![CDATA[\1]]>',$list_data);
@@ -84,7 +85,8 @@ foreach ($lpp->biourls as $baseurl=>$alwaystrueval) {
 	if($bio_data=preg_match("/$bio_source_block_start(.*)$bio_source_block_end/",$bio_data,$matches)) {
 		$bio_data=$matches[1];
 	} else { 
-		die("ERROR: Source page format (bio page) has changed in '$baseurl'"); 
+		fwrite(STDERR, "ERROR: Source page format (bio page) has changed in '$baseurl'"); 
+        exit(1);
 	}
 
 /* Bio HTML is too broken to use - do PREG grabs instead!
@@ -156,7 +158,8 @@ foreach ($contacturls as $cu=>$trueval) {
 	if($contact_data=preg_match("/$contact_source_block_start(.*)$contact_source_block_end/",$contact_data,$matches)) {
 		$contact_data=$matches[1];
 	} else { 
-		die("ERROR: Source page format (contact page) has changed"); 
+		fwrite(STDERR, "ERROR: Source page format (contact page) has changed"); 
+        exit(1);
 	}
 
 	$contact_data=preg_replace("/<br>/",'<br />',$contact_data);
@@ -195,9 +198,6 @@ foreach ($contacturls as $cu=>$trueval) {
 			}
 		#}
 	}
-
-	#die();
-	
 }
 
 if($debug) {
