@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.17 2005-11-25 16:27:16 francis Exp $
+ * $Id: general-example,v 1.18 2005-12-01 10:41:47 chris Exp $
  * 
  */
 
@@ -47,6 +47,9 @@ define('OPTION_GAZE_DB_PASS', '');
 
 // Where the Xapian (index) databases for Gaze reside.
 define('OPTION_GAZE_XAPIAN_INDEX_DIR', '/web/SERVERS/mssvcs.fishsoupisgoodforyou.com/mysociety/services/Gaze/xapian');
+
+// Where the binary dumps of the GPW data live.
+define('OPTION_GAZE_GPW_DATA_DIR', '/home/chris/tmp');
 
 // PostgreSQL database for Ratty
 define('OPTION_RATTY_DB_NAME', 'ratty');
