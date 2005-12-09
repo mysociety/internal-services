@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.1 2005-12-09 12:10:38 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.2 2005-12-09 12:17:04 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -354,41 +354,6 @@ while (1) {
     try {
         $record = parse_record($html, $l->url(), $l->text());
         print Dumper($record), "-----\n";
-
-        # Construct map of same.
-        my $common = '-JM0/55/5 -R-11/2/49.5/59.5';
-        system("pscoast $common -Dh -I1 -N1 -W -K > $id.ps");
-        my $p = new IO::Pipe();
-        $p->writer("psxy $common -S -G255/0/0 -O -K >> $id.ps");
-        my $maxcirc = 0;
-        foreach (@{$record->{coverage}}) {
-            $maxcirc = $_->[2] if ($_->[2] > $maxcirc);
-        }
-        my $circcal = int(10 ** (int(log($maxcirc) / log(10))));
-        my $r = sprintf('%.5f', sqrt($circcal / $maxcirc) * 0.15);
-        $p->print("-2 59 ${r} c\n");
-        $r /= sqrt(10);
-        $p->print("-2 58.75 ${r} c\n");
-        foreach (@{$record->{coverage}}) {
-            my ($name, $size, $circ, $lat, $lon) = @$_;
-            $r = sprintf('%.5f', sqrt($circ / $maxcirc) * 0.15);
-            $p->print("$lon $lat ${r} c\n") if (defined($lat));
-#            STDERR->print("$lon $lat ${r}p\n") if (defined($lat));
-        }
-        $p->close();
-        $p = new IO::Pipe();
-        $p->writer("pstext $common -G0 -O >> $id.ps");
-        $p->print("-1.8 59 10 0 0 LM ${circcal} subscribers\n");
-        $circcal /= 10;
-        $p->print("-1.8 58.75 10 0 0 LM ${circcal}\n");
-        $p->print("-10.5 59.25 12 0 0 LB #$id\n");
-        $p->print("-10.5 59 16 0 3 LB $record->{name}\n");
-        my $lat = 58.9;
-        foreach (@{$record->{coverage}}) {
-            $p->print("-10.5 $lat 11 0 29 LT $_->[0]\n");
-            $lat -= 0.225;
-        }
-        $p->close();
     } catch Oops with {
         my $E = shift;
         print STDERR "oops: ", $E->text(), "\n";
