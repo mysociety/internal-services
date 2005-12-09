@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.32 2005-12-08 23:53:54 chris Exp $
+# $Id: EvEl.pm,v 1.33 2005-12-09 10:39:35 chris Exp $
 #
 
 package EvEl::Error;
@@ -293,10 +293,15 @@ sub format_mimewords ($) {
     # This is unpleasant. Whitespace which separates two encoded-words is not
     # significant, so we need to fold it in to one of them. Rather than having
     # some complicated state-machine driven by words, just encode the whole
-    # line if it contains any non-ASCII characters.
+    # line if it contains any non-ASCII characters. However, this is going to
+    # suck whatever happens, because we can't include a blank in a
+    # quoted-printable MIME-word, so we have to encode it as =20 or whatever,
+    # so this is still going to be near-unreadable for users whose MUAs suck
+    # at MIME.
     utf8::encode($text); # turn to string of bytes
     if ($text =~ m#[\x00-\x1f\x80-\xff]#) {
-        $text = MIME::Words::encode_mimeword($s, 'Q', 'utf-8');
+        $text =~ s#(\s|[\x00-\x1f\x80-\xff])#sprintf('=%02x', ord($1))#ge;
+        $text = "=?UTF-8?Q?$text?="
     }
     utf8::decode($text);
     return $text;
