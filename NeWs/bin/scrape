@@ -1,0 +1,397 @@
+#!/usr/bin/perl -w
+#
+# scrape:
+# Scrape Newspaper Society newspaper records.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.1 2005-12-09 12:10:38 chris Exp $';
+
+use strict;
+require 5.8.0;
+
+package Oops;
+
+@Oops::ISA = qw(Error::Simple);
+
+package main;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../perllib";
+
+use Data::Dumper;
+use Error qw(:try);
+use Geo::Distance;
+use HTML::Entities;
+use HTML::TreeBuilder;
+use IO::File;
+use Storable;
+use WWW::Mechanize;
+
+use mySociety::Gaze;
+mySociety::Gaze::configure('http://gaze.mysociety.org/gaze');
+
+sub gaze_find_places ($) {
+    my $query = shift;
+    my $filename = "$query.gazecache";
+    $filename =~ s/([^A-Za-z])/sprintf('%%%02x', ord($1))/ge;
+    my $r;
+    return $r if (-e $filename && ($r = Storable::retrieve($filename)));
+    $r = mySociety::Gaze::find_places('GB', undef, $query, 10, 90);
+    print STDERR "$query -> ", Dumper($r);
+    Storable::nstore($r, $filename);
+    return $r;
+}
+
+# median2d ARRAY
+# Compute a two-dimensional analogue of the median. ARRAY is a reference to a
+# list of [X, Y] pairs; the function returns the coordinates of the "median"
+# point. For each point, the number of points in the four quadrants (above
+# left, above right, below left, below right) around the point are computed,
+# and the maximum difference between the population of any two quadrants is
+# recorded. A point which lies on the border between two quadrants is shared
+# equally between them. The "median" is the point for which this maximum
+# difference is minimised. If there are ties, then the mean of the coordinates
+# of the tied points is computed. Optionally, each point may include a positive
+# weight; if weights are specified, then they are used in the natural way to
+# compute the median.
+sub median2d ($) {
+    my $ary = shift;
+    my @score = ( );
+
+    my $nw = scalar(grep { @$_ == 3 } @$ary);
+    die "either all or none of the coordinates given must have a weight"
+        if ($nw != 0 && $nw != @$ary);
+    die "all weights must be positive"
+        if ($nw && scalar(grep { !defined($_->[2]) || $_->[2] > 0 } @$ary));
+    if (!$nw) {
+        foreach(@$ary) {
+            $_->[2] = 1;
+        }
+    }
+
+    for (my $i = 0; $i < @$ary; ++$i) {
+        #           TL TR BL BR
+        my @qq = qw(0  0  0  0);
+        my ($x, $y, $w) = @{$ary->[$i]};
+        for (my $j = 0; $j < @$ary; ++$j) {
+            next if ($j == $i);
+            my $X = ($ary->[$j]->[0] <=> $x);
+            my $Y = ($ary->[$j]->[1] <=> $y);
+            my $b = 0;
+            $b |= 1 if ($X > 0);
+            $b |= 2 if ($Y > 0);
+            if ($X && $Y) {
+                $qq[$b] += $w;
+            } elsif ($X) {
+                $qq[$b] += .5 * $w;
+                $qq[$b | 2] += .5 * $w;
+            } elsif ($Y) {
+                $qq[$b] += .5 * $w;
+                $qq[$b | 1] += .5 * $w;
+            } else {
+                $qq[0] += .25 * $w;
+                $qq[1] += .25 * $w;
+                $qq[2] += .25 * $w;
+                $qq[3] += .25 * $w;
+            }
+        }
+
+        # Find the max difference
+        my $maxdiff = 0;
+        for (my $a = 0; $a < 4; ++$a) {
+            for (my $b = 0; $b < 4; ++$b) {
+                my $d = abs($qq[$a] - $qq[$b]);
+                $maxdiff = $d if ($d > $maxdiff);
+            }
+        }
+
+        push(@score, [$i, $maxdiff]);
+    }
+    @score = sort { $a->[1] <=> $b->[1] } @score;
+    my ($x, $y) = (0, 0);
+    my $n;
+    for ($n = 0; $n < @score && $score[$n]->[1] == $score[0]->[1]; ++$n) {
+        my $i = $score[$n]->[0];
+        $x += $ary->[$i]->[0];
+        $y += $ary->[$i]->[1];
+    }
+    $x /= $n;
+    $y /= $n;
+    if (wantarray()) {
+        return ($x, $y);
+    } else {
+        return [$x, $y];
+    }
+}
+
+# strip_tags ELT
+# Strip font tags from ELT.
+sub strip_tags ($) {
+    my $e = shift;
+    # XXX Should replace with recursive procedure -- see
+    # HTML::Element::traverse(1).
+    $e->traverse([
+            # pre-order callback
+            sub {
+                my $node = shift;
+                if ($node->tag() eq 'font') {
+                    $node->replace_with_content();
+                }
+                return 1;
+            },
+            # no post-order callback
+            0],
+            # no text callback
+            1);
+}
+
+# parse_record HTML URL TITLE
+# Given the HTML page about an individual newspaper, scrape information about
+# it and return same.
+sub parse_record ($$$) {
+    my ($html, $url, $name) = @_;
+
+    my ($id) = ($html =~ m#"javascript: DoMap\(([1-9]\d*)\);"#);
+    throw Oops("no ID found in newspaper HTML") unless (defined($id));
+
+    $url ||= "http://www.nsdatabase.co.uk/newspaperdetail.cfm?paperid=$id";
+
+    my $T = HTML::TreeBuilder->new_from_content($html);
+    strip_tags($T);
+
+    # Find the "Newspaper" panel in the top table. "Newspaper" is emboldened.
+    my $n = $T->look_down('_tag', 'b',
+                    sub ($) {
+                        my $t = shift;
+                        if ($t->parent()->tag() eq 'td'
+                            && $t->as_text() eq 'Newspaper') {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    })
+        || throw Oops("no newspaper panel found in top table");
+    
+    $n = $n->parent();
+    
+    # The newspaper's name, address, editor and other details are in a <p> tag
+    # within this table cell.
+    my $p = $n->look_down('_tag', 'p');
+    my $details = $p->as_HTML();
+    $details =~ s#</?[a-z]>##g;
+
+    my %h = ( nsid => $id, name => $name, nsurl => $url );
+
+    $h{name} = $name;
+    ($name, my @lines) = map { decode_entities($_) } split(m#<br>#, $details);
+
+    if ($name =~ m#^<a href="([^"]+)" target="_blank">(.+)#) {
+        $h{name} ||= $2;
+        $h{web} = $1;
+    } else {
+        $h{name} ||= $name;
+    }
+   
+    # Remaining lines are either part of the address, or prefixed lines about
+    # other aspects of the newspaper.
+    $h{address} = '';
+    foreach (@lines) {
+        if ($_ =~ /^\s*([^:]+):\s*(.*)/) {
+            if ($1 eq 'Tel') {
+                # ||= so that advertising telephone # doesn't replace
+                # editorial.
+                $h{telephone} ||= $2;
+            } elsif ($1 eq 'Fax') {
+                $h{fax} ||= $2;
+            } elsif ($1 eq 'Newspaper Editor') {
+                $h{editor} ||= $2;
+            }
+        } elsif ($_ =~ /\s*([^\s].*)/) {
+            $h{address} .= "$1\n";
+        }
+    }
+
+    # Grab the total circulation, so that we can use that to estimate
+    # place-by-place circulation in the case where it's not stated.
+    my $t = $T->look_down('_tag', 'td',
+                    sub ($) {
+                        my $t = shift;
+                        if ($t->as_text() =~ /^\s*Total circulation\s*$/) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    })
+        || throw Oops("no total circulation data found");
+    $t = ($t->parent()->content_list())[1];
+    $h{totalcirculation} = $t->as_text();
+    $h{totalcirculation} =~ s/^\s+//;
+    $h{totalcirculation} =~ s/\s+$//;
+
+    # Now find the table of coverage by location.
+    $t = $T->look_down('_tag', 'td',
+                    sub ($) {
+                        my $t = shift;
+                        if ($t->as_text() =~ /^\s*Location Name\s*$/) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    })
+        || throw Oops("no coverage by location table found");
+    $t = $t->parent()->parent();
+    $h{coverage} = [ ];
+    my ($totalsize, $sumcirculation) = (0, 0);
+    foreach my $row ($t->content_list()) {
+        my ($place, $households, $circulation) = map { my $x = $_->as_text(); $x =~ s/^\s+//; $x =~ s/\s+$//; $x } $row->content_list();
+        next unless ($households =~ /^[1-9][0-9]*$/);
+        push(@{$h{coverage}}, [$place, $households, $circulation]);
+        $totalsize += $households;
+        $sumcirculation += $circulation;
+    }
+
+    # If the circulation is listed as 0 for all locations, then guess that the
+    # total circulation is distributed in proportion to the size of each
+    # location listed.
+    if ($sumcirculation == 0) {
+        if ($h{totalcirculation} == 0) {
+            warn "no total circulation known for this paper; assuming 1%";
+            $h{totalcirculation} = 0.01 * $totalsize;
+        }
+        warn "estimating circulation for $h{name} from total circulation $h{totalcirculation}";
+        foreach (@{$h{coverage}}) {
+            $_->[2] = ($_->[1] / $totalsize) * $h{totalcirculation};
+        }
+    } elsif ($h{totalcirculation} == 0) {
+        $h{totalcirculation} = $sumcirculation;
+    }
+
+    throw Oops("no coverage areas specified") if (!@{$h{coverage}});
+
+    # Now try to figure out where the various named places are.
+    my @allplaces;
+    my @coords;
+    foreach (@{$h{coverage}}) {
+        my ($name) = @$_;
+        # Circulation in "... Rural" or "... Rural Area" is often listed. So
+        # that Gaze gets a chance to find these, strip off the suffix.
+        $name =~ s/Rural(| Area)$//;
+        # Set a high minimum score so that we only get exact or close matches.
+        my $places = gaze_find_places($name);
+        push(@allplaces, $places);
+        foreach (@$places) {
+            push(@coords, [$_->[3], $_->[4]]);
+        }
+    }
+    
+    throw Oops("could not find location of any coverage areas") if (!@coords);
+
+    my ($lat, $lon) = median2d(\@coords);
+
+    # Find best match for each place in @allplaces, and annotate the coverage
+    # array with its coordinates.
+    for (my $i = 0; $i < @allplaces; ++$i) {
+        my $pp = $allplaces[$i];
+        if (@$pp > 1) {
+            print STDERR "candidates for '$pp->[0]->[0]':\n";
+            foreach (@$pp) {
+                printf "    %24.24s (%.2f, %.2f) %.1f km\n", $_->[0], $_->[3], $_->[4], Geo::Distance::distance($_->[3], $_->[4], $lat, $lon);
+            }
+            # Several candidates; find the one closest to the "median".
+            @$pp = sort { Geo::Distance::distance($a->[3], $a->[4], $lat, $lon) <=> Geo::Distance::distance($b->[3], $b->[4], $lat, $lon) } @$pp;
+        }
+
+        if (@$pp > 0) {
+            push(@{$h{coverage}->[$i]}, $pp->[0]->[3], $pp->[0]->[4]);
+        } else {
+            push(@{$h{coverage}->[$i]}, undef, undef);
+        }
+    }
+
+    # Occasionally we'll get a place which is not in the real coverage area for
+    # the paper, and for which the real place is not in Gaze.
+    
+    return \%h;
+}
+
+my $M = new WWW::Mechanize();
+$M->agent_alias('Windows IE 6');
+
+$M->get('http://www.newspapersoc.org.uk/Documents/Newspapers&Publishers/newspaper-index.htm');
+
+my $i = 0;
+while (1) {
+    ++$i;
+
+#    my $l = $M->find_link(n => $i, url_regex => qr#/newspaperdetail\.cfm\?paperid=[1-9]\d*$#);
+    my $l = $M->find_link(n => $i, url_regex => qr#/newspaperdetail\.cfm\?paperid=1010$#);
+    last if (!$l);
+
+    print STDERR $l->url(), "\n";
+    print STDERR $l->text(), "\n";
+
+    my ($id) = ($l->url() =~ /([1-9]\d*)$/);
+    my $html;
+    if (-e "$id.html") {
+        my $f = new IO::File("$id.html");
+        $html = join('', $f->getlines());
+        $f->close();
+    } else {
+        my $r = $M->get($l->url());
+        my $f = new IO::File("$id.html", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        $f->print($html = $r->content());
+        $f->close();
+        $M->back();
+    }
+    
+    # Sometimes the links are bad, so still trap errors.
+    my $record;
+    try {
+        $record = parse_record($html, $l->url(), $l->text());
+        print Dumper($record), "-----\n";
+
+        # Construct map of same.
+        my $common = '-JM0/55/5 -R-11/2/49.5/59.5';
+        system("pscoast $common -Dh -I1 -N1 -W -K > $id.ps");
+        my $p = new IO::Pipe();
+        $p->writer("psxy $common -S -G255/0/0 -O -K >> $id.ps");
+        my $maxcirc = 0;
+        foreach (@{$record->{coverage}}) {
+            $maxcirc = $_->[2] if ($_->[2] > $maxcirc);
+        }
+        my $circcal = int(10 ** (int(log($maxcirc) / log(10))));
+        my $r = sprintf('%.5f', sqrt($circcal / $maxcirc) * 0.15);
+        $p->print("-2 59 ${r} c\n");
+        $r /= sqrt(10);
+        $p->print("-2 58.75 ${r} c\n");
+        foreach (@{$record->{coverage}}) {
+            my ($name, $size, $circ, $lat, $lon) = @$_;
+            $r = sprintf('%.5f', sqrt($circ / $maxcirc) * 0.15);
+            $p->print("$lon $lat ${r} c\n") if (defined($lat));
+#            STDERR->print("$lon $lat ${r}p\n") if (defined($lat));
+        }
+        $p->close();
+        $p = new IO::Pipe();
+        $p->writer("pstext $common -G0 -O >> $id.ps");
+        $p->print("-1.8 59 10 0 0 LM ${circcal} subscribers\n");
+        $circcal /= 10;
+        $p->print("-1.8 58.75 10 0 0 LM ${circcal}\n");
+        $p->print("-10.5 59.25 12 0 0 LB #$id\n");
+        $p->print("-10.5 59 16 0 3 LB $record->{name}\n");
+        my $lat = 58.9;
+        foreach (@{$record->{coverage}}) {
+            $p->print("-10.5 $lat 11 0 29 LT $_->[0]\n");
+            $lat -= 0.225;
+        }
+        $p->close();
+    } catch Oops with {
+        my $E = shift;
+        print STDERR "oops: ", $E->text(), "\n";
+    };
+    $M->back();
+}
