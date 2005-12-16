@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.58 2005-11-25 16:50:01 francis Exp $
+# $Id: DaDem.pm,v 1.59 2005-12-16 10:33:47 chris Exp $
 #
 
 package DaDem;
@@ -248,8 +248,12 @@ area ID to a list of representatives for each; or, on failure, an error code.
 sub get_representatives ($) {
     my ($id) = @_;
 
-    if (ref($id) eq 'ARRAY') {
-        return { (map { $_ => get_representatives($_) } @$id) };
+    if (ref($id)) {
+        if (ref($id) eq 'ARRAY') {
+            return { (map { $_ => get_representatives($_) } @$id) };
+        } else {
+            throw RABX::Error("Argument must be a scalar ID or an array in get_representatives, not " . ref($id));
+        }
     }
 
     # Dummy postcode case
