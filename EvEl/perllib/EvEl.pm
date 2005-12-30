@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.33 2005-12-09 10:39:35 chris Exp $
+# $Id: EvEl.pm,v 1.34 2005-12-30 12:32:08 matthew Exp $
 #
 
 package EvEl::Error;
@@ -312,7 +312,11 @@ sub format_mimewords ($) {
 # in an email From:/To: header.
 sub format_email_address ($$) {
     my ($name, $addr) = @_;
-    return sprintf('%s <%s>', format_mimewords($name), $addr);
+    $name = format_mimewords($name);
+    $name =~ s/"/\\"/g;
+    $name =~ s/\\/\\\\/g;
+    $name = "\"$name\"";
+    return sprintf('%s <%s>', $name, $addr);
 }
 
 sub do_one_substitution ($$) {
