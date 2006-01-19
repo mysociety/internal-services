@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.19 2006-01-16 18:22:38 francis Exp $
+ * $Id: general-example,v 1.20 2006-01-19 11:39:48 francis Exp $
  * 
  */
 
@@ -25,27 +25,29 @@ define('OPTION_MAPIT_URL', 'http://services.mysociety.org/mapit');
 define('OPTION_MAPIT_DB_NAME', 'mapit');
 define('OPTION_MAPIT_DB_USER', 'mapit');
 define('OPTION_MAPIT_DB_PASS', '');
-// optionally, define a hostname and port
-//define('OPTION_MAPIT_DB_HOST', 'localhost');
-//define('OPTION_MAPIT_DB_PORT', '5432');
+define('OPTION_MAPIT_DB_HOST', 'localhost');
+define('OPTION_MAPIT_DB_PORT', '5432');
 
 // PostgreSQL database for DaDem
 define('OPTION_DADEM_DB_NAME', 'dadem');
 define('OPTION_DADEM_DB_USER', 'dadem');
 define('OPTION_DADEM_DB_PASS', '');
-// optionally, define a hostname and port
-//define('OPTION_DADEM_DB_HOST', 'localhost');
-//define('OPTION_DADEM_DB_PORT', '5432');
+define('OPTION_DADEM_DB_HOST', 'localhost');
+define('OPTION_DADEM_DB_PORT', '5432');
 
 // PostgreSQL database for Ratty
 define('OPTION_RATTY_DB_NAME', 'ratty');
 define('OPTION_RATTY_DB_USER', 'ratty');
 define('OPTION_RATTY_DB_PASS', '');
+define('OPTION_RATTY_DB_HOST', 'localhost');
+define('OPTION_RATTY_DB_PORT', '5432');
 
 // PostgreSQL database for EvEl
 define('OPTION_EVEL_DB_NAME', 'evel');
 define('OPTION_EVEL_DB_USER', 'evel');
 define('OPTION_EVEL_DB_PASS', '');
+define('OPTION_EVEL_DB_HOST', 'localhost');
+define('OPTION_EVEL_DB_PORT', '5432');
 
 define('OPTION_EVEL_VERP_PREFIX', 'evel-');
 define('OPTION_EVEL_VERP_DOMAIN', 'evel.services.mysociety.org');
