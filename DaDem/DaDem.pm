@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.59 2005-12-16 10:33:47 chris Exp $
+# $Id: DaDem.pm,v 1.60 2006-01-23 18:39:08 francis Exp $
 #
 
 package DaDem;
@@ -694,8 +694,8 @@ sub admin_edit_representative ($$$$) {
         if ($newdata->{'name'} && $newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
         if ($newdata->{'party'} && $newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };
         if ($newdata->{'method'} && $newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
-        if ($newdata->{'email'} && $newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
-        if ($newdata->{'fax'} && $newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
+        if ($newdata->{'email'} && $email && $newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
+        if ($newdata->{'fax'} && $fax && $newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
         # Make undef (NULL) for any blank strings
         if ($newdata->{'name'} && $newdata->{'name'} eq '') { $newdata->{'name'} = undef; };
         if ($newdata->{'party'} && $newdata->{'party'} eq '') { $newdata->{'party'} = undef; };
