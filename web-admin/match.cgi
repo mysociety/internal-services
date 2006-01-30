@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.29 2005-10-20 11:28:09 francis Exp $
+# $Id: match.cgi,v 1.30 2006-01-30 00:12:42 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.29 2005-10-20 11:28:09 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.30 2006-01-30 00:12:42 francis Exp $';
 
 use strict;
 
@@ -257,7 +257,7 @@ sub do_council_info ($) {
         }
     }
     $q->param('r', $q->self_url());
-    print $q->start_form(-method => 'POST');
+    print $q->start_form(-method => 'POST', -action => $q->url('relative'=>1));
     print $q->p(
             $q->b("Make live:"),
             $q->checkbox(-name => 'make_live', -label => ' Copy data to live database when wards match'),
@@ -429,7 +429,7 @@ sub do_council_edit ($) {
         will be contacted via Democratic Services.");
 
     # Large form for editing council details
-    print $q->start_form(-method => 'POST');
+    print $q->start_form(-method => 'POST', -action => $q->url('relative'=>1));
     print $q->submit('Save and Done'); 
     print $q->submit('Save');
     print "&nbsp;";
@@ -566,8 +566,8 @@ sub do_mapit_names_edit ($) {
     }
     my $reps_count = $c-1;
 
-    # Large form for editing council details
-    print $q->start_form(-method => 'POST');
+    # Large form for editing ward aliases
+    print $q->start_form(-method => 'POST', -action => $q->url('relative'=>1));
     print $q->submit('Save and Done'); 
     print $q->submit('Save');
     print "&nbsp;";
