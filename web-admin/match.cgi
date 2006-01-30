@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.30 2006-01-30 00:12:42 francis Exp $
+# $Id: match.cgi,v 1.31 2006-01-30 00:28:50 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.30 2006-01-30 00:12:42 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.31 2006-01-30 00:28:50 francis Exp $';
 
 use strict;
 
@@ -55,7 +55,7 @@ td { margin: 0px; padding: 0px; padding-right: 2pt; }
 </head>
 <body>
 END
-   $ret .= $q->p("Menu:", $q->a( {href=>$q->url()}, "Status Summary")); 
+   $ret .= $q->p("Menu:", $q->a( {href=>$q->url('relative'=>1)}, "Status Summary")); 
 
    return $ret;
 }
@@ -228,11 +228,11 @@ sub do_council_info ($) {
     # Google links
     print $q->p(
         $q->a({href => build_url($q, $q->url('relative'=>1), 
-              {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->self_url()}) }, 
+              {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->url(-query=>1, -path=>1, -relative=>1)}) }, 
               "Edit councils and wards"),
         " |",
         $q->a({href => build_url($q, $q->url('relative'=>1), 
-              {'area_id' => $area_id, 'page' => 'mapitnamesedit', 'r' => $q->self_url()}) }, 
+              {'area_id' => $area_id, 'page' => 'mapitnamesedit', 'r' => $q->url(-query=>1, -path=>1, -relative=>1)}) }, 
               "Edit ward aliases"),
         " |",
         map { ( $q->a({href => build_url($q, "http://www.google.com/search", 
@@ -256,7 +256,7 @@ sub do_council_info ($) {
             $q->delete('make_live');
         }
     }
-    $q->param('r', $q->self_url());
+    $q->param('r', $q->url(-query=>1, -path=>1, -relative=>1));
     print $q->start_form(-method => 'POST', -action => $q->url('relative'=>1));
     print $q->p(
             $q->b("Make live:"),
