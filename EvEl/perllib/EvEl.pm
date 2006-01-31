@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.34 2005-12-30 12:32:08 matthew Exp $
+# $Id: EvEl.pm,v 1.35 2006-01-31 20:26:22 chris Exp $
 #
 
 package EvEl::Error;
@@ -51,6 +51,7 @@ BEGIN {
             Port => mySociety::Config::get('EVEL_DB_PORT', undef)
         );
 
+    # XXX need to make this into a callback on first call to dbh().
     if (!dbh()->selectrow_array('select secret from secret for update of secret')) {
         dbh()->do('insert into secret (secret) values (?)', {}, unpack('h*', random_bytes(32)));
     }
