@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.35 2006-01-31 20:26:22 chris Exp $
+# $Id: EvEl.pm,v 1.36 2006-02-01 11:51:28 chris Exp $
 #
 
 package EvEl::Error;
@@ -48,14 +48,17 @@ BEGIN {
             User => mySociety::Config::get('EVEL_DB_USER'),
             Password => mySociety::Config::get('EVEL_DB_PASS'),
             Host => mySociety::Config::get('EVEL_DB_HOST', undef),
-            Port => mySociety::Config::get('EVEL_DB_PORT', undef)
+            Port => mySociety::Config::get('EVEL_DB_PORT', undef),
+            OnFirstUse => sub {
+                if (!dbh()->selectrow_array('select secret from secret')) {
+                    dbh()->{RaiseError} = 0;
+                    dbh()->do('insert into secret (secret) values (?)',
+                                {}, unpack('h*', random_bytes(32)));
+                    dbh()->commit();
+                    dbh()->{RaiseError} = 1;
+                }
+            }
         );
-
-    # XXX need to make this into a callback on first call to dbh().
-    if (!dbh()->selectrow_array('select secret from secret for update of secret')) {
-        dbh()->do('insert into secret (secret) values (?)', {}, unpack('h*', random_bytes(32)));
-    }
-    dbh()->commit();
 }
 
 #
