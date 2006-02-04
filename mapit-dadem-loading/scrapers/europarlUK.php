@@ -165,13 +165,13 @@ foreach($members as $member) {
 
 foreach($expectmembers as $region => $expect) {
 	if(($expect<$mepsfound[$region]) ) {
-		fwrite(STDERR, "\nToo many MEPs in '$region': expected $expect,  found $mepsfound[$region], aborting\n");
+		fwrite(STDERR, "Too many MEPs in '$region': expected $expect,  found $mepsfound[$region], aborting\n");
         exit(1);
 	}
 	if(($expect>$mepsfound[$region]) ) {
-		fwrite(STDERR, "\nMissing MEPs for '$region': expected $expect,  found $mepsfound[$region]\n");
+		fwrite(STDERR, "Missing MEPs for '$region': expected $expect,  found $mepsfound[$region]\n");
         if ($expect - $mepsfound[$region] > 1) {
-            fwrite(STDERR, "\nMore than one difference, so aborting");
+            fwrite(STDERR, "More than one difference, so aborting\n");
             exit(1);
         }
 	}
