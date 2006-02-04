@@ -85,10 +85,10 @@ foreach($regionurls as $region => $regionurl) {
 	foreach ($sections as $section) {
 		$matched=0;
 		if(
-			preg_match('#^="([^"]*)".*<img src="([^"]*)".*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*)?Fax: ([^<]*).*mailto:([^"]+)#',$section,$matches)) {
+			preg_match('#^="([^"]*)".*<img src="([^"]*)".*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*)?Fax: ([^<]*).*?mailto:([^"]+)#',$section,$matches)) {
 		#	print("MATCH 1\n");
 			$matched=1;
-		} else if (preg_match('#^="([^"]*)"().*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*Fax: ([^<]*))?.*mailto:([^"]+)#',$section,$matches)) {
+		} else if (preg_match('#^="([^"]*)"().*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*Fax: ([^<]*))?.*?mailto:([^"]+)#',$section,$matches)) {
 			$matched=1;
 		#	print("MATCH 2\n");
 
