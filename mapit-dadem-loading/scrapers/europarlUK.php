@@ -81,9 +81,6 @@ foreach($regionurls as $region => $regionurl) {
 	}
 
 	$sections=preg_split('/<a name/',$meplist_data,-1,PREG_SPLIT_NO_EMPTY);
-	
-	#print_r($sections);
-	#exit();
 
 	foreach ($sections as $section) {
 		$matched=0;
@@ -151,10 +148,6 @@ foreach($regionurls as $region => $regionurl) {
 #	$mepsfound[$members[$mep]['region']]++;
 #}
 
-if (count($members) != 78) {
-    fwrite(STDERR, "Expected 78 UK MEPs, got " . count($members) . "\n");
-    exit(1);
-}
 foreach($members as $member) {
     if(!preg_match("#\d+#",$member['fax'])) {
         #err("Missing fax data for $member[firstname] $member[surname] ($member[region])\n");
@@ -171,9 +164,16 @@ foreach($members as $member) {
 }
 
 foreach($expectmembers as $region => $expect) {
-	if(($expect!=$mepsfound[$region]) ) {
-	#	err("Count mismatch of MEPs in '$region': expected $expect,  found $mepsfound[$region]\n");
-		print("\nCount mismatch of MEPs in '$region': expected $expect,  found $mepsfound[$region]\n");
+	if(($expect<$mepsfound[$region]) ) {
+		fwrite(STDERR, "\nToo many MEPs in '$region': expected $expect,  found $mepsfound[$region], aborting\n");
+        exit(1);
+	}
+	if(($expect>$mepsfound[$region]) ) {
+		fwrite(STDERR, "\nMissing MEPs for '$region': expected $expect,  found $mepsfound[$region]\n");
+        if ($expect - $mepsfound[$region] > 1) {
+            fwrite(STDERR, "\nMore than one difference, so aborting");
+            exit(1);
+        }
 	}
 }
 
