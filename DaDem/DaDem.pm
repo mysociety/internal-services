@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.60 2006-01-23 18:39:08 francis Exp $
+# $Id: DaDem.pm,v 1.61 2006-02-07 20:33:20 francis Exp $
 #
 
 package DaDem;
@@ -238,19 +238,21 @@ foreach (keys %dummy_representatives) {
 }
 
 
-=item get_representatives ID_or_ARRAY
+=item get_representatives ID_or_ARRAY [ALL]
 
 Given the ID of an area (or an ARRAY of IDs of several areas), return a list of
 the representatives returned by that area, or, for an array, a hash mapping
 area ID to a list of representatives for each; or, on failure, an error code.
+The default is to return only current reprenatives.  If ALL has value 1, then
+even deleted representatives are returned. 
 
 =cut
-sub get_representatives ($) {
-    my ($id) = @_;
+sub get_representatives ($;$) {
+    my ($id, $all) = @_;
 
     if (ref($id)) {
         if (ref($id) eq 'ARRAY') {
-            return { (map { $_ => get_representatives($_) } @$id) };
+            return { (map { $_ => get_representatives($_, $all) } @$id) };
         } else {
             throw RABX::Error("Argument must be a scalar ID or an array in get_representatives, not " . ref($id));
         }
@@ -273,7 +275,11 @@ sub get_representatives ($) {
         throw RABX::Error("Area $id not found", mySociety::DaDem::UNKNOWN_AREA);
     } 
     
-    return [ map { $_->[0] } grep { !($_->[1]) } @$y ];
+    if ($all) {
+        return [ map { $_->[0] } @$y ];
+    } else {
+        return [ map { $_->[0] } grep { !($_->[1]) } @$y ];
+    }
 }
 
 =item get_area_status AREA_ID

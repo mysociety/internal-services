@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.11 2005-11-30 21:02:32 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.12 2006-02-07 20:33:20 francis Exp $';
 
 use strict;
 
@@ -68,11 +68,13 @@ if ($kind eq "mep") {
     $types = [qw(WAC WAE)];
 } elsif ($kind eq "lam") {
     $types = [qw(LAC LAE)];
+} elsif ($kind eq "mla") {
+    $types = [qw(NIE)];
 } elsif ($kind eq "ds") {
     $types = $mySociety::VotingArea::council_parent_types;
     $allow_multiples = 0;
 } else {
-    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
+    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds', 'mla'";
 }
 
 my $main_file = shift(@ARGV);
@@ -191,7 +193,7 @@ while (my $line = <MAIN>) {
     }
 
     my ($finalcons, $finalname, $finalparty, $finalmethod, $finalemail, $finalfax);
-    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam") {
+    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam" or $kind eq 'mla') {
         my ($first, $last, $constituency, $party, $email, $fax) = @fields;
 
         $finalcons = $constituency;

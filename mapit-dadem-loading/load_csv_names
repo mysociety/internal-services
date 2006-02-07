@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.4 2005-10-21 18:54:48 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.5 2006-02-07 20:33:20 francis Exp $';
 
 use strict;
 
@@ -55,6 +55,9 @@ if ($kind eq "mep") {
     $name_type_char = 'G';
 } elsif ($kind eq "lam") {
     $types = [qw(LAC LAE)];
+    $name_type_char = 'G';
+} elsif ($kind eq "mla") {
+    $types = [qw(NIE)];
     $name_type_char = 'G';
 } elsif ($kind eq "ds") {
     $types = $mySociety::VotingArea::council_parent_types;
@@ -109,7 +112,7 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my $cons;
 
-    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam") {
+    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam" or $kind eq "mla") {
         # GovEval-format file.
         my ($first, $last, $constituency, @dummy) = map { trim_spaces($_) } $C->fields();
         $cons = $constituency;

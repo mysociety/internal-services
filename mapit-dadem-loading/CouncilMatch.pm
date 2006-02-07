@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.5 2005-10-21 18:54:48 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.6 2006-02-07 20:33:20 francis Exp $
 #
 
 package CouncilMatch;
@@ -313,7 +313,8 @@ sub canonicalise_constituency_name ($) {
 
     # General
     $_ = lc;
-    s#&#and#g;
+    s#&# and #g;
+    s#/# and #g;
     s#-# #g;
     s#'##g;
     s#,##g;
