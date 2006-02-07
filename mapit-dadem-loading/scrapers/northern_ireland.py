@@ -419,11 +419,11 @@ def mergeData():
         else:
             #can't match - just go with NIA
             combinedEmail = " ".join( set([email.lower() for email in niaEmail.split()]))
-        normCons = normalizedConstits.get(niaConstituency, niaConstituency
+        normCons = normalizedConstits.get(niaConstituency, niaConstituency)
         #print data to output, giving preference to NIA data, but listing all emails
         print '"%s","%s","%s","%s","%s","","%s"' % (realNameCase(niaForename),
                                                     realNameCase(niaSurname), 
-                                                    realNameCase(normCons)), 
+                                                    realNameCase(normCons), 
                                                     niaParty, 
                                                     combinedEmail, 
                                                     niaImgUrl) 
