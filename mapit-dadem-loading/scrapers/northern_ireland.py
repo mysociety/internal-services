@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2.4
 #
 # northern_ireland.py:
 # Screen scrape representatives from Northern Ireland assembly website, 
