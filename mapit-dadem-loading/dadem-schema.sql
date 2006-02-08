@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.35 2006-02-08 10:15:01 francis Exp $
+-- $Id: dadem-schema.sql,v 1.36 2006-02-08 13:05:55 francis Exp $
 --
 
 -- data about status of an area in relation to its representatives
@@ -32,7 +32,12 @@ create table representative (
     -- such as GovEval id, etc.
     import_key text,
     -- time of entry creation in UNIX time
-    whencreated integer -- TODO: add "not null"
+    -- NOTE: This field was added 2006-02-08, with old data generated using backup files
+    -- Old data will not be particularly accurate. It isn't a very accurate field anyway,
+    -- as it depends on when data was updated, not when the representative took office.
+    -- In particular, the first edited data in representative_edited may be a day or two
+    -- earlier than this date.
+    whencreated integer not null
 );
 create index representative_area_id_idx on representative(area_id);
 -- sometimes the same goveval key applies to two areas, for example when a councillor moves
