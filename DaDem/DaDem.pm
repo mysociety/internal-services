@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.61 2006-02-07 20:33:20 francis Exp $
+# $Id: DaDem.pm,v 1.62 2006-02-08 10:15:01 francis Exp $
 #
 
 package DaDem;
@@ -519,13 +519,15 @@ sub get_representatives_info ($) {
                     coalesce(representative_edited.fax, representative.fax) as fax,
                     coalesce(representative_edited.method, representative.method) as method,
                     coalesce(representative_edited.deleted, false) as deleted,
-                    coalesce(representative_edited.editor, 'import') as editor
+                    coalesce(representative_edited.editor, 'import') as editor,
+                    representative.whencreated as whencreated,
+                    coalesce(representative_edited.whenedited, representative.whencreated) as whenlastedited
                 from representative left join representative_edited on representative.id = representative_edited.representative_id
                 where (order_id is null
                        or order_id = (select max(order_id) from representative_edited where representative_id = representative.id)) and ($cond);
             #);
         $s->execute();
-        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted, $editor) = $s->fetchrow_array()) {
+        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted, $editor, $whencreated, $whenlastedited) = $s->fetchrow_array()) {
             # Force these to be undef if blank.
             $email ||= undef;
             $fax ||= undef;
@@ -540,6 +542,8 @@ sub get_representatives_info ($) {
                     method => $method,
                     deleted => $deleted,
                     last_editor => $editor,
+                    whencreated => $whencreated,
+                    whenlastedited => $whenlastedited
                 };
         }
 
@@ -627,7 +631,7 @@ sub get_representative_history ($) {
     $original_data->{'order_id'} = 0;
     $original_data->{'note'} = "Original data";
     $original_data->{'editor'} = 'import';
-    $original_data->{'whenedited'} = 0;
+    $original_data->{'whenedited'} = $original_data->{'whencreated'};
     $original_data->{'deleted'} = 0;
     push @ret, $original_data;
 
@@ -670,11 +674,11 @@ sub admin_edit_representative ($$$$) {
     # Create new one
     if (!$id) {
         dbh()->do('insert into representative
-            (area_id, area_type, name, party, method, email, fax, import_key)
-            values (?, ?, ?, ?, ?, ?, ?, ?)', {}, 
+            (area_id, area_type, name, party, method, email, fax, import_key, whencreated)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?)', {}, 
             $newdata->{area_id}, $newdata->{area_type}, 
             $newdata->{name}, $newdata->{party}, $newdata->{method}, 
-            $newdata->{email}, $newdata->{fax}, undef);
+            $newdata->{email}, $newdata->{fax}, undef, time());
         $id = dbh()->selectrow_array("select currval('representative_id_seq')");
     }
 

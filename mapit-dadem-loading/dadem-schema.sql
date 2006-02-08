@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.34 2005-10-03 13:42:56 francis Exp $
+-- $Id: dadem-schema.sql,v 1.35 2006-02-08 10:15:01 francis Exp $
 --
 
 -- data about status of an area in relation to its representatives
@@ -30,7 +30,9 @@ create table representative (
     fax text,
 
     -- such as GovEval id, etc.
-    import_key text
+    import_key text,
+    -- time of entry creation in UNIX time
+    whencreated integer -- TODO: add "not null"
 );
 create index representative_area_id_idx on representative(area_id);
 -- sometimes the same goveval key applies to two areas, for example when a councillor moves

@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.6 2006-02-07 20:33:20 francis Exp $
+# $Id: CouncilMatch.pm,v 1.7 2006-02-08 10:15:01 francis Exp $
 #
 
 package CouncilMatch;
@@ -171,13 +171,13 @@ sub refresh_live_data($$) {
         } else {
             # insert into
             $d_dbh->do(q#insert into representative 
-                (area_id, area_type, name, party, method, email, fax, import_key) 
-                values (?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
+                (area_id, area_type, name, party, method, email, fax, import_key, whencreated) 
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?)#, {}, 
                 $row->{ward_id}, $row->{ward_type},
                 $row->{rep_first} . " " . $row->{rep_last},
                 $row->{rep_party}, $row->{method}, 
                 $row->{rep_email}, $row->{rep_fax},
-                $update_key);
+                $update_key, time());
             $details .= "Making live: Inserted $update_key ".$row->{rep_first}." ".$row->{rep_last}
                 . " (" . $row->{rep_party} . ")"
                 . " method: " . $row->{method}

@@ -16,7 +16,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_mysociety_load,v 1.3 2005-05-12 11:54:34 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_mysociety_load,v 1.4 2006-02-08 10:15:01 francis Exp $';
 
 use strict;
 
@@ -67,7 +67,7 @@ while (defined($_ = <STDIN>)) {
     $email = undef if ($email eq '');
     $fax = undef if ($fax eq '');
 
-    $dbh_d->do(q#insert into representative (area_id, area_type, name, party, method, email, fax) values (?, 'CED', ?, ?, ?, ?, ?)#, {}, $areaid, $name, $party, $how, $email, $fax);
+    $dbh_d->do(q#insert into representative (area_id, area_type, name, party, method, email, fax, whencreated) values (?, 'CED', ?, ?, ?, ?, ?, ?)#, {}, $areaid, $name, $party, $how, $email, $fax, time());
 }
 
 $dbh_d->commit();
@@ -195,9 +195,9 @@ while (my $line = <STDIN>) {
 #    print "\n";
 
     $d_dbh->do("insert into representative (area_id, area_type, name,
-        party, method, email, fax) values (?, ?, ?, ?, ?, ?, ?)", {},
+        party, method, email, fax, whencreated) values (?, ?, ?, ?, ?, ?, ?, ?)", {},
         $area_id, $area_type, $finalname, $finalparty, $finalmethod,
-        $finalemail, $finalfax);
+        $finalemail, $finalfax, time());
 }
  
 $m_dbh->disconnect();
