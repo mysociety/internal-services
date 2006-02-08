@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.62 2006-02-08 10:15:01 francis Exp $
+# $Id: DaDem.pm,v 1.63 2006-02-08 13:04:56 francis Exp $
 #
 
 package DaDem;
@@ -521,13 +521,14 @@ sub get_representatives_info ($) {
                     coalesce(representative_edited.deleted, false) as deleted,
                     coalesce(representative_edited.editor, 'import') as editor,
                     representative.whencreated as whencreated,
-                    coalesce(representative_edited.whenedited, representative.whencreated) as whenlastedited
+                    coalesce(representative_edited.whenedited, representative.whencreated) as whenlastedited,
+                    (select count(*) from representative_edited where representative_edited.representative_id = representative.id) as edit_times
                 from representative left join representative_edited on representative.id = representative_edited.representative_id
                 where (order_id is null
                        or order_id = (select max(order_id) from representative_edited where representative_id = representative.id)) and ($cond);
             #);
         $s->execute();
-        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted, $editor, $whencreated, $whenlastedited) = $s->fetchrow_array()) {
+        while (my ($id, $area_id, $area_type, $name, $party, $email, $fax, $method, $deleted, $editor, $whencreated, $whenlastedited, $edit_times) = $s->fetchrow_array()) {
             # Force these to be undef if blank.
             $email ||= undef;
             $fax ||= undef;
@@ -543,7 +544,8 @@ sub get_representatives_info ($) {
                     deleted => $deleted,
                     last_editor => $editor,
                     whencreated => $whencreated,
-                    whenlastedited => $whenlastedited
+                    whenlastedited => $whenlastedited,
+                    edit_times => $edit_times
                 };
         }
 
