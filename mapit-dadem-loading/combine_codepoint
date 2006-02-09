@@ -1,0 +1,57 @@
+#!/usr/bin/perl -w
+#
+# combine_codepoint:
+# Combine multiple Codepoint data files to produce an output file which
+# contains the union of all postcodes in all input files for which location
+# data are available, using the most recent available data for each postcode.
+# Arguments are a set of Codepoint .csv files, of which the most recent ones
+# should precede (i.e. be to the left of) older.
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: combine_codepoint,v 1.1 2006-02-09 12:56:28 chris Exp $';
+
+use strict;
+require 5.8.0;
+
+use IO::File;
+use Text::CSV_XS;
+
+my $C = new Text::CSV_XS();
+my %H = ( );
+
+my $n_in = 0;
+my $n_nopos = 0;
+my $n_dup = 0;
+my $n_out = 0;
+
+foreach my $filename (@ARGV) {
+    local $/ = "\r\n";
+    my $f = new IO::File($filename) || die "$filename: $!";
+    print STDERR "$filename... ";
+    while (my $line = $f->getline()) {
+        ++$n_in;
+        chomp($line);
+        $C->parse($line) || die "$filename: bad CSV data '$line'";
+        my ($pc, $qual) = $C->fields();
+        if ($qual == 90) {
+            # no coordinates
+            ++$n_nopos;
+            next;
+        }
+        $pc =~ s/\s+//g;
+        if (exists($H{$pc})) {
+            # already have this one
+            ++$n_dup;
+            next;
+        }
+        ++$n_out;
+        print "$line\r\n";
+        $H{$pc} = 1;
+    }
+    print STDERR "done\n";
+}
+
+print STDERR "in: $n_in; no coords: $n_nopos; duplicate: $n_dup; out: $n_out\n";
