@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.63 2006-02-08 13:04:56 francis Exp $
+# $Id: DaDem.pm,v 1.64 2006-02-10 04:06:25 francis Exp $
 #
 
 package DaDem;
@@ -237,6 +237,21 @@ foreach (keys %dummy_representatives) {
     push(@{$dummy_areas{$dummy_representatives{$_}->{voting_area}}}, $_);
 }
 
+# Given method, email and fax returns if it looks like a known contact
+sub check_valid_method($$$) {
+    my ($method, $fax, $email) = @_;
+
+    my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
+    my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
+
+    return !(
+            (($method eq 'unknown')
+            or ($method eq 'email' and (!$emailvalid))
+            or ($method eq 'fax' and (!$faxvalid))
+            or ($method eq 'either' and (!$faxvalid or !$emailvalid))
+            ));
+}
+
 
 =item get_representatives ID_or_ARRAY [ALL]
 
@@ -391,15 +406,8 @@ sub get_bad_contacts () {
     $s->execute();
     my @bad;
     while (my ($id, $email, $fax, $method, $deleted, $editor, $name, $area_id) = $s->fetchrow_array()) {
-        my $faxvalid = defined($fax) && ($fax =~ m/^(\+44|0)[\d\s]+\d$/);
-        my $emailvalid = defined($email) && (Mail::RFC822::Address::valid($email));
 
-        next if !(
-                (($method eq 'unknown')
-                or ($method eq 'email' and (!$emailvalid))
-                or ($method eq 'fax' and (!$faxvalid))
-                or ($method eq 'either' and (!$faxvalid or !$emailvalid))
-                ));
+        next if check_valid_method($method, $fax, $email);
 
         my $bad = 1;
         if ($name eq "Democratic Services") {
@@ -623,22 +631,49 @@ about changes to that representative's contact info.
 =cut
 sub get_representative_history ($) {
     my ($id) = @_;
-    my @ret;
+    my $info = get_representatives_history([$id])->{$id};
+    throw RABX::Error("Representative ID '$id' not found", mySociety::DaDem::REP_NOT_FOUND) if (!$info);
+    return $info;
+}
+
+=item get_representatives_history ID
+
+Given an array of ids of representatives, returns a hash from representative
+ids to an array of history of changes to that representative's contact info.
+
+=cut
+sub get_representatives_history ($) {
+    my ($ary) = @_;
+    
+    if (my ($bad) = grep(/^([^\d]|)$/, @$ary)) {
+        throw RABX::Error("get_representatives_history: Bad representative ID '$bad'", mySociety::DaDem::REP_NOT_FOUND);
+    }
+    
+    my %ret = ( );
+    return \%ret if !(@$ary);
+
+    my $cond = join(' or ', map { "representative.id = $_" } @$ary);
 
     # Get original data
-    my $sth = dbh()->prepare('select * from representative where id = ?');
-    $sth->execute($id);
-    throw RABX::Error("get_representative_history: not exactly one original row for '$id'") if ($sth->rows != 1);
-    my $original_data = $sth->fetchrow_hashref();
-    $original_data->{'order_id'} = 0;
-    $original_data->{'note'} = "Original data";
-    $original_data->{'editor'} = 'import';
-    $original_data->{'whenedited'} = $original_data->{'whencreated'};
-    $original_data->{'deleted'} = 0;
-    push @ret, $original_data;
+    my $sth = dbh()->prepare("select * from representative where ($cond)");
+    $sth->execute();
+    while (my $original_data = $sth->fetchrow_hashref()) {
+        my $id = $original_data->{'id'};
+        $original_data->{'order_id'} = 0;
+        $original_data->{'note'} = "Original data";
+        $original_data->{'editor'} = 'import';
+        $original_data->{'whenedited'} = $original_data->{'whencreated'};
+        $original_data->{'deleted'} = 0;
+        $original_data->{'valid_method'} = check_valid_method($original_data->{'method'}, $original_data->{'fax'}, $original_data->{'email'}) ? 1 : 0;
+        push @{$ret{$id}}, $original_data;
+    }
+    foreach my $id (keys %ret) {
+        my $arr = $ret{$id};
+        throw RABX::Error("get_representative_history: not exactly one original row for '$id'") if (scalar(@{$arr}) != 1);
+    }
 
     # Get historical data
-    $sth = dbh()->prepare('
+    $sth = dbh()->prepare("
             select id, area_id, area_type, order_id, whenedited, editor, note,
                 coalesce(representative_edited.name, representative.name) as name,
                 coalesce(representative_edited.party, representative.party) as party,
@@ -646,15 +681,19 @@ sub get_representative_history ($) {
                 coalesce(representative_edited.fax, representative.fax) as fax,
                 coalesce(representative_edited.method, representative.method) as method,
                 coalesce(representative_edited.deleted, false) as deleted
-            from representative left join representative_edited on representative.id = representative_edited.representative_id
-            where (representative_id = ?)
-            order by order_id');
-    $sth->execute($id);
+            from representative, representative_edited 
+            where 
+            representative.id = representative_edited.representative_id
+            and ($cond)
+            order by order_id");
+    $sth->execute();
     while (my $hash_ref = $sth->fetchrow_hashref()) {
-        push @ret, $hash_ref;
+        my $id = $hash_ref->{'id'};
+        $hash_ref->{'valid_method'} = check_valid_method($hash_ref->{'method'}, $hash_ref->{'fax'}, $hash_ref->{'email'}) ? 1 : 0;
+        push @{$ret{$id}}, $hash_ref;
     }
     
-    return \@ret;
+    return \%ret;
 } 
 
 =item admin_edit_representative ID DETAILS EDITOR NOTE
