@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.11 2005-08-17 13:33:32 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.12 2006-02-10 16:48:57 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -133,6 +133,21 @@ foreach (keys %checks) {
 
 package Geo::OSBoundaryLine::Polygon;
 
+=head1 NAME
+
+Geo::OSBoundaryLine::Polygon
+
+=head1 DESCRIPTION
+
+Object representing a single polygon in Boundary-Line. Each such polygon is
+nonselfintersecting and holefree.
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use Scalar::Util qw(weaken);
 
 use fields qw(ntf id);
@@ -176,6 +191,25 @@ sub vertices ($) {
 
 package Geo::OSBoundaryLine::ComplexPolygon;
 
+=back
+
+=head1 NAME
+
+Geo::OSBoundaryLine::ComplexPolygon
+
+=head1 DESCRIPTION
+
+Object representing a single complex polygon in Boundary-Line. A complex
+polygon is represented by one or more simple polygon objects, each with an
+associated sense, which is positive for an included area, and negative for a
+hole.
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use Scalar::Util qw(weaken);
 
 use fields qw(ntf id parts);
@@ -217,6 +251,23 @@ sub part ($$) {
 }
 
 package Geo::OSBoundaryLine::CollectionOfFeatures;
+
+=back
+
+=head1 NAME
+
+Geo::OSBoundaryLine::CollectionOfFeatures
+
+=head1 DESCRIPTION
+
+Object representing a collection of other objects in Boundary-Line, with
+associated attributes.
+
+=head1 METHODS
+
+=over 4
+
+=cut
 
 use Scalar::Util qw(weaken);
 use UNIVERSAL;
@@ -319,15 +370,17 @@ use Fcntl;
 
 use fields qw(attributes geometries chains polygons complexes collections);
 
-=head1 Name
+=back
+
+=head1 NAME
 
 Geo::OSBoundaryLine::NTFFile
 
-=head1 Description
+=head1 DESCRIPTION
 
 Object representing the data in a single NTF file from Boundary-Line.
 
-=head1 Functions
+=head1 METHODS
 
 =over 4
 
