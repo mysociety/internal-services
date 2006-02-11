@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.36 2006-02-01 11:51:28 chris Exp $
+# $Id: EvEl.pm,v 1.37 2006-02-11 22:27:24 matthew Exp $
 #
 
 package EvEl::Error;
@@ -354,7 +354,7 @@ sub do_template_substitution ($$) {
     local($Text::Wrap::columns = 69);
     local($Text::Wrap::huge = 'overflow');
     my $wrapped = Text::Wrap::wrap('     ', '     ', $body);
-    $wrapped =~ s/^\s+$//m;
+    $wrapped =~ s/^\s+$//mg;
 
 #binmode(STDERR, ":utf8");
 #warn "Subject = $subject\n";
@@ -442,9 +442,10 @@ sub construct_email ($) {
 
     if (exists($p->{_unwrapped_body_})) {
         throw EvEl::Error("Fields '_body_' and '_unwrapped_body_' both specified") if (exists($p->{_body_}));
-        local($Text::Wrap::columns = 72);
+        local($Text::Wrap::columns = 69);
         local($Text::Wrap::huge = 'overflow');
-        $p->{_body_} = Text::Wrap::wrap('', '', $p->{_unwrapped_body_});
+        $p->{_body_} = Text::Wrap::wrap('     ', '     ', $p->{_unwrapped_body_});
+        $p->{_body_} =~ s/^\s+$//mg;
         delete($p->{_unwrapped_body_});
     }
 
