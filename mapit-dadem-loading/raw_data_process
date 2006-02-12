@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.14 2005-10-21 10:09:31 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.15 2006-02-12 18:27:24 dademcron Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -95,6 +95,7 @@ if (defined $param1) {
         }
     } else {
         # Process just one council
+        die "unknown council" if !$area_id_data->{$param1};
         print "Processing one council " . $area_id_data->{$param1}->{name} . " $param1\n" if $verbose > 0;
         my $result = CouncilMatch::process_ge_data($param1, $verbose);
         if ($result->{error}) {

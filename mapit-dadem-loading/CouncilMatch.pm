@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.7 2006-02-08 10:15:01 francis Exp $
+# $Id: CouncilMatch.pm,v 1.8 2006-02-12 18:27:24 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -18,6 +18,7 @@ use HTML::TokeParser;
 use Text::CSV;
 use URI;
 use File::Slurp;
+use mySociety::Parties;
 
 use mySociety::StringUtils qw(trim merge_spaces);
 
@@ -770,6 +771,17 @@ sub get_raw_data($;$) {
         }
     }
 
+    # Canonicalise parties, where possible
+    foreach (keys(%$council)) {
+        my $party = $council->{$_}->{'rep_party'};
+        my $canonparty = $mySociety::Parties::canonical{$party};
+        if (!$canonparty) {
+            # it's too much making this into an error! there are so many parties at local level
+        } else {
+            $council->{$_}->{'rep_party'} = $canonparty;
+        }
+    }
+        
     return values(%$council);
 }
 
