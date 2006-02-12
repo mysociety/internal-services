@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.32 2005-11-25 16:27:16 francis Exp $
+# $Id: MaPit.pm,v 1.33 2006-02-12 13:39:15 francis Exp $
 #
 
 package MaPit;
@@ -308,25 +308,35 @@ sub get_voting_areas_info ($) {
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
 
-=item get_areas_by_type TYPE
+=item get_areas_by_type TYPE [ALL]
 
 Returns an array of ids of all the voting areas of type TYPE.
-TYPE is the three letter code such as WMC.
+TYPE is the three letter code such as WMC. By default only
+gets active areas in current generation, if ALL is true then
+gets all areas for all generations.
 
 =cut
-sub get_areas_by_type ($) {
-    my ($type) = @_;
+sub get_areas_by_type ($;$) {
+    my ($type, $all) = @_;
 
     throw RABX::Error("Please specify type") unless $type;
     throw RABX::Error("Type must be three capital letters") unless $type =~ m/^[A-Z][A-Z][A-Z]$/;
     throw RABX::Error("Type unknown") unless defined($mySociety::VotingArea::known_types{$type});
 
     my $generation = get_generation();
-    my $ret = dbh()->selectcol_arrayref('
-        select id from area 
-            where generation_low <= ? and ? <= generation_high
-            and type = ?
-        ', {}, $generation, $generation, $type);
+    my $ret;
+    
+    if ($all) {
+        $ret = dbh()->selectcol_arrayref('
+            select id from area where type = ?
+            ', {}, $type);
+    } else {
+        $ret = dbh()->selectcol_arrayref('
+            select id from area 
+                where generation_low <= ? and ? <= generation_high
+                and type = ?
+            ', {}, $generation, $generation, $type);
+    }
 
     return $ret;
 }
