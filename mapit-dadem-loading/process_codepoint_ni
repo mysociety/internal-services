@@ -29,7 +29,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.16 2006-02-13 16:58:28 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.17 2006-02-13 17:12:08 chris Exp $';
 
 use strict;
 
@@ -50,10 +50,24 @@ die "arguments are ONS codes CSV file, NI electoral areas CSV file, and CodePoin
 my ($onscodesfile, $nieasfile, $codepointfile) = @ARGV;
 my $dbh = connect_to_mapit_database();
 
-# Special case: create a Euro-region.
-my $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'M', 'EUR', undef, undef, undef);
-    # NIA etc.?
-country($dbh, $euro_area_id, 'N');
+# Special case: create a Euro-region if none exists.
+my $euro_area_id = $dbh->selectrow_array("
+                select id from area, area_name
+                    where area.id = area_name.area_id
+                      and country = 'N'
+                      and type = 'EUR'
+                      and name_type = 'M'
+                      and name = 'Northern Ireland'
+                      and ? >= generation_low
+                      and ? <= generation_high", {},
+                current_generation(), current_generation());
+if (defined($euro_area_id)) {
+    $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation(), $euro_area_id);
+    print STDERR "using existing area ID #$euro_area_id for EUR 'Northern Ireland'\n";
+} else {
+    $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'M', 'EUR', undef, undef, undef);
+    country($dbh, $euro_area_id, 'N');
+}
 
 # %name
 # Name of anything with an ONS code.
@@ -90,8 +104,24 @@ foreach (read_csv_file($nieasfile, 1)) {
     die "no electoral area" unless (defined($ea));
 
     if (!exists($e{$ea})) {
-        country($dbh, $e{$ea} = get_area_id($dbh, $ea, 'L', 'LGE', undef, undef, undef), 'N');
-        
+        # See if there's already an electoral area having this name.
+        my $id = $dbh->selectrow_array("
+                        select id from area, area_name
+                            where area.id = area_name.area_id
+                              and country = 'N'
+                              and type = 'LGE'
+                              and name_type = 'L'
+                              and name = ?
+                              and ? >= generation_low
+                              and ? <= generation_high", {},
+                        $ea, current_generation(), current_generation());
+        if (defined($id)) {
+            print STDERR "using existing area ID #$id for LGE '$ea'\n";
+            $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation(), $id);
+            $e{$ea} = $id;
+        } else {
+            country($dbh, $e{$ea} = get_area_id($dbh, $ea, 'L', 'LGE', undef, undef, undef), 'N');
+        }
     }
     $wardname_to_ea{$d}->{$w} = $e{$ea};
 }
@@ -138,9 +168,23 @@ foreach (read_csv_file($onscodesfile, 1)) {
         # Westminster constituencies; note that they have no identifying codes
         # at all, but in memory index them by the ONS code of the coincident
         # constituency.
-        country($dbh, $eid{$ccode} = get_area_id($dbh, $cname, 'S', 'NIE', undef, undef, undef), 'N');
-            # XXX this means that we create new NIE area IDs on each run. Need
-            # to fix this!
+        my $id = $dbh->selectrow_array("
+                        select id from area, area_name
+                            where area.id = area_name.area_id
+                              and country = 'N'
+                              and type = 'NIE'
+                              and name_type = 'S'
+                              and name = ?
+                              and ? >= generation_low
+                              and ? <= generation_high", {},
+                        $cname, current_generation(), current_generation());
+        if (defined($id)) {
+            print STDERR "using existing area ID #$id for NIE '$cname'\n";
+            $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation(), $id);
+            $eid{$ccode} = $id;
+        } else {
+            country($dbh, $eid{$ccode} = get_area_id($dbh, $cname, 'S', 'NIE', undef, undef, undef), 'N');
+        }
     }
 
     $name{$ccode} ||= $cname;
