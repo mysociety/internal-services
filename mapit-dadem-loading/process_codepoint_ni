@@ -2,7 +2,7 @@
 #
 # process_codepoint_ni:
 # Read CodePoint postcodes, coordinates and ONS ward codes, and use them to
-# generate a mapping from postcodes to electoral geography.
+# generate a mapping from postcodes to electoral geography in Northern Ireland.
 #
 # Call with three arguments:
 #   - CSV file generated from the ward to constituency mapping in SNAC;
@@ -29,7 +29,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.14 2005-10-04 10:35:18 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.15 2006-02-13 01:06:45 chris Exp $';
 
 use strict;
 
@@ -129,7 +129,7 @@ foreach (read_csv_file($onscodesfile, 1)) {
         $eaid{$wcode} = $wardname_to_ea{$aname}->{$wname};
         # Fix up parent area of district electoral area.
         $dbh->do(q#update area set parent_area_id = ? where id = ?#, {}, $aid{$acode}, $eaid{$wcode});
-        print qq#update area set parent_area_id = $aid{$acode} where id = $eaid{$wcode}\n#;
+#        print qq#update area set parent_area_id = $aid{$acode} where id = $eaid{$wcode}\n#;
     }
 
     if (!exists($name{$ccode})) {
@@ -139,6 +139,8 @@ foreach (read_csv_file($onscodesfile, 1)) {
         # at all, but in memory index them by the ONS code of the coincident
         # constituency.
         country($dbh, $eid{$ccode} = get_area_id($dbh, $cname, 'S', 'NIE', undef, undef, undef), 'N');
+            # XXX this means that we create new NIE area IDs on each run. Need
+            # to fix this!
     }
 
     $name{$ccode} ||= $cname;
