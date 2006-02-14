@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.12 2006-02-10 16:48:57 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.13 2006-02-14 13:13:28 chris Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -365,6 +365,7 @@ package Geo::OSBoundaryLine::NTFFile;
 use strict;
 
 use Error qw(:try);
+use IO::File;
 use IO::Handle;
 use Fcntl;
 
