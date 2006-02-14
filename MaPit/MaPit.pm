@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.33 2006-02-12 13:39:15 francis Exp $
+# $Id: MaPit.pm,v 1.34 2006-02-14 00:03:12 chris Exp $
 #
 
 package MaPit;
@@ -200,23 +200,6 @@ sub get_voting_areas ($) {
                         ', {}, $pcid, $generation, $generation)
                     })
             };
-
-        # Horrible new Scottish constituencies fixup.
-        my $country = dbh()->selectrow_array('select country from area where id = ?', {}, $ret->{EUR});
-        if ($country eq 'S') {
-            my $wmc_id = dbh()->selectrow_array('
-                                select constituency_area_id
-                                from new_scottish_constituencies_fixup
-                                where ward_area_id = ?', {},
-                                $ret->{UTW});
-            $wmc_id ||= dbh()->selectrow_array('
-                                select constituency_area_id
-                                from new_scottish_constituencies_fixup
-                                where council_area_id = ?', {},
-                                $ret->{UTA});
-            $ret->{WMC} = $wmc_id;
-            die "no fixup mapping for new Scottish constituency" if (!defined($wmc_id));
-        }
     }
 
     # Add fictional enclosing areas.
