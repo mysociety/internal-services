@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -I../../perllib
 #
 # load_ons_names:
 # Load names for wards etc. from the ONS Standard Names and Codes product.
@@ -16,7 +16,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.5 2004-12-07 16:33:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_ons_names,v 1.6 2006-02-15 19:36:21 chris Exp $';
 
 use strict;
 
@@ -30,7 +30,7 @@ use Text::CSV_XS;
 use Common;
 
 die "argument is ONS codes CSV file" unless (@ARGV == 1);
-my ($$snacdbfile) = @ARGV;
+my ($snacdbfile) = @ARGV;
 
 my $dbh = connect_to_mapit_database();
 
