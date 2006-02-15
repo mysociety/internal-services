@@ -1,0 +1,109 @@
+#!/usr/bin/perl -w
+#
+# parlparse-ids:
+#
+# Recreates table linking DaDem representative ids with parlparse MP person ids.
+# See http://ukparse.kforge.net
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.1 2006-02-15 08:39:03 francis Exp $';
+
+use strict;
+require 5.8.0;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../../perllib";
+use lib "$FindBin::Bin/../../../perllib";
+use lib "$FindBin::Bin/../../mapit-dadem-loading";
+
+use POSIX qw(strftime);
+use Data::Dumper;
+use IPC::Open2;
+use utf8;
+binmode(STDOUT, ':utf8');
+
+use mySociety::Config;
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../../conf/general");
+}
+use mySociety::DBHandle qw(dbh);
+use mySociety::DaDem;
+use mySociety::MaPit;
+use mySociety::VotingArea;
+use mySociety::Util;
+use mySociety::Parties;
+
+sub connect_to_dadem_database () {
+    my $host = mySociety::Config::get('DADEM_DB_HOST', undef);
+    my $port = mySociety::Config::get('DADEM_DB_PORT', undef);
+
+    my $connstr = 'dbi:Pg:dbname=' . mySociety::Config::get('DADEM_DB_NAME');
+    $connstr .= ";host=$host" if (defined($host));
+    $connstr .= ";port=$port" if (defined($port));
+
+    return DBI->connect($connstr,
+                        mySociety::Config::get('DADEM_DB_USER'),
+                        mySociety::Config::get('DADEM_DB_PASS'),
+                        { RaiseError => 1, AutoCommit => 0 });
+}
+my $d_dbh = connect_to_dadem_database();
+
+my $area_type = "WMC";
+
+############################################################################
+# Extract basic data from MaPit/DaDem
+
+# Need to obtain a list of MP/constituency names and then pick out messages by those.
+my $areaids = mySociety::MaPit::get_areas_by_type($area_type, 1); # array of ids of ALL areas (not just current generation)
+my %areainfo = %{mySociety::MaPit::get_voting_areas_info($areaids)}; # hash from area id to hash of info about area
+my $repids = mySociety::DaDem::get_representatives([keys %areainfo], 1); # hash from area to reps for that area
+my @allreps;
+my $reptoarea; # hash from rep id to area represented
+foreach (keys %$repids) {
+    if (!@{$repids->{$_}}) {
+        print STDERR "area #$_ ($areainfo{$_}->{name}) has no representative\n";
+    } else {
+        foreach my $repid (@{$repids->{$_}}) {
+            if ($repid !~ /^[1-9]\d*$/) {
+                print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
+            }
+
+            push @allreps, $repid;
+            $reptoarea->{$repid} = $_;
+        }
+   }
+}
+my %repinfo = %{mySociety::DaDem::get_representatives_info(\@allreps)};
+
+# Match all the names
+$d_dbh->do('delete from parlparse_link;');
+my ($rd, $wt);
+open2($rd, $wt, './parlparse-ids.py') or die "failed to call parlparse-ids.py";
+binmode($wt, ':utf8');
+foreach my $repid (@allreps) {
+    #print Dumper($repinfo{$repid});
+    my $name = $repinfo{$repid}->{name};
+    next if $name =~ m/Election Pending/;
+    next if $name =~ m/^Moogle$/;
+    my $cons = $areainfo{$reptoarea->{$repid}}->{name};
+    my $editdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whenlastedited}));
+    my $createdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whencreated}));
+    #print "$name $cons $createdate $editdate\n";
+    $wt->print("$name#$cons#$createdate\n");
+    my $person_id_1 = $rd->getline();
+    $wt->print("$name#$cons#$createdate\n");
+    my $person_id_2 = $rd->getline();
+    die "none matched for $name ($cons)" if (!$person_id_1 && !$person_id_2);
+    if ($person_id_1 && $person_id_2 && ($person_id_1 ne $person_id_2)) {
+        die "for $name ($cons) got two people ids $person_id_1 ($editdate) and $person_id_2 ($createdate)\n";
+    }
+    
+    $person_id_1 =~ s/(\s+$)|(^\s+)//g;
+    $d_dbh->do('insert into parlparse_link (representative_id, person_id) values (?, ?)', {}, $repid, $person_id_1);
+}
+$d_dbh->commit();
+

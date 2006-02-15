@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.19 2005-09-30 14:57:02 francis Exp $
+# $Id: Common.pm,v 1.20 2006-02-15 08:39:04 francis Exp $
 #
 
 package Common;
@@ -14,6 +14,7 @@ package Common;
 use strict;
 use CouncilMatch;
 use mySociety::Config;
+use FindBin;
 mySociety::Config::set_file("../conf/general");
 
 use DBI;

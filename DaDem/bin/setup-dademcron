@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.1 2006-02-04 16:04:25 francis Exp $
+# $Id: setup-dademcron,v 1.2 2006-02-15 08:39:03 francis Exp $
 #
 
 set -e
@@ -46,6 +46,16 @@ then
 else
     export CVSROOT=cvs.mysociety.org:/usr/local/privatecvs
     su dademcron "cvs -Q co repdata"
+fi
+
+# Checkout or update parlparse
+cd $DADEMHOME
+if [ -e "parlparse/.svn/README.txt" ]
+then
+    cd parlparse
+    su dademcron "svn -q update"
+else
+    su dademcron "svn -q co https://scm.kforge.net/svn/ukparse/trunk/parlparse"
 fi
 
 cd $DADEMHOME

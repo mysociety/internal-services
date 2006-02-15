@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.36 2006-02-08 13:05:55 francis Exp $
+-- $Id: dadem-schema.sql,v 1.37 2006-02-15 08:39:04 francis Exp $
 --
 
 -- data about status of an area in relation to its representatives
@@ -183,5 +183,13 @@ create table user_corrections (
     admin_done boolean not null default 'f',
     when_goveval integer -- when report was sent to goveval
 );
+
+-- maps MPs to their person id in parlparse
+create table parlparse_link (
+    representative_id integer primary key references representative(id),
+    person_id text not null
+);
+
+create index parlparse_link_person_id on parlparse_link(person_id);
 
 
