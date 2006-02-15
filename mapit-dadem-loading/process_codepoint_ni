@@ -29,7 +29,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.17 2006-02-13 17:12:08 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.18 2006-02-15 19:38:22 chris Exp $';
 
 use strict;
 
@@ -60,9 +60,9 @@ my $euro_area_id = $dbh->selectrow_array("
                       and name = 'Northern Ireland'
                       and ? >= generation_low
                       and ? <= generation_high", {},
-                current_generation(), current_generation());
+                current_generation($dbh), current_generation($dbh));
 if (defined($euro_area_id)) {
-    $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation(), $euro_area_id);
+    $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation($dbh), $euro_area_id);
     print STDERR "using existing area ID #$euro_area_id for EUR 'Northern Ireland'\n";
 } else {
     $euro_area_id = get_area_id($dbh, 'Northern Ireland', 'M', 'EUR', undef, undef, undef);
@@ -114,10 +114,10 @@ foreach (read_csv_file($nieasfile, 1)) {
                               and name = ?
                               and ? >= generation_low
                               and ? <= generation_high", {},
-                        $ea, current_generation(), current_generation());
+                        $ea, current_generation($dbh), current_generation($dbh));
         if (defined($id)) {
             print STDERR "using existing area ID #$id for LGE '$ea'\n";
-            $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation(), $id);
+            $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation($dbh), $id);
             $e{$ea} = $id;
         } else {
             country($dbh, $e{$ea} = get_area_id($dbh, $ea, 'L', 'LGE', undef, undef, undef), 'N');
@@ -177,10 +177,10 @@ foreach (read_csv_file($onscodesfile, 1)) {
                               and name = ?
                               and ? >= generation_low
                               and ? <= generation_high", {},
-                        $cname, current_generation(), current_generation());
+                        $cname, current_generation($dbh), current_generation($dbh));
         if (defined($id)) {
             print STDERR "using existing area ID #$id for NIE '$cname'\n";
-            $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation(), $id);
+            $dbh->do('update area set generation_high = ? where id = ?', {}, new_generation($dbh), $id);
             $eid{$ccode} = $id;
         } else {
             country($dbh, $eid{$ccode} = get_area_id($dbh, $cname, 'S', 'NIE', undef, undef, undef), 'N');
