@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.31 2005-10-03 16:21:32 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.32 2006-02-15 19:35:54 chris Exp $';
 
 #
 # Simple object to represent a single area.
@@ -225,7 +225,7 @@ my %interesting_areas = map { $_ => 1 } (
 
  'EUR',   # European Region
 
- 'CPC'    # Civil Parish
+# 'CPC'    # Civil Parish
     )
 );
 
@@ -247,8 +247,8 @@ foreach (keys %parentmap) {
 }
 
 # But put CPC in here so that we can pick up parents of CPCs at load time.
-$childmap{DIS}->{CPC} = 1;
-$childmap{UTA}->{CPC} = 1;
+#$childmap{DIS}->{CPC} = 1;
+#$childmap{UTA}->{CPC} = 1;
 
 # @shapes
 # List of Area objects for each area we're interested in.
@@ -262,10 +262,15 @@ my %aaid_to_shape;
 
 die "arguments are control file, and directories containing NTF files" unless (@ARGV > 1);
 my $controlfile = shift(@ARGV);
-if (!defined(do $controlfile)) {
-    die "$controlfile: " . ($! || $@);
-} elsif (!exists(&control_function)) {
-    die "$controlfile: does not declare control_function(...)";
+if ($controlfile eq '/dev/null') {
+    # debugging special case
+    eval 'sub control_function { };';
+} else {
+    if (!defined(do $controlfile)) {
+        die "$controlfile: " . ($! || $@);
+    } elsif (!exists(&control_function)) {
+        die "$controlfile: does not declare control_function(...)";
+    }
 }
 
 # Open database.
