@@ -5,7 +5,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2005-10.control,v 1.1 2006-02-09 12:25:07 chris Exp $
+# $Id: boundaryline-2005-10.control,v 1.2 2006-02-15 19:34:47 chris Exp $
 #
 
 sub find_best_match ($$) {
@@ -29,12 +29,9 @@ sub control_function ($$$) {
 
     # We lacked data for Stockton-on-Tees on the last import, so we need to
     # mark that data as changed.
-    my $sot = find_best_match('Stockton-on-Tees', $area_type_idx->{UTA});
-    $sot->deleted(1);
-    foreach ($sot->children()) {
-        $_->deleted(1);
+    foreach (@{$area_type_idx->{UTW}}) {
+        $_->alreadyexists(0) if ($_->ons_code() =~ /^00EF/);
     }
-    
 }
 
 1;
