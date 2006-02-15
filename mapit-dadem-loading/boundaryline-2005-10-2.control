@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+#
+# boundaryline-2005-10-2.control:
+# Control file for reloading October 2005 Boundary Line (e.g., with new
+# postcodes).
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: boundaryline-2005-10-2.control,v 1.1 2006-02-15 19:13:56 chris Exp $
+#
+
+sub find_best_match ($$) {
+    my ($name, $list) = @_;
+    return (sort { Text::LevenshteinXS::distance($name, $a->name()) <=> Text::LevenshteinXS::distance($name, $b->name()) } @$list)[0];
+}
+
+# control_function SHAPES ONSCODE AREATYPE
+# Function called to fix up BL.
+sub control_function ($$$) {
+    my ($shapes, $onscode_idx, $area_type_idx) = @_;
+
+    # New Boundary Line codes the Isles of Scilly as a county. We don't,
+    # instead treating them as a special case, which is what they are.
+    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
+    # Remove those areas from the type index.
+    $ios->deleted(1);
+    foreach ($ios->children()) {
+        $_->deleted(1);
+    }
+}
+
+1;
