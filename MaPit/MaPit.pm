@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.34 2006-02-14 00:03:12 chris Exp $
+# $Id: MaPit.pm,v 1.35 2006-02-19 23:02:24 francis Exp $
 #
 
 package MaPit;
@@ -256,17 +256,18 @@ sub get_voting_area_info ($) {
         }
     } else {
         # Real data
-        my ($type, $name, $parent_area_id);
+        my ($type, $name, $os_name, $parent_area_id);
         throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
-            unless (($type, $name, $parent_area_id) = dbh()->selectrow_array("
-            select type, name, parent_area_id from area, area_name 
-                where area_name.area_id = area.id 
-                and name_type = 'F'
-                and id = ?
+            unless (($type, $name, $os_name, $parent_area_id) = dbh()->selectrow_array("
+            select type, a1.name as name, a2.name as os_name, parent_area_id from area
+                left join area_name as a1 on a1.area_id = area.id and a1.name_type = 'F'
+                left join area_name as a2 on a2.area_id = area.id and a2.name_type = 'O'
+                where id = ?
             ", {}, $id));
      
         $ret = {
                 name => $name,
+                os_name => $os_name,
                 parent_area_id => $parent_area_id,
                 type => $type,
                 area_id => $id,
