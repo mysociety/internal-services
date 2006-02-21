@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.22 2005-10-10 10:54:17 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.23 2006-02-21 12:00:59 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -151,6 +151,7 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my @line = map { trim_spaces($_) } $C->fields();
     my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
+    $party = CouncilMatch::council_canon_party($party);
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
     # Check valid GovEval ids.

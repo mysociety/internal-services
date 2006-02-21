@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.8 2006-02-12 18:27:24 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.9 2006-02-21 12:00:59 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -771,18 +771,20 @@ sub get_raw_data($;$) {
         }
     }
 
-    # Canonicalise parties, where possible
-    foreach (keys(%$council)) {
-        my $party = $council->{$_}->{'rep_party'};
-        my $canonparty = $mySociety::Parties::canonical{$party};
-        if (!$canonparty) {
-            # it's too much making this into an error! there are so many parties at local level
-        } else {
-            $council->{$_}->{'rep_party'} = $canonparty;
-        }
-    }
-        
     return values(%$council);
+}
+
+# council_canon_party PARTY
+# Returns canonical version of party name for parties in councils.
+sub council_canon_party($) {
+    my ($party) = @_;
+    my $canonparty = $mySociety::Parties::canonical{$party};
+    if ($canonparty) {
+        return $canonparty;
+    } else {
+        # it's too much making this into an error! there are so many parties at local level
+        return $party;
+    }
 }
 
 # edit_raw_data COUNCIL_ID COUNCIL_NAME COUNCIL_TYPE ONS_CODE DATA ADMIN_USER
