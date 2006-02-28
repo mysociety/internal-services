@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.38 2006-02-21 15:07:48 chris Exp $
+# $Id: EvEl.pm,v 1.39 2006-02-28 11:42:27 francis Exp $
 #
 
 package EvEl::Error;
@@ -21,8 +21,7 @@ EvEl
 
 =head1 DESCRIPTION
 
-Generic email sending and mailing list functionality, with bounce detection
-etc.
+Generic email sending and mailing list functionality, with bounce detection etc.
 
 =cut
 
