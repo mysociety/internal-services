@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.17 2006-02-10 04:06:25 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.18 2006-03-03 14:30:48 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -58,6 +58,9 @@ while ($req->Accept() >= 0) {
             },
             'DaDem.get_representatives_info' => sub {
                 return DaDem::get_representatives_info($_[0]);
+            },
+            'DaDem.get_same_person' => sub {
+                return DaDem::get_same_person($_[0]);
             },
             'DaDem.get_representative_history' => sub {
                 return DaDem::get_representative_history($_[0]);

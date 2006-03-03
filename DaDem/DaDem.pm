@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.65 2006-02-15 08:52:37 francis Exp $
+# $Id: DaDem.pm,v 1.66 2006-03-03 14:30:48 francis Exp $
 #
 
 package DaDem;
@@ -57,6 +57,10 @@ Representative ID refers to a non-existent representative.
 =item AREA_WITHOUT_REPS 3003
 
 Area ID refers to an area for which no representatives are returned.
+
+=item PERSON_NOT_FOUND 3004
+
+Preson ID refers to a non-existent person.
 
 =back
 
@@ -543,6 +547,7 @@ sub get_representatives_info ($) {
             # Force these to be undef if blank.
             $email ||= undef;
             $fax ||= undef;
+
             $ret{$id} = {
                     id => $id,
                     voting_area => $area_id,
@@ -566,7 +571,26 @@ sub get_representatives_info ($) {
     return \%ret;
 }
 
+=item get_same_person PERSON_ID
 
+Returns an array of representative identifiers which are known to
+be the same person as PERSON_ID. Currently, this information only covers MPs.
+
+=cut
+
+sub get_same_person ($) {
+    my ($person_id) = @_;
+
+    my $same = dbh()->selectcol_arrayref("select representative_id 
+        from parlparse_link where person_id = ?", {}, $person_id);
+    
+    if (!scalar(@$same)) {
+        throw RABX::Error("Bad person ID '$person_id'", mySociety::DaDem::PERSON_NOT_FOUND);
+    }
+
+    return $same;
+}
+ 
 =item store_user_correction VA_ID REP_ID CHANGE NAME PARTY NOTES EMAIL
 
 Records a correction to representative data made by a user on the website.
