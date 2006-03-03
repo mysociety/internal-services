@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.66 2006-03-03 14:30:48 francis Exp $
+# $Id: DaDem.pm,v 1.67 2006-03-03 18:43:30 francis Exp $
 #
 
 package DaDem;
@@ -252,7 +252,7 @@ sub check_valid_method($$$) {
             (($method eq 'unknown')
             or ($method eq 'email' and (!$emailvalid))
             or ($method eq 'fax' and (!$faxvalid))
-            or ($method eq 'either' and (!$faxvalid or !$emailvalid))
+            or ($method eq 'either') # 'either' is deprecated, as it is confusing
             ));
 }
 
@@ -379,8 +379,9 @@ sub get_user_corrections () {
 =item get_bad_contacts
 
 Returns list of representatives whose contact details are bad.  That
-is, listed as 'unknown', listed as 'fax' or 'email' or 'either' without
-appropriate details being present. 
+is, listed as 'unknown', listed as 'fax' or 'email' without appropriate details
+being present, or listed as 'either'. (There's a new policy to discourages
+'eithers' at all, as they are confusing).
 
 TODO: Check 'via' type as well somehow.
 
