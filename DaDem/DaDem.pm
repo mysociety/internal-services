@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.67 2006-03-03 18:43:30 francis Exp $
+# $Id: DaDem.pm,v 1.68 2006-03-07 13:34:17 chris Exp $
 #
 
 package DaDem;
@@ -414,6 +414,8 @@ sub get_bad_contacts () {
 
         next if check_valid_method($method, $fax, $email);
 
+        # XXX this is very slow, especially when there are a large number of
+        # bad contacts at council level.
         my $bad = 1;
         if ($name eq "Democratic Services") {
             # If none of the representatives in the council have "via" set
