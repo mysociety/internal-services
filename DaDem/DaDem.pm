@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.69 2006-03-09 16:17:42 francis Exp $
+# $Id: DaDem.pm,v 1.70 2006-03-09 16:48:47 francis Exp $
 #
 
 package DaDem;
@@ -619,21 +619,13 @@ database. The elements of the hash are,
 
 =over 4
 
+=item representative_count
+
+Number of representatives in total (including deleted, out of generation)
+
 =item area_count
 
 Number of areas for which representative information is stored.
-
-=item email_present
-
-Number of representatives who have a contact email address.
-
-=item fax_present
-
-Number of representatives who have a contact fax number.
-
-=item either_present
-
-Number of representatives who have either email address or fax number.
 
 =back
 
@@ -644,12 +636,6 @@ sub admin_get_stats () {
     $ret{'representative_count'} = scalar(dbh()->selectrow_array('select count(*) from representative', {}));
     my $r = dbh()->selectall_arrayref('select distinct area_id from representative', {});
     $ret{'area_count'} = $#$r;
-    $ret{'email_present'} = scalar(dbh()->selectrow_array("select
-        count(*) from representative where not(email is null or email='')", {}));
-    $ret{'fax_present'} = scalar(dbh()->selectrow_array("select count(*)
-        from representative where not(fax is null or fax='')", {}));
-    $ret{'either_present'} = scalar(dbh()->selectrow_array("select count(*)
-        from representative where not(fax is null or fax='') or not(email is null or email='')", {}));
 
     return \%ret;
 }

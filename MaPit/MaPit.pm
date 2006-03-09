@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.35 2006-02-19 23:02:24 francis Exp $
+# $Id: MaPit.pm,v 1.36 2006-03-09 16:48:47 francis Exp $
 #
 
 package MaPit;
@@ -493,15 +493,15 @@ sub get_location ($;$) {
 
 =item admin_get_stats
 
-Returns a hash of statistics about the database.
+Returns a hash of statistics about the database. (Bit slow as count of postcodes is
+very slow).
 
 =cut
 sub admin_get_stats () {
     () = @_;
     my %ret;
 
-#    $ret{'postcode_count'} = scalar(dbh()->selectrow_array('select count(*) from postcode', {}));
-    $ret{'postcode_count'} = "skipped";
+    $ret{'postcode_count'} = scalar(dbh()->selectrow_array('select count(*) from postcode', {}));
     $ret{'area_count'} = scalar(dbh()->selectrow_array('select count(*) from area', {}));
 
     my $rows = dbh()->selectall_arrayref('select type, count(*) from area group by type', {});
