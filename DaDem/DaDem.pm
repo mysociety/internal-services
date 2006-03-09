@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.68 2006-03-07 13:34:17 chris Exp $
+# $Id: DaDem.pm,v 1.69 2006-03-09 16:17:42 francis Exp $
 #
 
 package DaDem;
@@ -576,24 +576,24 @@ sub get_representatives_info ($) {
 
 =item get_same_person PERSON_ID
 
-Returns an array of representative identifiers which are known to
-be the same person as PERSON_ID. Currently, this information only covers MPs.
+Returns an array of representative identifiers which are known to be the same
+person as PERSON_ID. Currently, this information only covers MPs.
 
 =cut
 
 sub get_same_person ($) {
     my ($person_id) = @_;
 
-    my $same = dbh()->selectcol_arrayref("select representative_id 
-        from parlparse_link where person_id = ?", {}, $person_id);
-    
+    my $same = dbh()->selectcol_arrayref("select representative_id
+            from parlparse_link where person_id = ?", {}, $person_id);
+
     if (!scalar(@$same)) {
         throw RABX::Error("Bad person ID '$person_id'", mySociety::DaDem::PERSON_NOT_FOUND);
     }
 
     return $same;
 }
- 
+
 =item store_user_correction VA_ID REP_ID CHANGE NAME PARTY NOTES EMAIL
 
 Records a correction to representative data made by a user on the website.
