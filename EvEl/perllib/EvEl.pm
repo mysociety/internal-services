@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.40 2006-03-03 14:53:51 francis Exp $
+# $Id: EvEl.pm,v 1.41 2006-03-10 18:38:09 chris Exp $
 #
 
 package EvEl::Error;
@@ -50,11 +50,10 @@ BEGIN {
             Port => mySociety::Config::get('EVEL_DB_PORT', undef),
             OnFirstUse => sub {
                 if (!dbh()->selectrow_array('select secret from secret')) {
-                    dbh()->{RaiseError} = 0;
+                    local dbh()->{HandleError};
                     dbh()->do('insert into secret (secret) values (?)',
                                 {}, unpack('h*', random_bytes(32)));
                     dbh()->commit();
-                    dbh()->{RaiseError} = 1;
                 }
             }
         );
