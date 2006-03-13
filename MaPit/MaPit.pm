@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.36 2006-03-09 16:48:47 francis Exp $
+# $Id: MaPit.pm,v 1.37 2006-03-13 13:14:31 francis Exp $
 #
 
 package MaPit;
@@ -374,6 +374,8 @@ warn "area $area_id has no children...\n";
 }
 
 =item get_voting_area_children ID
+
+Return array of ids of areas whose parent areas are ID.
 
 =cut
 sub get_voting_area_children ($) {

@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.70 2006-03-09 16:48:47 francis Exp $
+# $Id: DaDem.pm,v 1.71 2006-03-13 13:14:31 francis Exp $
 #
 
 package DaDem;
@@ -728,6 +728,8 @@ where from.  Returns ID, or if ID was undefined the new id.
 =cut
 sub admin_edit_representative ($$$$) {
     my ($id, $newdata, $editor, $note) = @_;
+
+    throw RABX::Error("admin_edit_representative: please specify editor") if !$editor;
 
     # Create new one
     if (!$id) {
