@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.3 2005-12-10 10:32:37 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.4 2006-03-21 09:06:52 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -250,7 +250,7 @@ sub parse_record ($$$) {
     $type =~ s/\s+$//;
     if ($type eq 'F') {
         $h{ispaid} = 0;
-    } elsif ($type eq 'P') {
+    } elsif ($type eq 'P' || $type eq 'C') { # XXX is 'C' actually a typo for 'F'?
         $h{ispaid} = 1;
     } else {
         throw Oops("don't understand type '$type'");
@@ -273,8 +273,10 @@ sub parse_record ($$$) {
     $freq =~ s/\s+$//;
     if ($freq eq 'W' || $freq eq 'S') {
         $h{isdaily} = 0;
-    } elsif ($freq eq 'D') {
+    } elsif ($freq eq 'D' || $freq eq 'E') {
         $h{isdaily} = 1;
+    } elsif ($freq eq 'M' || $freq eq 'Y') {
+        # monthly -- XXX
     } else {
         throw Oops("don't understand frequency of publication '$freq'");
     }
@@ -345,7 +347,7 @@ sub parse_record ($$$) {
     for (my $i = 0; $i < @allplaces; ++$i) {
         my $pp = $allplaces[$i];
         if (@$pp > 1) {
-            print STDERR "candidates for '$pp->[0]->[0]':\n";
+            print "candidates for '$pp->[0]->[0]':\n";
             foreach (@$pp) {
                 printf "    %24.24s (%.2f, %.2f) %.1f km\n", $_->[0], $_->[3], $_->[4], Geo::Distance::distance($_->[3], $_->[4], $lat, $lon);
             }
@@ -400,10 +402,16 @@ while (1) {
     my $record;
     try {
         $record = parse_record($html, $l->url(), $l->text());
-        print Dumper($record), "-----\n";
+#        print $record->{name}, " ", $record->{address}, "\n";
+#        print Dumper($record), "-----\n";
+        print "$record->{nsid},\"$record->{name}\",";
+        my $a = $record->{address};
+        $a =~ s/^.*\n([^\n]+)\n$/$1/s;
+        print "\"$a\"\n";
     } catch Oops with {
         my $E = shift;
-        print STDERR "oops: ", $E->text(), "\n";
+        print STDERR "oops: ", $E->text(), "\n  ", $l->url(), "\n";
+#        exit(1) unless ($E->text() =~ /no ID found/);
     };
     $M->back();
 }
