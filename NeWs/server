@@ -7,7 +7,7 @@
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2006-03-23 09:30:09 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.2 2006-03-23 17:53:04 louise Exp $';
 
 use strict;
 require 5.8.0;
@@ -30,6 +30,13 @@ while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'NeWs.get_newspaper' => sub {
                 return NeWs::get_newspaper($_[0]);
+            }, 
+            'NeWs.get_newspapers' => sub {
+                return NeWs::get_newspapers();
+            }, 
+            'NeWs.publish_update' => sub {
+                return NeWs::publish_update($_[0],$_[1],$_[2]);
             }
+
         );
 }
