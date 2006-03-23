@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.2 2006-03-23 09:47:27 louise Exp $
+# $Id: NeWs.pm,v 1.3 2006-03-23 17:56:53 louise Exp $
 #
 
 package NeWs;
@@ -36,31 +36,62 @@ NeWs
 
 Implementation of NeWs
 
-=head1 CONSTANTS
-
-=over 4
-=back
-
 
 =head1 FUNCTIONS
 
 =over 4
 
-=cut
+=item get_newspaper ID
 
-
-=item get_newspaper nsid
-
-Given a newspaper society ID, returns information about that newspaper
+Given a newspaper ID, returns information about that newspaper
 
 =cut
 
 sub get_newspaper($){
     
-    my ($nsid) = @_;
-    my ($name, $editor, $address, $postcode) = dbh()->selectrow_array('select name, editor, address, postcode from newspaper where nsid = ?', {}, $nsid);
-    return [ $name, $editor, $address, $postcode ] ;
+    my ($id) = @_;
+    my (@q) = dbh()->selectrow_array('select name, editor, address, postcode, 
+                                      website, isweekly, isevening, free, email
+                                      from newspaper 
+                                      where id = ?', {}, $id);
+    return {'name'=>$q[0], 
+	    'editor'=>$q[1], 
+	    'address'=>$q[2], 
+	    'postcode'=>$q[3],
+	    'website'=>$q[4],
+	    'isweekly'=>$q[5],
+            'isevening'=>$q[6], 
+	    'free'=>$q[7],
+            'email'=>$q[8]} ;
 }
+
+=item get_newspapers
+
+Get a list of all the newspapers in the DB
+
+=cut
+
+sub get_newspapers(){
+    my ($q) = dbh()->selectall_arrayref('select id, name 
+                                         from newspaper 
+                                         order by name asc');
+    return $q ;
+}
+
+
+=item publish_update ID EDITOR HASH
+
+Update the newspaper with the ID using the attribute values in the hash and assigning the update
+to the username EDITOR.
+
+=cut
+
+sub publish_update($$$){
+
+    my ($id, $editor, %fields) = @_;
+    
+}
+
 
 #----------------------------------------------
 
@@ -99,9 +130,10 @@ sub new ($%) {
 
 # publish
 # Publish the record to the database as the current record for this newspaper.
-sub publish ($) {
-    my $self = shift;
-    
+sub publish ($$$){
+
+    my ($self, $editor, $update_coverage) = @_;
+  
     #find out the id of the record in the newspaper table if one exists
     my $newspaper_id = scalar(NeWs::dbh()->selectrow_array('
                                         select id from newspaper
@@ -110,12 +142,20 @@ sub publish ($) {
     if (defined($newspaper_id)){
         
         #delete any existing coverage records
-	NeWs::dbh()->do('delete from coverage where newspaper_id = ?', {}, $newspaper_id);
-        NeWs::dbh()->do('delete from newspaper where id = ?', {}, $newspaper_id);
+	if ($update_coverage || $self->deleted()){
+
+	    NeWs::dbh()->do('delete from coverage where newspaper_id = ?', {}, $newspaper_id);
+	}
+        
+	NeWs::dbh()->do('delete from newspaper where id = ?', {}, $newspaper_id);
     
     }
 
+    #save a copy of the record in the newspaper_edit_history table
+    $self->save_db( $editor );
+
     return if ($self->deleted());
+
     my $stmt = "insert into newspaper ("
                     . join(", ", sort grep { $_ ne 'coverage' && $_ ne 'deleted'} keys %$self)
                     . ") values ("
@@ -127,39 +167,41 @@ sub publish ($) {
     
     $newspaper_id = scalar(NeWs::dbh()->selectrow_array("select currval('newspaper_id_seq')"));
    
-    foreach (@{$self->{coverage}}) {
+    if ($update_coverage){
+        foreach (@{$self->{coverage}}) {
 	
-	#find the location record if one exists
+	    #find the location record if one exists
 	
-	my $location_id = NeWs::dbh()->selectrow_array('
+	    my $location_id = NeWs::dbh()->selectrow_array('
                                            select id from location 
                                            where name = ?', {}, $_->name);
 
-	#if there is no location record, insert one
-	if (!defined($location_id)){
+	    #if there is no location record, insert one
+	    if (!defined($location_id)){
 
         	
-	    NeWs::dbh()->do('
-                    insert into location(
-                        name, population, lat, lon
-                    ) values (?, ?, ?, ?)', 
-		    {},
-		    $_->name(), $_->population(), $_->lat(), $_->lon());
+	        NeWs::dbh()->do('
+                        insert into location(
+                            name, population, lat, lon
+                        ) values (?, ?, ?, ?)', 
+		        {},
+		        $_->name(), $_->population(), $_->lat(), $_->lon());
 	    
-	    #get the id
-            $location_id = scalar(NeWs::dbh()->selectrow_array("select currval('location_id_seq')"));
+	        #get the id
+                $location_id = scalar(NeWs::dbh()->selectrow_array("select currval('location_id_seq')"));
 	    
-	}
+	    }
 
-    
-        NeWs::dbh()->do('
-                insert into coverage (
-                    newspaper_id, location_id, coverage
-                ) values (?, ?, ?)',
-                {},
-                $newspaper_id, $location_id, $_->coverage());
+	    #insert the coverage record with a ref to the relevant location record
+            NeWs::dbh()->do('
+                    insert into coverage (
+                        newspaper_id, location_id, coverage
+                    ) values (?, ?, ?)',
+                    {},
+                    $newspaper_id, $location_id, $_->coverage());
+       }
     }
-	
+    
     NeWs::dbh()->commit();
 }
 
@@ -173,7 +215,7 @@ sub save_db ($$) {
     my $h = new IO::String($buf);
     RABX::wire_wr($self, $h);
     
-    my $s = NeWs::dbh()->prepare('insert into newspaper_edit_history (nsid, source, data, isdeleted) values (?, ?, ?, ?)');
+    my $s = NeWs::dbh()->prepare('insert into newspaper_edit_history (newspaper_id, source, data, isdeleted) values (?, ?, ?, ?)');
     $s->bind_param(1, $self->nsid());
     $s->bind_param(2, $editor);
     $s->bind_param(3, $buf, { pg_type => DBD::Pg::PG_BYTEA });
