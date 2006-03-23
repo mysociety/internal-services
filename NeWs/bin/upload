@@ -7,7 +7,7 @@
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: upload,v 1.1 2006-03-23 09:43:58 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: upload,v 1.2 2006-03-23 17:53:45 louise Exp $';
 
 use strict;
 require 5.8.0;
@@ -64,7 +64,9 @@ sub upload_prepared_data(){
    
   
         my $news = NeWs::Paper->new(%record);
-	$news->publish();
+	my $update_coverage = true;
+	my $source = ''
+	$news->publish($source, $update_coverage);
     }
 
 }
