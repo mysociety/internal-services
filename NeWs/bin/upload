@@ -1,0 +1,72 @@
+#!/usr/bin/perl -w -I ../perllib
+#
+# upload:
+# Upload scraped Newspaper Society newspaper records.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: upload,v 1.1 2006-03-23 09:43:58 louise Exp $';
+
+use strict;
+require 5.8.0;
+
+package Oops;
+
+@Oops::ISA = qw(Error::Simple);
+
+package main;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../../perllib";
+use lib "$FindBin::Bin/../../../perllib";
+
+# Do this first of all, because NeWs.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../../conf/general');
+}
+
+use Data::Dumper;
+use Error qw(:try);
+use IO::File;
+use NeWs;
+
+
+use vars qw($data_dir);
+
+$data_dir = "../data";
+
+# Take a dump of Perl data structures as produced
+# by extract_data_from_local_files()
+sub upload_prepared_data(){
+
+    my $infile = new IO::File("$data_dir/processed/out.txt", O_RDONLY);
+    my $dumped = join('', $infile->getlines());
+    $infile->close();
+
+    foreach my $dumpee (split(/\-\-\-\-\-\n/, $dumped)) {
+        my $VAR1;
+        eval $dumpee;
+        my %record = %{$VAR1};
+      
+	# extract the postcode from address
+	my $a = $record{address};
+	my @address_lines = split(/\n/,$a);
+	my $lastline = $address_lines[-1];
+        if ($lastline =~ m/^([[:upper:]]{1,2}\s?\d{1,2}[[:upper:]]{0,1}\s?[\d|[:upper:]]{1,2}\s?[[:upper:]]{2})$/m){
+	    $record{postcode} = $lastline;
+	}else{
+	    $record{postcode} = "UNKNOWN";
+	}
+   
+  
+        my $news = NeWs::Paper->new(%record);
+	$news->publish();
+    }
+
+}
+
+upload_prepared_data();
