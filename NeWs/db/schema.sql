@@ -5,11 +5,12 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.2 2005-12-07 22:18:33 chris Exp $
+-- $Id: schema.sql,v 1.3 2006-03-23 09:21:23 louise Exp $
 --
 
 create table newspaper (
-    nsid integer not null primary key,  -- Newspaper Society ID
+    id serial not null primary key,
+    nsid integer not null unique,  -- Newspaper Society ID
     name text not null,
     editor text,
     address text not null,
@@ -23,32 +24,41 @@ create table newspaper (
     -- morning or evening
     isevening boolean not null default false,
     -- free or paid for?
-    isfree boolean not null default false,
+    free integer not null default 0,
     -- editorial contact details
     email text,
     fax text,
+    telephone text,
+    circulation integer, 
     check ((lat is null and lon is null)
             or (lat is not null and lon is not null))
 );
 
-create table coverage (
-    nsid integer not null references newspaper(nsid),
-    name text not null,
-    population integer not null,
-    circulation integer not null,
-    lat double precision,
-    lon double precision,
-    check((lat is null and lon is null)
+create table location (
+   id serial not null primary key,
+   name text not null,
+   population integer not null,
+   lat double precision,
+   lon double precision,
+   check((lat is null and lon is null)
         or (lat is not null and lon is not null))
 );
 
-create index coverage_nsid_idx on coverage(nsid);
-create index coverage_lat_idx on coverage(lat);
-create index coverage_lon_idx on coverage(lon);
+create table coverage (
+    id serial not null primary key,
+    newspaper_id integer not null references newspaper(id),  
+    location_id integer not null references location(id),  
+    coverage integer not null
+);
+
+create index coverage_newspaper_id_idx on coverage(newspaper_id);
+create index coverage_location_id_idx on coverage(location_id);
+create index location_lat_idx on location(lat);
+create index location_lon_idx on location(lon);
 
 create table newspaper_edit_history (
     id serial not null primary key,
-    nsid integer not null references newspaper(nsid),
+    newspaper_id integer not null references newspaper(id),
     lastchange timestamp not null default current_timestamp,
     source text,            -- either null to mean scraped data, or a username
     data bytea not null,    -- serialised NeWs::Paper object
