@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w 
 #
 # scrape:
 # Scrape Newspaper Society newspaper records.
@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.4 2006-03-21 09:06:52 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: scrape,v 1.5 2006-03-23 09:40:47 louise Exp $';
 
 use strict;
 require 5.8.0;
@@ -32,18 +32,24 @@ use IO::File;
 use Storable;
 use WWW::Mechanize;
 
+
 use mySociety::Gaze;
 mySociety::Gaze::configure('http://gaze.mysociety.org/gaze');
+
+use vars qw($data_dir);
+
+$data_dir = "../data"; 
 
 sub gaze_find_places ($) {
     my $query = shift;
     my $filename = "$query.gazecache";
     $filename =~ s/([^A-Za-z])/sprintf('%%%02x', ord($1))/ge;
+    my $filepath = "$data_dir/gazecaches/$filename";
     my $r;
-    return $r if (-e $filename && ($r = Storable::retrieve($filename)));
+    return $r if (-e $filepath && ($r = Storable::retrieve($filepath)));
     $r = mySociety::Gaze::find_places('GB', undef, $query, 10, 90);
     print STDERR "$query -> ", Dumper($r);
-    Storable::nstore($r, $filename);
+    Storable::nstore($r, $filepath);
     return $r;
 }
 
@@ -153,13 +159,15 @@ sub strip_tags ($) {
 # parse_record HTML URL TITLE
 # Given the HTML page about an individual newspaper, scrape information about
 # it and return same.
-sub parse_record ($$$) {
-    my ($html, $url, $name) = @_;
+sub parse_record ($$$$) {
+    my ($html, $url, $name, $source_id) = @_;
 
     my ($id) = ($html =~ m#"javascript: DoMap\(([1-9]\d*)\);"#);
-    throw Oops("no ID found in newspaper HTML") unless (defined($id));
-
-    $url ||= "http://www.nsdatabase.co.uk/newspaperdetail.cfm?paperid=$id";
+    #throw Oops("no ID found in newspaper HTML") unless (defined($id));
+    # the ID we got from the link or the file should be the nsid
+    #throw Oops("ID in file does not match ID passed") unless ($id) eq $source_id;
+   
+    $url ||= "http://www.nsdatabase.co.uk/newspaperdetail.cfm?paperid=$source_id";
 
     my $T = HTML::TreeBuilder->new_from_content($html);
     strip_tags($T);
@@ -185,14 +193,14 @@ sub parse_record ($$$) {
     my $details = $p->as_HTML();
     $details =~ s#</?[a-z]>##g;
 
-    my %h = ( nsid => $id, name => $name, nsurl => $url );
+    my %h = ( nsid => $id, name => $name );
 
     $h{name} = $name;
     ($name, my @lines) = map { decode_entities($_) } split(m#<br>#, $details);
 
     if ($name =~ m#^<a href="([^"]+)" target="_blank">(.+)#) {
         $h{name} ||= $2;
-        $h{web} = $1;
+        $h{website} = $1;
     } else {
         $h{name} ||= $name;
     }
@@ -226,13 +234,17 @@ sub parse_record ($$$) {
                         } else {
                             return 0;
                         }
-                    })
-        || throw Oops("no total circulation data found");
-    $t = ($t->parent()->content_list())[1];
-    $h{totalcirculation} = $t->as_text();
-    $h{totalcirculation} =~ s/^\s+//;
-    $h{totalcirculation} =~ s/\s+$//;
-
+                    });
+    #    || throw Oops("no total circulation data found");
+    
+    if (defined($t)){
+        $t = ($t->parent()->content_list())[1];
+        $h{circulation} = $t->as_text();
+        $h{circulation} =~ s/^\s+//;
+        $h{circulation} =~ s/\s+$//;
+    }else{
+	$h{circulation} = 0;
+    }
     # Similarly for free vs paid.
     $t = $T->look_down('_tag', 'td',
                     sub ($) {
@@ -248,10 +260,12 @@ sub parse_record ($$$) {
     my $type = $t->as_text();
     $type =~ s/^\s+//;
     $type =~ s/\s+$//;
-    if ($type eq 'F') {
-        $h{ispaid} = 0;
-    } elsif ($type eq 'P' || $type eq 'C') { # XXX is 'C' actually a typo for 'F'?
-        $h{ispaid} = 1;
+    if ($type eq 'P' ) { 
+        $h{free} = 0;
+    } elsif ($type eq 'F') {
+        $h{free} = 1;
+    } elsif ($type eq 'C'){ #combined - "free in some sectors, paid-for in others"
+	$h{free} = 2;
     } else {
         throw Oops("don't understand type '$type'");
     }
@@ -271,17 +285,23 @@ sub parse_record ($$$) {
     my $freq = $t->as_text();
     $freq =~ s/^\s+//;
     $freq =~ s/\s+$//;
-    if ($freq eq 'W' || $freq eq 'S') {
-        $h{isdaily} = 0;
-    } elsif ($freq eq 'D' || $freq eq 'E') {
-        $h{isdaily} = 1;
-    } elsif ($freq eq 'M' || $freq eq 'Y') {
-        # monthly -- XXX
+    if ($freq eq 'D' || $freq eq 'E' || $freq eq 'M') { #'D' for daily, 'E' for evening, 'M' for morning 
+        $h{isweekly} = 0;
+    } elsif ($freq eq 'W' || $freq eq 'S'){ #'W' for weekly, 'S' for Sundays
+        $h{isweekly} = 1;
+    } elsif ($freq eq 'Y') { # 'Y' seems to be a flag for 'no info' but at least one example is monthly
+        $h{isweekly} = 0;
     } else {
         throw Oops("don't understand frequency of publication '$freq'");
     }
-
-
+	
+    # Set the flag for evening
+    if ($freq eq 'E') { #'E' for evening
+        $h{isevening} = 1;
+    }else{
+        $h{isevening} = 0;
+    }
+   
     # Now find the table of coverage by location.
     $t = $T->look_down('_tag', 'td',
                     sub ($) {
@@ -297,30 +317,36 @@ sub parse_record ($$$) {
     $h{coverage} = [ ];
     my ($totalsize, $sumcirculation) = (0, 0);
     foreach my $row ($t->content_list()) {
-        my ($place, $households, $circulation) = map { my $x = $_->as_text(); $x =~ s/^\s+//; $x =~ s/\s+$//; $x } $row->content_list();
+        my ($place, $households, $coverage) = map { my $x = $_->as_text(); $x =~ s/^\s+//; $x =~ s/\s+$//; $x } $row->content_list();
         next unless ($households =~ /^[1-9][0-9]*$/);
-        push(@{$h{coverage}}, [$place, $households, $circulation]);
+        push(@{$h{coverage}}, [$place, $households, $coverage]);
         $totalsize += $households;
-        $sumcirculation += $circulation;
+        $sumcirculation += $coverage;
     }
 
     # If the circulation is listed as 0 for all locations, then guess that the
     # total circulation is distributed in proportion to the size of each
-    # location listed.
+    # location listed. Round estimates to integers. 
     if ($sumcirculation == 0) {
-        if ($h{totalcirculation} == 0) {
+
+        if ($h{circulation} == 0) {
+	    
             warn "no total circulation known for this paper; assuming 1%";
-            $h{totalcirculation} = 0.01 * $totalsize;
+            $h{circulation} = int(0.01 * $totalsize);
         }
-        warn "estimating circulation for $h{name} from total circulation $h{totalcirculation}";
-        foreach (@{$h{coverage}}) {
-            $_->[2] = ($_->[1] / $totalsize) * $h{totalcirculation};
+	
+	# make sure that we were able to estimate
+	if ($h{circulation} != 0) { 
+	    warn "estimating circulation for $h{name} from total circulation $h{circulation}";
+	    foreach (@{$h{coverage}}) {
+		$_->[2] = int( ($_->[1] / $totalsize) * $h{circulation});
+	    }
         }
-    } elsif ($h{totalcirculation} == 0) {
-        $h{totalcirculation} = $sumcirculation;
+    } elsif ($h{circulation} == 0) {
+        $h{circulation} = $sumcirculation;
     }
 
-    throw Oops("no coverage areas specified") if (!@{$h{coverage}});
+    #throw Oops("no coverage areas specified") if (!@{$h{coverage}});
 
     # Now try to figure out where the various named places are.
     my @allplaces;
@@ -338,19 +364,19 @@ sub parse_record ($$$) {
         }
     }
     
-    throw Oops("could not find location of any coverage areas") if (!@coords);
+    #throw Oops("could not find location of any coverage areas") if (!@coords);
 
-    my ($lat, $lon) = median2d(\@coords);
+    my ($lat, $lon) = median2d(\@coords) if (@coords);
 
     # Find best match for each place in @allplaces, and annotate the coverage
     # array with its coordinates.
     for (my $i = 0; $i < @allplaces; ++$i) {
         my $pp = $allplaces[$i];
         if (@$pp > 1) {
-            print "candidates for '$pp->[0]->[0]':\n";
-            foreach (@$pp) {
-                printf "    %24.24s (%.2f, %.2f) %.1f km\n", $_->[0], $_->[3], $_->[4], Geo::Distance::distance($_->[3], $_->[4], $lat, $lon);
-            }
+            #print STDERR "candidates for '$pp->[0]->[0]':\n";
+            #foreach (@$pp) {
+            #    printf "    %24.24s (%.2f, %.2f) %.1f km\n", $_->[0], $_->[3], $_->[4], Geo::Distance::distance($_->[3], $_->[4], $lat, $lon);
+            #}
             # Several candidates; find the one closest to the "median".
             @$pp = sort { Geo::Distance::distance($a->[3], $a->[4], $lat, $lon) <=> Geo::Distance::distance($b->[3], $b->[4], $lat, $lon) } @$pp;
         }
@@ -368,50 +394,86 @@ sub parse_record ($$$) {
     return \%h;
 }
 
-my $M = new WWW::Mechanize();
-$M->agent_alias('Windows IE 6');
+#Get all the HTML pages describing newspapers
+#and parse them into records
+sub scrape_newspapers(){
+    
+    my $M = new WWW::Mechanize();
+    $M->agent_alias('Windows IE 6');
 
-$M->get('http://www.newspapersoc.org.uk/Documents/Newspapers&Publishers/newspaper-index.htm');
+    $M->get('http://www.newspapersoc.org.uk/Documents/Newspapers&Publishers/newspaper-index.htm');
 
-my $i = 0;
-while (1) {
-    ++$i;
+    my $i = 0;
+    while (1) {
+	++$i;
 
-    my $l = $M->find_link(n => $i, url_regex => qr#/newspaperdetail\.cfm\?paperid=[1-9]\d*$#);
-#    my $l = $M->find_link(n => $i, url_regex => qr#/newspaperdetail\.cfm\?paperid=1010$#);
-    last if (!$l);
+	my $l = $M->find_link(n => $i, url_regex => qr#/newspaperdetail\.cfm\?paperid=[1-9]\d*$#);
+#       my $l = $M->find_link(n => $i, url_regex => qr#/newspaperdetail\.cfm\?paperid=1010$#);
+	last if (!$l);
 
-    print STDERR $l->url(), "\n";
-    print STDERR $l->text(), "\n";
+	print STDERR $l->url(), "\n";
+        print STDERR $l->text(), "\n";
 
-    my ($id) = ($l->url() =~ /([1-9]\d*)$/);
-    my $html;
-    if (-e "$id.html") {
-        my $f = new IO::File("$id.html");
-        $html = join('', $f->getlines());
-        $f->close();
-    } else {
-        my $r = $M->get($l->url());
-        my $f = new IO::File("$id.html", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        $f->print($html = $r->content());
-        $f->close();
+	my ($id) = ($l->url() =~ /([1-9]\d*)$/);
+	my $html;
+	if (-e "$id.html") {
+            my $f = new IO::File("$id.html");
+            $html = join('', $f->getlines());
+            $f->close();
+        } else {
+            my $r = $M->get($l->url());
+            my $f = new IO::File("$id.html", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            $f->print($html = $r->content());
+            $f->close();
+            $M->back();
+        }
+    
+        # Sometimes the links are bad, so still trap errors.
+        my $record;
+        try {
+            $record = parse_record($html, $l->url(), $l->text(), $id);
+            print Dumper($record), "-----\n";
+        } catch Oops with {
+            my $E = shift;
+            print STDERR "oops: ", $E->text(), "\n";
+        };
         $M->back();
     }
-    
-    # Sometimes the links are bad, so still trap errors.
-    my $record;
-    try {
-        $record = parse_record($html, $l->url(), $l->text());
-#        print $record->{name}, " ", $record->{address}, "\n";
-#        print Dumper($record), "-----\n";
-        print "$record->{nsid},\"$record->{name}\",";
-        my $a = $record->{address};
-        $a =~ s/^.*\n([^\n]+)\n$/$1/s;
-        print "\"$a\"\n";
-    } catch Oops with {
-        my $E = shift;
-        print STDERR "oops: ", $E->text(), "\n  ", $l->url(), "\n";
-#        exit(1) unless ($E->text() =~ /no ID found/);
-    };
-    $M->back();
 }
+
+sub extract_data_from_local_files(){
+
+    my $outfile = new IO::File("$data_dir/processed/out.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    
+    opendir(DIRHANDLE,"$data_dir/htmlcaches")||die "ERROR: can not read htmlcaches directory\n";
+
+    my $file;
+    while (defined($file = readdir(DIRHANDLE))) {
+    # do something with "$dirname/$file"
+	if ($file =~ /^.*?\.html$/){
+	 
+ 
+  
+	    my $f = new IO::File("$data_dir/htmlcaches/$file", O_RDONLY);
+	    my ($id) = ($file =~ m/^(.*?)\.html$/);
+	    my $html = join('', $f->getlines());
+	    $f->close();
+	    my $record;
+	    try {
+	        $record = parse_record($html, "", "", $id);
+	        $outfile->print(Dumper($record), "-----\n");
+	    } catch Oops with {
+	        my $E = shift;
+	        print STDERR "oops: ", $E->text(), "\n";
+	    };
+    }
+
+    }
+    closedir DIRHANDLE;
+    $outfile->close();
+
+}
+
+
+extract_data_from_local_files();
+
