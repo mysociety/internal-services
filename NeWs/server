@@ -1,0 +1,35 @@
+#!/usr/bin/perl -w -I./perllib -I../../perllib 
+#
+# server:
+# RABX server for NeWs.
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.1 2006-03-23 09:30:09 louise Exp $';
+
+use strict;
+require 5.8.0;
+
+
+# Do this first of all, because NeWs.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../conf/general');
+}
+
+use FCGI;
+use RABX;
+
+use NeWs;
+
+my $req = FCGI::Request();
+
+while ($req->Accept() >= 0) {
+    RABX::Server::CGI::dispatch(
+            'NeWs.get_newspaper' => sub {
+                return NeWs::get_newspaper($_[0]);
+            }
+        );
+}
