@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.3 2006-03-23 17:56:53 louise Exp $
+# $Id: NeWs.pm,v 1.4 2006-03-26 13:17:23 louise Exp $
 #
 
 package NeWs;
@@ -50,10 +50,11 @@ Given a newspaper ID, returns information about that newspaper
 sub get_newspaper($){
     
     my ($id) = @_;
-    my (@q) = dbh()->selectrow_array('select name, editor, address, postcode, 
-                                      website, isweekly, isevening, free, email
+    my (@q) = dbh()->selectrow_array("select name, editor, address, postcode, 
+                                      website, isweekly, isevening, free, email,
+                                      fax, telephone, nsid
                                       from newspaper 
-                                      where id = ?', {}, $id);
+                                      where id = ? and isdeleted = false", {}, $id);
     return {'name'=>$q[0], 
 	    'editor'=>$q[1], 
 	    'address'=>$q[2], 
@@ -62,7 +63,10 @@ sub get_newspaper($){
 	    'isweekly'=>$q[5],
             'isevening'=>$q[6], 
 	    'free'=>$q[7],
-            'email'=>$q[8]} ;
+            'email'=>$q[8],
+            'fax'=>$q[9],
+            'telephone'=>$q[10],
+            'nsid'=>$q[11]} ;
 }
 
 =item get_newspapers
@@ -72,9 +76,10 @@ Get a list of all the newspapers in the DB
 =cut
 
 sub get_newspapers(){
-    my ($q) = dbh()->selectall_arrayref('select id, name 
-                                         from newspaper 
-                                         order by name asc');
+    my ($q) = dbh()->selectall_arrayref("select id, name 
+                                         from newspaper
+                                         where isdeleted = false 
+                                         order by name asc");
     return $q ;
 }
 
@@ -86,9 +91,15 @@ to the username EDITOR.
 
 =cut
 
+#TODO: this is not working when called from admin-news.php
 sub publish_update($$$){
 
     my ($id, $editor, %fields) = @_;
+    
+    #create a newspaper object
+    my $news = NeWs::Paper->new(%fields);
+    my $update_coverage = 0;
+    $news->publish($editor, $update_coverage);
     
 }
 
@@ -100,7 +111,7 @@ package NeWs::Paper;
 # Object representing an individual newspaper.
 
 use strict;
-use fields qw(nsid name editor address postcode website isweekly isevening free email fax telephone lat lon circulation coverage deleted);
+use fields qw(nsid name editor address postcode website isweekly isevening free email fax telephone lat lon circulation coverage isdeleted);
 
 use IO::String;
 use RABX;
@@ -141,31 +152,35 @@ sub publish ($$$){
 
     if (defined($newspaper_id)){
         
-        #delete any existing coverage records
-	if ($update_coverage || $self->deleted()){
+        #delete any existing coverage records if they are going to be replaced
+	if ($update_coverage){
 
 	    NeWs::dbh()->do('delete from coverage where newspaper_id = ?', {}, $newspaper_id);
 	}
-        
-	NeWs::dbh()->do('delete from newspaper where id = ?', {}, $newspaper_id);
-    
-    }
-
-    #save a copy of the record in the newspaper_edit_history table
-    $self->save_db( $editor );
-
-    return if ($self->deleted());
-
-    my $stmt = "insert into newspaper ("
-                    . join(", ", sort grep { $_ ne 'coverage' && $_ ne 'deleted'} keys %$self)
+           
+	my @update_list;
+	foreach ( sort grep { $_ ne 'coverage'} keys %$self ){
+	    unshift(@update_list, $_ . " = " . NeWs::dbh()->quote($self->{$_}));
+	}
+	my $stmt = "update newspaper set " . join(", ", @update_list) . " where id = " . $newspaper_id;
+	print $stmt;
+	NeWs::dbh()->do($stmt);
+	
+    }else{
+	
+	#this is a new record
+	my $stmt = "insert into newspaper ("
+	    . join(", ", sort grep { $_ ne 'coverage'} keys %$self)
                     . ") values ("
-                    . join(", ", map { NeWs::dbh()->quote($self->{$_}) } sort grep { $_ ne 'coverage' && $_ ne 'deleted' } keys %$self)
+                    . join(", ", map { NeWs::dbh()->quote($self->{$_}) } sort grep { $_ ne 'coverage' } keys %$self)
                     . ")";
+	NeWs::dbh()->do($stmt);
+	$newspaper_id = scalar(NeWs::dbh()->selectrow_array("select currval('newspaper_id_seq')"));
 
- 
-    NeWs::dbh()->do($stmt);
-    
-    $newspaper_id = scalar(NeWs::dbh()->selectrow_array("select currval('newspaper_id_seq')"));
+    }
+  
+    #save a copy of the record in the newspaper_edit_history table
+    $self->save_db( $newspaper_id, $editor );
    
     if ($update_coverage){
         foreach (@{$self->{coverage}}) {
@@ -208,18 +223,18 @@ sub publish ($$$){
 # save EDITOR
 # Save a copy of the record in the database edit history, as from EDITOR; if
 # EDITOR is undef, this means "changes from the scraper".
-sub save_db ($$) {
-    my ($self, $editor) = @_;
+sub save_db ($$$) {
+    my ($self, $newspaper_id, $editor) = @_;
 
     my $buf = '';
     my $h = new IO::String($buf);
-    RABX::wire_wr($self, $h);
+    RABX::wire_wr( %$self, $h);
     
     my $s = NeWs::dbh()->prepare('insert into newspaper_edit_history (newspaper_id, source, data, isdeleted) values (?, ?, ?, ?)');
-    $s->bind_param(1, $self->nsid());
+    $s->bind_param(1, $newspaper_id);
     $s->bind_param(2, $editor);
     $s->bind_param(3, $buf, { pg_type => DBD::Pg::PG_BYTEA });
-    $s->bind_param(4, $self->deleted() ? 't' : 'f');
+    $s->bind_param(4, $self->isdeleted() ? 't' : 'f');
     $s->execute();
 }
 
