@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.3 2006-03-23 09:21:23 louise Exp $
+-- $Id: schema.sql,v 1.4 2006-03-26 13:18:46 louise Exp $
 --
 
 create table newspaper (
@@ -30,6 +30,7 @@ create table newspaper (
     fax text,
     telephone text,
     circulation integer, 
+    isdeleted boolean not null default false,
     check ((lat is null and lon is null)
             or (lat is not null and lon is not null))
 );
