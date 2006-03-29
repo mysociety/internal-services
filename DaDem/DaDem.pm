@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.71 2006-03-13 13:14:31 francis Exp $
+# $Id: DaDem.pm,v 1.72 2006-03-29 16:30:09 francis Exp $
 #
 
 package DaDem;
@@ -585,7 +585,7 @@ sub get_same_person ($) {
     my ($person_id) = @_;
 
     my $same = dbh()->selectcol_arrayref("select representative_id
-            from parlparse_link where person_id = ?", {}, $person_id);
+            from parlparse_link where person_id = ? order by representative_id", {}, $person_id);
 
     if (!scalar(@$same)) {
         throw RABX::Error("Bad person ID '$person_id'", mySociety::DaDem::PERSON_NOT_FOUND);
