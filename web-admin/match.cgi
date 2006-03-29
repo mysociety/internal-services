@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.31 2006-01-30 00:28:50 francis Exp $
+# $Id: match.cgi,v 1.32 2006-03-29 07:56:06 francis Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.31 2006-01-30 00:28:50 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.32 2006-03-29 07:56:06 francis Exp $';
 
 use strict;
 
@@ -424,8 +424,9 @@ sub do_council_edit ($) {
     print html_head($q, $name . " - Edit");
     print $q->h1($name . " $area_id &mdash; Edit $reps_count Reps");
     print $q->p($q->b("Note:"), "Data entered here", $q->b("will"), "be
-        returned to GovEval.  Please do not enter information which a councillor
-        wishes to remain private.  Leave email and fax blank and the councillor
+        returned to GovEval (if we ever get round to writing the script).
+        Please do not enter information which a councillor wishes to remain
+        private.  Leave email and fax blank and the councillor
         will be contacted via Democratic Services.");
 
     # Large form for editing council details
