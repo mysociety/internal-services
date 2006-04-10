@@ -1,0 +1,101 @@
+#!/usr/bin/perl -w -I../../../perllib -I../
+#
+# scrapers/lord
+# Load in Lords from UKParse format XML file, and write out CSV file.
+#
+# Parameters: 
+# $1 - all-member.xml file from UKParse
+# $2 - people.xml file from UKParse
+# $3 - output CSV file of all current members
+# make sure ../conf/general is configured for mapit db
+#
+# Example use:
+#./lord ~/devel/parlparse/members/peers-ucl.xml ~/devel/parlparse/members/people.xml ~/devel/repdata/mysociety/lords.csv
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: lord,v 1.1 2006-04-10 11:33:34 francis Exp $';
+
+use strict;
+
+use Data::Dumper;
+use XML::Twig;
+use Text::CSV_XS;
+
+use Common;
+use mySociety::VotingArea;
+
+use POSIX;
+my $today = strftime("%Y-%m-%d",localtime(time()));
+
+my $all_members_xml = shift(@ARGV);
+die "specify peers-ucl.xml from parlparse" if (!defined($all_members_xml));
+my $people_xml = shift(@ARGV);
+die "specify people.xml from parlparse" if (!defined($people_xml));
+my $file_output_all = shift(@ARGV);
+die "specify output CSV" if (!defined($file_output_all));
+
+# Load person ids in
+my $twig = new XML::Twig( output_filter => 'safe' );
+$twig->parsefile($people_xml);
+my $peopleroot = $twig->root;
+my @people = $peopleroot->children('person');
+my $membertoperson = {};
+foreach my $person (@people) {
+    my $personid = $person->{'att'}->{'id'};
+    my @offices = $person->children('office');
+    foreach my $office (@offices) {
+        my $officeid = $office->{'att'}->{'id'};
+        $membertoperson->{$officeid} = $personid;
+    }
+}
+
+# Count how many members for each person, and store current members attributes
+$twig = new XML::Twig( output_filter => 'safe' );
+$twig->parsefile($all_members_xml);
+my $memberroot= $twig->root;
+my @members = $memberroot->children('lord');
+my $nowc = 0;
+my $personcount;
+my $peoplenow;
+my @membersnow;
+my @membersdeleted;
+foreach my $member (@members) {
+    my $member_id = $member->{'att'}->{'id'};
+    my $person_id = $membertoperson->{$member_id};
+    $personcount->{$person_id}++;
+
+    # Current parliament after 5th May 2005
+    if ($member->{'att'}->{'fromdate'} le $today 
+        && $member->{'att'}->{'todate'} ge $today) {
+        $nowc++;
+        push @membersnow, $member->{'att'};
+        $peoplenow->{$person_id} = 1;
+    }
+
+}
+die "very few Lords! only $nowc" if $nowc < 700;
+
+# Print out all Lords to CSV
+my $csv = new Text::CSV_XS({ binary => 1 });
+open(CSV, ">$file_output_all");
+print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
+foreach my $mematt (@membersnow) {
+    my $fullname = $mematt->{'title'} . " " . $mematt->{'lordname'};
+    if ($mematt->{'lordofname'}) {
+        $fullname .= " of " . $mematt->{'lordofname'};
+    }
+    my $party = $mematt->{'affiliation'};
+    my $member_id = $mematt->{'id'};
+    my $person_id = $membertoperson->{$member_id};
+    my $count = $personcount->{$person_id};
+    my $email = undef;
+    my $fax = undef;
+    $csv->print(\*CSV, [$fullname, "House of Lords", $email, $fax, undef, undef, $party]);
+    print CSV "\n";
+}
+
+
+

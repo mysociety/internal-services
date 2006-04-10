@@ -9,7 +9,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.1 2006-02-15 08:39:03 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.2 2006-04-10 11:33:32 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -52,58 +52,62 @@ sub connect_to_dadem_database () {
 }
 my $d_dbh = connect_to_dadem_database();
 
-my $area_type = "WMC";
-
-############################################################################
-# Extract basic data from MaPit/DaDem
-
-# Need to obtain a list of MP/constituency names and then pick out messages by those.
-my $areaids = mySociety::MaPit::get_areas_by_type($area_type, 1); # array of ids of ALL areas (not just current generation)
-my %areainfo = %{mySociety::MaPit::get_voting_areas_info($areaids)}; # hash from area id to hash of info about area
-my $repids = mySociety::DaDem::get_representatives([keys %areainfo], 1); # hash from area to reps for that area
-my @allreps;
-my $reptoarea; # hash from rep id to area represented
-foreach (keys %$repids) {
-    if (!@{$repids->{$_}}) {
-        print STDERR "area #$_ ($areainfo{$_}->{name}) has no representative\n";
-    } else {
-        foreach my $repid (@{$repids->{$_}}) {
-            if ($repid !~ /^[1-9]\d*$/) {
-                print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
-            }
-
-            push @allreps, $repid;
-            $reptoarea->{$repid} = $_;
-        }
-   }
-}
-my %repinfo = %{mySociety::DaDem::get_representatives_info(\@allreps)};
-
-# Match all the names
 $d_dbh->do('delete from parlparse_link;');
-my ($rd, $wt);
-open2($rd, $wt, './parlparse-ids.py') or die "failed to call parlparse-ids.py";
-binmode($wt, ':utf8');
-foreach my $repid (@allreps) {
-    #print Dumper($repinfo{$repid});
-    my $name = $repinfo{$repid}->{name};
-    next if $name =~ m/Election Pending/;
-    next if $name =~ m/^Moogle$/;
-    my $cons = $areainfo{$reptoarea->{$repid}}->{name};
-    my $editdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whenlastedited}));
-    my $createdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whencreated}));
-    #print "$name $cons $createdate $editdate\n";
-    $wt->print("$name#$cons#$createdate\n");
-    my $person_id_1 = $rd->getline();
-    $wt->print("$name#$cons#$createdate\n");
-    my $person_id_2 = $rd->getline();
-    die "none matched for $name ($cons)" if (!$person_id_1 && !$person_id_2);
-    if ($person_id_1 && $person_id_2 && ($person_id_1 ne $person_id_2)) {
-        die "for $name ($cons) got two people ids $person_id_1 ($editdate) and $person_id_2 ($createdate)\n";
-    }
-    
-    $person_id_1 =~ s/(\s+$)|(^\s+)//g;
-    $d_dbh->do('insert into parlparse_link (representative_id, person_id) values (?, ?)', {}, $repid, $person_id_1);
-}
+#process_one_type("WMC", './parlparse-ids.py');
+process_one_type("HOL", './parlparse-ids-lords.py');
 $d_dbh->commit();
+
+sub process_one_type {
+    my $area_type = shift;
+    my $matcher_script = shift;
+
+    # Need to obtain a list of MP/constituency names and then pick out messages by those.
+    my $areaids = mySociety::MaPit::get_areas_by_type($area_type, 1); # array of ids of ALL areas (not just current generation)
+    print Dumper($areaids);exit;
+    my %areainfo = %{mySociety::MaPit::get_voting_areas_info($areaids)}; # hash from area id to hash of info about area
+    my $repids = mySociety::DaDem::get_representatives([keys %areainfo], 1); # hash from area to reps for that area
+    my @allreps;
+    my $reptoarea; # hash from rep id to area represented
+    foreach (keys %$repids) {
+        if (!@{$repids->{$_}}) {
+            print STDERR "area #$_ ($areainfo{$_}->{name}) has no representative\n";
+        } else {
+            foreach my $repid (@{$repids->{$_}}) {
+                if ($repid !~ /^[1-9]\d*$/) {
+                    print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
+                }
+
+                push @allreps, $repid;
+                $reptoarea->{$repid} = $_;
+            }
+       }
+    }
+    my %repinfo = %{mySociety::DaDem::get_representatives_info(\@allreps)};
+
+    # Match all the names
+    my ($rd, $wt);
+    open2($rd, $wt, $matcher_script) or die "failed to call $matcher_script";
+    binmode($wt, ':utf8');
+    foreach my $repid (@allreps) {
+        #print Dumper($repinfo{$repid});
+        my $name = $repinfo{$repid}->{name};
+        next if $name =~ m/Election Pending/;
+        next if $name =~ m/^Moogle$/;
+        my $cons = $areainfo{$reptoarea->{$repid}}->{name};
+        my $editdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whenlastedited}));
+        my $createdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whencreated}));
+        print "$name $cons $createdate $editdate\n";
+        $wt->print("$name#$cons#$createdate\n");
+        my $person_id_1 = $rd->getline();
+        $wt->print("$name#$cons#$createdate\n");
+        my $person_id_2 = $rd->getline();
+        die "none matched for $name ($cons)" if (!$person_id_1 && !$person_id_2);
+        if ($person_id_1 && $person_id_2 && ($person_id_1 ne $person_id_2)) {
+            die "for $name ($cons) got two people ids $person_id_1 ($editdate) and $person_id_2 ($createdate)\n";
+        }
+        
+        $person_id_1 =~ s/(\s+$)|(^\s+)//g;
+        $d_dbh->do('insert into parlparse_link (representative_id, person_id) values (?, ?)', {}, $repid, $person_id_1);
+    }
+}
 

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w -I../../../perllib -I../
 #
-# ukparse_xml_to_csv
+# scrapers/mp
 # Load in MPs from UKParse format XML file, and write out CSV file.
 #
 # Parameters: 
@@ -12,13 +12,13 @@
 # make sure ../conf/general is configured for mapit db
 #
 # Example use:
-#./ukparse_xml_to_csv ~/devel/publicwhip/members/all-members.xml ~/devel/publicwhip/members/people.xml ~/devel/repdata/mysociety/mps-post-election2005.csv ~/devel/repdata/mysociety/mps-deleted-election2005.csv ~/devel/repdata/mysociety/newmps-emails-election2005.csv
+#./mp ~/devel/publicwhip/members/all-members.xml ~/devel/publicwhip/members/people.xml ~/devel/repdata/mysociety/mps-post-election2005.csv ~/devel/repdata/mysociety/mps-deleted-election2005.csv ~/devel/repdata/mysociety/newmps-emails-election2005.csv
 #
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: mp,v 1.1 2005-10-26 17:06:41 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp,v 1.2 2006-04-10 11:33:34 francis Exp $';
 
 use strict;
 
@@ -33,9 +33,9 @@ use POSIX;
 my $today = strftime("%Y-%m-%d",localtime(time()));
 
 my $all_members_xml = shift(@ARGV);
-die "specify all-members.xml from Public Whip" if (!defined($all_members_xml));
+die "specify all-members.xml from parlparse" if (!defined($all_members_xml));
 my $people_xml = shift(@ARGV);
-die "specify people.xml from Public Whip" if (!defined($people_xml));
+die "specify people.xml from parlparse" if (!defined($people_xml));
 my $file_output_all = shift(@ARGV);
 die "specify output CSV" if (!defined($file_output_all));
 my $file_output_deleted = shift(@ARGV);

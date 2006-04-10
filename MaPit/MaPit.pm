@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.37 2006-03-13 13:14:31 francis Exp $
+# $Id: MaPit.pm,v 1.38 2006-04-10 11:33:33 francis Exp $
 #
 
 package MaPit;
@@ -76,6 +76,11 @@ my %special_cases = (
             name => 'House of Commons'
         },
         
+        mySociety::VotingArea::HOL_AREA_ID => {
+            type => 'HOL',
+            name => 'House of Lords'
+        },
+
         mySociety::VotingArea::EUP_AREA_ID => {
             type => 'EUP',
             name => 'European Parliament'
@@ -152,6 +157,7 @@ my %enclosing_areas = (
         'NIE' => [mySociety::VotingArea::NIA_AREA_ID],
         'WMC' => [mySociety::VotingArea::WMP_AREA_ID],
         'EUR' => [mySociety::VotingArea::EUP_AREA_ID],
+        'HOL' => [mySociety::VotingArea::HOL_AREA_ID],
     );
 
 =item get_generation

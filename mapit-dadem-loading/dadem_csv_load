@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.13 2006-02-07 20:51:58 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.14 2006-04-10 11:33:33 francis Exp $';
 
 use strict;
 
@@ -62,6 +62,8 @@ if ($kind eq "mep") {
 } elsif ($kind eq "mp") {
     $types = [qw(WMC)];
     $allow_multiples = 0;
+} elsif ($kind eq "lord") {
+    $types = [qw(HOL)];
 } elsif ($kind eq "msp") {
     $types = [qw(SPC SPE)];
 } elsif ($kind eq "wam") {
@@ -129,13 +131,19 @@ while (my ($area_id) = $s->fetchrow_array()) {
     push(@area_ids, $area_id);
 }
 
-# Special case, should perhaps have function in MaPit instead of the select
+# Special cases, should perhaps have function in MaPit instead of the select
 # above, which includes the special cases there.
 if ($kind eq "lam") {
     $name_to_id{"London Assembly"} = mySociety::VotingArea::LAE_AREA_ID;
     $name_to_type{"London Assembly"} = "LAE";
     $id_to_name{mySociety::VotingArea::LAE_AREA_ID} = "London Assembly";
     push(@area_ids, mySociety::VotingArea::LAE_AREA_ID);
+}
+if ($kind eq "lord") {
+    $name_to_id{"House of Lords"} = mySociety::VotingArea::HOL_AREA_ID;
+    $name_to_type{"House of Lords"} = "HOL";
+    $id_to_name{mySociety::VotingArea::HOL_AREA_ID} = "House of Lords";
+    push(@area_ids, mySociety::VotingArea::HOL_AREA_ID);
 }
 
 # Various forms of null
@@ -221,7 +229,7 @@ while (my $line = <MAIN>) {
             $finalmethod = "email"; # default to email
         }
 
-    } elsif ($kind eq "mp") {
+    } elsif ($kind eq "mp" || $kind eq "lord") {
         my ($name, $constituency, $email, $fax, $phone, $constituencyfax, $party) = @fields;
 
         $finalcons = $constituency;
