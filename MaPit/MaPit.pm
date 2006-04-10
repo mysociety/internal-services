@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.39 2006-04-10 15:46:13 francis Exp $
+# $Id: MaPit.pm,v 1.40 2006-04-10 17:30:24 francis Exp $
 #
 
 package MaPit;
@@ -79,6 +79,12 @@ my %special_cases = (
         mySociety::VotingArea::HOL_AREA_ID => {
             type => 'HOL',
             name => 'House of Lords'
+        },
+
+        mySociety::VotingArea::HOC_AREA_ID => {
+            type => 'HOC',
+            name => 'United Kingdom', # Dummy constituency
+            parent_area_id => mySociety::VotingArea::HOL_AREA_ID
         },
 
         mySociety::VotingArea::EUP_AREA_ID => {
@@ -282,7 +288,7 @@ sub get_voting_area_info ($) {
 
     # Annotate with information about the representative type returned for that
     # area.
-    foreach (qw(type_name attend_prep rep_name rep_name_plural
+    foreach (qw(type_name attend_prep general_prep rep_name rep_name_plural
                 rep_name_long rep_name_long_plural rep_suffix rep_prefix)) {
         no strict 'refs';
         $ret->{$_} = ${"mySociety::VotingArea::$_"}{$ret->{type}};

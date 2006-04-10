@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.6 2006-04-10 11:33:33 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.7 2006-04-10 17:30:25 francis Exp $';
 
 use strict;
 
@@ -46,9 +46,6 @@ if ($kind eq "mep") {
     $name_type_char = 'G';
 } elsif ($kind eq "mp") {
     $types = [qw(WMC)];
-    $name_type_char = 'X';
-} elsif ($kind eq "lord") {
-    $types = [qw(HOL)];
     $name_type_char = 'X';
 } elsif ($kind eq "msp") {
     $types = [qw(SPC SPE)];
