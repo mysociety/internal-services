@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.38 2006-04-10 11:33:33 francis Exp $
+# $Id: MaPit.pm,v 1.39 2006-04-10 15:46:13 francis Exp $
 #
 
 package MaPit;
@@ -312,6 +312,10 @@ sub get_areas_by_type ($;$) {
     throw RABX::Error("Please specify type") unless $type;
     throw RABX::Error("Type must be three capital letters") unless $type =~ m/^[A-Z][A-Z][A-Z]$/;
     throw RABX::Error("Type unknown") unless defined($mySociety::VotingArea::known_types{$type});
+
+    if ($type eq 'HOL') {
+        return [ mySociety::VotingArea::HOL_AREA_ID ];
+    }
 
     my $generation = get_generation();
     my $ret;

@@ -16,7 +16,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: lord,v 1.1 2006-04-10 11:33:34 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: lord,v 1.2 2006-04-10 15:46:13 francis Exp $';
 
 use strict;
 
@@ -83,9 +83,15 @@ my $csv = new Text::CSV_XS({ binary => 1 });
 open(CSV, ">$file_output_all");
 print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
 foreach my $mematt (@membersnow) {
-    my $fullname = $mematt->{'title'} . " " . $mematt->{'lordname'};
+    my $fullname = $mematt->{'title'};
+    if ($mematt->{'lordname'}) {
+        $fullname .=  " " . $mematt->{'lordname'};
+    }
     if ($mematt->{'lordofname'}) {
         $fullname .= " of " . $mematt->{'lordofname'};
+        if (!$mematt->{'lordname'}) {
+            $fullname = "The " . $fullname;
+        }
     }
     my $party = $mematt->{'affiliation'};
     my $member_id = $mematt->{'id'};
