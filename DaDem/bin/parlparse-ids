@@ -9,7 +9,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.3 2006-04-10 15:46:13 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.4 2006-04-11 22:56:17 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -55,8 +55,8 @@ my $d_dbh = connect_to_dadem_database();
 $d_dbh->do('delete from parlparse_link;');
 #print "WMC\n";
 process_one_type("WMC", './parlparse-ids.py');
-#print "HOL\n";
-process_one_type("HOL", './parlparse-ids-lords.py');
+#print "HOC\n";
+process_one_type("HOC", './parlparse-ids-lords.py');
 $d_dbh->commit();
 
 sub process_one_type {
