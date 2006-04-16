@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.4 2006-03-26 13:17:23 louise Exp $
+# $Id: NeWs.pm,v 1.5 2006-04-16 18:39:21 louise Exp $
 #
 
 package NeWs;
@@ -91,18 +91,46 @@ to the username EDITOR.
 
 =cut
 
-#TODO: this is not working when called from admin-news.php
 sub publish_update($$$){
 
-    my ($id, $editor, %fields) = @_;
+    my ($id, $editor, $fields) = @_;
     
     #create a newspaper object
-    my $news = NeWs::Paper->new(%fields);
+    my $news = NeWs::Paper->new($fields);
     my $update_coverage = 0;
     $news->publish($editor, $update_coverage);
     
 }
 
+=item get_history ID
+
+Given a newspaper ID, returns the history of edits to that newspaper's record in the database 
+
+=cut
+
+sub get_history($){
+    
+    my ($id) = @_;
+    my %ret;
+
+    my $rows = dbh()->selectall_arrayref("select id, lastchange, source, data, isdeleted
+                                                  from newspaper_edit_history
+                                                  where newspaper_id = ?
+                                                  order by lastchange desc", {}, $id);
+    
+ 
+    foreach (@$rows){
+	my ($change_id, $lastchange, $source, $data, $isdel) = @$_;
+
+       
+	my $data = RABX::wire_rd(new IO::String($data)); 
+	$ret{ $change_id} = {'lastchange' => $lastchange, 
+                             'source' => $source,
+			     'isdel' => $isdel,
+                             'data' =>  $data};
+    }
+    return \%ret;
+}
 
 #----------------------------------------------
 
@@ -124,10 +152,14 @@ mySociety::Util::create_accessor_methods();
 
 # new FIELD VALUE ...
 # Constructor.
-sub new ($%) {
-    my ($class, %f) = @_;
+sub new ($$) {
+    my ($class, $f) = @_;
     my $self = fields::new($class);
-    %$self= %f;
+
+    foreach(keys %$f){
+	$self->{$_} = $f->{$_};
+    }
+
     my @coverage_objs;
     foreach (@{$self->{coverage}}){
         my %coverage = ('name'=>$_->[0], 'population'=>$_->[1], 'coverage'=>$_->[2], 'lat'=>$_->[3], 'lon'=>$_->[4]);
@@ -163,7 +195,7 @@ sub publish ($$$){
 	    unshift(@update_list, $_ . " = " . NeWs::dbh()->quote($self->{$_}));
 	}
 	my $stmt = "update newspaper set " . join(", ", @update_list) . " where id = " . $newspaper_id;
-	print $stmt;
+
 	NeWs::dbh()->do($stmt);
 	
     }else{
@@ -220,23 +252,30 @@ sub publish ($$$){
     NeWs::dbh()->commit();
 }
 
-# save EDITOR
+# save_db NEWSPAPER_ID EDITOR
 # Save a copy of the record in the database edit history, as from EDITOR; if
 # EDITOR is undef, this means "changes from the scraper".
 sub save_db ($$$) {
     my ($self, $newspaper_id, $editor) = @_;
 
-    my $buf = '';
-    my $h = new IO::String($buf);
-    RABX::wire_wr( %$self, $h);
+    my $h = new IO::String();    
+    my $storage;
+
+    foreach( grep { $_ ne 'coverage'} keys %$self){
+        $storage->{$_} = $self->{$_};
+    }
+
+    RABX::wire_wr( $storage, $h);
     
     my $s = NeWs::dbh()->prepare('insert into newspaper_edit_history (newspaper_id, source, data, isdeleted) values (?, ?, ?, ?)');
     $s->bind_param(1, $newspaper_id);
     $s->bind_param(2, $editor);
-    $s->bind_param(3, $buf, { pg_type => DBD::Pg::PG_BYTEA });
+    $s->bind_param(3, ${$h->string_ref()}, { pg_type => DBD::Pg::PG_BYTEA });
     $s->bind_param(4, $self->isdeleted() ? 't' : 'f');
     $s->execute();
 }
+
+
 
 sub diff_one ($$) {
     my ($a, $b) = @_;
