@@ -6,7 +6,7 @@
  * Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
  * Email: louise.crow@gmail.com. WWW: http://www.mysociety.org
  *
- * $Id: admin-news.php,v 1.1 2006-03-26 13:20:31 louise Exp $
+ * $Id: admin-news.php,v 1.2 2006-04-16 18:38:37 louise Exp $
  * 
  */
 
@@ -26,7 +26,7 @@ class ADMIN_PAGE_NEWS_NEWSPAPERS {
 	# show a specific newspaper
         if ($newspaper_id) {
             $newspaper = news_get_newspaper($newspaper_id);
-	
+
 	    // Instantiate the HTML_QuickForm object
             $form = new HTML_QuickForm('newspaper_update');
 
@@ -80,17 +80,36 @@ class ADMIN_PAGE_NEWS_NEWSPAPERS {
 		$news['isweekly']=$form->exportValue('isweekly');
         	$news['isevening']=$form->exportValue('isevening');
 		$news['free']=$form->exportValue('free');
-		$news['isdeleted']='f';	
+		$news['isdeleted']= 0;	
 		
-		#TODO: this is not working - fails silently
-		news_publish_update($id, '', $news);
+		#update through the web service
+		news_publish_update($newspaper_id, 'test', $news);
 		
 		print "The newspaper has been updated";
 	    }
 
 	    // Output the form
 	    $form->display();
-       
+?>
+<h2>Edit History</h2>
+<? 
+		
+            # get the edit history
+            $history = news_get_history($newspaper_id);
+
+	    foreach($history as $edit){            	
+               print "Edited on:  $edit $edit[lastchange] <br />\n";
+	       print "By: $edit[source] <br />\n";
+		if ($edit['isdel']){
+			print "Record was deleted <br />\n"; 
+		}else{
+	  
+			foreach($edit['data'] as $key => $value){
+				print "<b>$key</b> $value<br />\n";
+			}
+		}
+            }
+
         }else{
 	   $q = news_get_newspapers();
 ?>
