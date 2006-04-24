@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.72 2006-03-29 16:30:09 francis Exp $
+# $Id: DaDem.pm,v 1.73 2006-04-24 22:28:35 chris Exp $
 #
 
 package DaDem;
@@ -506,9 +506,9 @@ given in ARRAY.
 sub get_representatives_info ($) {
     my ($ary) = @_;
     
-    if (my ($bad) = grep(/^([^\d]|)$/, @$ary)) {
-        throw RABX::Error("Bad representative ID '$bad'", mySociety::DaDem::REP_NOT_FOUND);
-    }
+    my ($bad) = grep(/([^\d]|^$)/, @$ary);
+    throw RABX::Error("Bad representative ID '$bad'", mySociety::DaDem::REP_NOT_FOUND)
+        if (defined($bad));
     
     my %ret = ( );
     
