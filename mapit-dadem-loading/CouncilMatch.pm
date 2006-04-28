@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.9 2006-02-21 12:00:59 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.10 2006-04-28 21:58:06 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -275,6 +275,8 @@ sub move_compass_to_start {
 # simple form can then be used with exact matching.
 sub canonicalise_constituency_name ($) {
     $_ = shift;
+
+    return $_ if !$_;
 
     # Europe regions
     s#^Greater ##i;

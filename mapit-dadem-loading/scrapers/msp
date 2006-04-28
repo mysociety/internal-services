@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.6 2006-02-04 15:56:27 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.7 2006-04-28 21:58:07 dademcron Exp $';
 
 use strict;
 
@@ -150,5 +150,5 @@ while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
     ++$n;
 }
 
-die "Expected 129 MSPs, but got $count" if ($count != 129);
+die "Expected 129 MSPs (at least 126), but got $count" if ($count < 126);
 

@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.15 2006-04-10 17:30:25 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.16 2006-04-28 21:58:06 dademcron Exp $';
 
 use strict;
 
@@ -276,7 +276,7 @@ while (my $line = <MAIN>) {
         } elsif (!defined($finalemail) and !defined($finalfax)) {
             $finalmethod = "unknown";
         } else {
-            $finalmethod = "either";
+            $finalmethod = "email";
         }
 
     } else {
