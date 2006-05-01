@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.5 2006-04-16 18:39:21 louise Exp $
+# $Id: NeWs.pm,v 1.6 2006-05-01 15:08:06 louise Exp $
 #
 
 package NeWs;
@@ -83,6 +83,26 @@ sub get_newspapers(){
     return $q ;
 }
 
+=item get_newspapers_by_name
+
+Get a hash keyed on id of newspapers in the DB matching a partial name string
+
+=cut 
+
+sub get_newspapers_by_name($){
+    my ($partial_name) = @_;
+    $partial_name = lc $partial_name;
+    my %ret;
+    foreach my $row (@{  dbh()->selectall_arrayref("select id, name
+                                                     from newspaper 
+                                                     where isdeleted = false
+                                                     and lower(name) like ?
+                                                     order by name asc", {}, '%' . $partial_name . '%')}){
+	my ($id, $name) = @$row;
+	$ret{ $id } = {'name' => $name };
+    }
+    return \%ret;
+}
 
 =item publish_update ID EDITOR HASH
 
@@ -111,28 +131,59 @@ Given a newspaper ID, returns the history of edits to that newspaper's record in
 sub get_history($){
     
     my ($id) = @_;
-    my %ret;
+    my @ret;
 
     my $rows = dbh()->selectall_arrayref("select id, lastchange, source, data, isdeleted
                                                   from newspaper_edit_history
                                                   where newspaper_id = ?
                                                   order by lastchange desc", {}, $id);
     
- 
+
     foreach (@$rows){
 	my ($change_id, $lastchange, $source, $data, $isdel) = @$_;
-
+      
        
 	my $data = RABX::wire_rd(new IO::String($data)); 
-	$ret{ $change_id} = {'lastchange' => $lastchange, 
-                             'source' => $source,
-			     'isdel' => $isdel,
-                             'data' =>  $data};
+	push( @ret, {'lastchange' => $lastchange, 
+                     'source' => $source,
+		     'isdel' => $isdel,
+                     'data' =>  $data});
     }
-    return \%ret;
+    return \@ret;
 }
 
-#----------------------------------------------
+=item get_coverage ID
+
+Given a newspaper ID, returns a reference to an array of hashes containing the coverage information related to that newspaper
+
+=cut
+
+sub get_coverage($){
+    
+    my ($id) = @_;
+    my @ret;
+   
+    my $rows = dbh()->selectall_arrayref("select  name, lon, lat, population, coverage 
+                                          from coverage, location
+                                          where newspaper_id = ?
+                                          and coverage.location_id = location.id          
+                                          order by name asc", {}, $id);
+
+
+    foreach (@$rows){
+        my ($name, $lon, $lat, $population, $coverage) = @$_;
+
+        push( @ret, {'name' => $name,
+                     'lon' => $lon,
+                     'lat' => $lat,
+                     'population' =>  $population, 
+		     'coverage' => $coverage });
+    }
+    return \@ret;
+
+}
+
+#=============================================
 
 package NeWs::Paper;
 
@@ -150,6 +201,7 @@ use mySociety::Util;
 
 mySociety::Util::create_accessor_methods();
 
+#---------------------------------------------
 # new FIELD VALUE ...
 # Constructor.
 sub new ($$) {
@@ -171,6 +223,7 @@ sub new ($$) {
     return bless($self, $class);
 }
 
+#----------------------------------------------
 # publish
 # Publish the record to the database as the current record for this newspaper.
 sub publish ($$$){
@@ -178,6 +231,7 @@ sub publish ($$$){
     my ($self, $editor, $update_coverage) = @_;
   
     #find out the id of the record in the newspaper table if one exists
+    # by matching on nsid
     my $newspaper_id = scalar(NeWs::dbh()->selectrow_array('
                                         select id from newspaper
                                         where nsid = ?', {}, $self->nsid()));
@@ -252,6 +306,7 @@ sub publish ($$$){
     NeWs::dbh()->commit();
 }
 
+#------------------------------------------
 # save_db NEWSPAPER_ID EDITOR
 # Save a copy of the record in the database edit history, as from EDITOR; if
 # EDITOR is undef, this means "changes from the scraper".
@@ -275,8 +330,7 @@ sub save_db ($$$) {
     $s->execute();
 }
 
-
-
+#------------------------------------------
 sub diff_one ($$) {
     my ($a, $b) = @_;
     if (defined($a) && !defined($b)) {
@@ -292,6 +346,7 @@ sub diff_one ($$) {
     }
 }
 
+#------------------------------------------
 # diff A B
 # Return a reference to a hash indicating differences between papers A and B.
 # For each field, and each named circulation entry, the hash value is -1 if it
@@ -318,7 +373,7 @@ sub diff ($$) {
     return \%r;
 }
 
-#----------------------------------------------
+#===========================================
 
 package NeWs::Paper::Coverage;
 
@@ -333,6 +388,7 @@ use fields qw( name population lat lon coverage );
 
 mySociety::Util::create_accessor_methods();
 
+#-------------------------------------------
 # Constructor.
 sub new ($%) {
     
