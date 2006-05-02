@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.1 2006-05-02 13:32:44 francis Exp $
+ * $Id: admin-reps.php,v 1.2 2006-05-02 13:52:58 francis Exp $
  * 
  */
 
@@ -25,9 +25,20 @@ class ADMIN_PAGE_REPS {
         $info = dadem_get_representatives_info($reps);
         dadem_check_error($info);
 
+        $areas = array();
+        foreach ($reps as $rep)
+            $areas[] = $info[$rep]['voting_area'];
+        $area_info = mapit_get_voting_areas_info($areas);
+        mapit_check_error($area_info);
+
         for ($i = 0; $i < count($reps); $i++) {
             $rep = $reps[$i];
             $repinfo = $info[$rep];
+            $ainfo = $area_info[$repinfo['voting_area']];
+            $html .= "<!-- gen ".$ainfo['generation_low']."-".$ainfo['generation_high']." cur ".$ainfo['generation']." -->";
+            if ($ainfo['generation'] < $ainfo['generation_low'] || $ainfo['generation'] > $ainfo['generation_high'])
+                $html .= "<i>out of generation</i> ";
+
             if ($repinfo['deleted'])
                 $html .= "<i>deleted</i> ";
             elseif ($repinfo['last_editor'] == 'fyr-queue') 

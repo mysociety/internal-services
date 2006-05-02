@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.41 2006-04-11 22:56:18 francis Exp $
+# $Id: MaPit.pm,v 1.42 2006-05-02 13:52:57 francis Exp $
 #
 
 package MaPit;
@@ -250,6 +250,11 @@ name of voting area;
 
 the ID of the area itself
 
+=item generation_low, generation_high, generation
+
+the range of generations of the area database for which this area is to 
+be used and the current active generation.
+
 =back
 
 =cut
@@ -258,6 +263,8 @@ sub get_voting_area_info ($) {
 
     throw RABX::Error("ID must be defined", RABX::Error::INTERFACE)
         if (!defined($id));
+
+    my $generation = get_generation();
 
     my $ret;
     if (exists($special_cases{$id})) {
@@ -268,10 +275,12 @@ sub get_voting_area_info ($) {
         }
     } else {
         # Real data
-        my ($type, $name, $os_name, $parent_area_id);
+        my ($type, $name, $os_name, $parent_area_id, $generation_low, $generation_high);
         throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
-            unless (($type, $name, $os_name, $parent_area_id) = dbh()->selectrow_array("
-            select type, a1.name as name, a2.name as os_name, parent_area_id from area
+            unless (($type, $name, $os_name, $parent_area_id, $generation_low, $generation_high) = dbh()->selectrow_array("
+            select type, a1.name as name, a2.name as os_name, parent_area_id,
+                   generation_low, generation_high
+                from area
                 left join area_name as a1 on a1.area_id = area.id and a1.name_type = 'F'
                 left join area_name as a2 on a2.area_id = area.id and a2.name_type = 'O'
                 where id = ?
@@ -283,6 +292,9 @@ sub get_voting_area_info ($) {
                 parent_area_id => $parent_area_id,
                 type => $type,
                 area_id => $id,
+                generation_low => $generation_low,
+                generation_high => $generation_high,
+                generation => $generation
             };
     }
 
@@ -440,7 +452,6 @@ sub get_location ($;$) {
     my ($pc, $partial) = @_;
     
     my $ret = undef;
-    my $generation = get_generation();
 
     $pc =~ s/\s+//g;
     $pc = uc($pc);
