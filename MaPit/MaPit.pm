@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.42 2006-05-02 13:52:57 francis Exp $
+# $Id: MaPit.pm,v 1.43 2006-05-04 01:47:19 francis Exp $
 #
 
 package MaPit;
@@ -270,9 +270,10 @@ sub get_voting_area_info ($) {
     if (exists($special_cases{$id})) {
         $ret = $special_cases{$id};
         $ret->{'area_id'} = $id;
-        if (!defined($ret->{'parent_area_id'})) {
-            $ret->{'parent_area_id'} = undef;
-        }
+        $ret->{'parent_area_id'} = undef if (!defined($ret->{'parent_area_id'}));
+        $ret->{'generation_low'} = 0 if (!defined($ret->{'generation_low'}));
+        $ret->{'generation_high'} = $generation if (!defined($ret->{'generation_high'}));
+        $ret->{'generation'} = $generation;
     } else {
         # Real data
         my ($type, $name, $os_name, $parent_area_id, $generation_low, $generation_high);
