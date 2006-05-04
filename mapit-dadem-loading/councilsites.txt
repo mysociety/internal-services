@@ -1,0 +1,467 @@
+http://www.3rivers.gov.uk/	Three Rivers District
+http://www.aberdeencity.gov.uk/	Aberdeen City
+http://www.aberdeenshire.gov.uk/	Aberdeenshire
+http://www.adur.gov.uk/	Adur District
+http://www.allerdale.gov.uk/	Allerdale District
+http://www.alnwick.gov.uk/	Alnwick District
+http://www.ambervalley.gov.uk/	Amber Valley District
+http://www.anglesey.gov.uk/	Isle of Anglesey
+http://www.angus.gov.uk/	Angus
+http://www.antrim.gov.uk/	Antrim
+http://www.ards-council.gov.uk/	Ards
+http://www.argyll-bute.gov.uk/	Argyll and Bute
+http://www.armagh.gov.uk/	Armagh
+http://www.arun.gov.uk/	Arun District
+http://www.arun.gov.uk/	Preston District
+http://www.ashfield-dc.gov.uk/	Ashfield District
+http://www.ashford.gov.uk/	Ashford District
+http://www.aylesburyvaledc.gov.uk/	Aylesbury Vale District
+http://www.babergh-south-suffolk.gov.uk/	Babergh District
+http://www.ballymena.gov.uk/	Ballymena
+http://www.ballymoney.gov.uk/	Ballymoney
+http://www.banbridge.com/	Banbridge
+http://www.barking-dagenham.gov.uk/	Barking and Dagenham London Boro
+http://www.barnet.gov.uk/	Barnet London Boro
+http://www.barnsley.gov.uk/	Barnsley District
+http://www.barrowbc.gov.uk/	Barrow-in-Furness District
+http://www.basildon.gov.uk/	Basildon District
+http://www.basingstoke.gov.uk/	Basingstoke and Deane District
+http://www.bassetlaw.gov.uk/	Bassetlaw District
+http://www.bathnes.gov.uk/	Bath and North East Somerset
+http://www.bedford.gov.uk/	Bedford District
+http://www.bedfordshire.gov.uk/	Bedfordshire County
+http://www.belfastcity.gov.uk/	Belfast
+http://www.berwick-upon-tweed.gov.uk/	Berwick-upon-Tweed District
+http://www.bexley.gov.uk/	Bexley London Boro
+http://www.birmingham.gov.uk/	Birmingham District
+http://www.birmingham.gov.uk/	Dudley District
+http://www.birmingham.gov.uk/	Solihull District
+http://www.blaby.gov.uk/	Blaby District
+http://www.blackburn.gov.uk/	Blackburn with Darwen
+http://www.blackpool.gov.uk/	Blackpool
+http://www.blaenau-gwent.gov.uk/	Blaenau Gwent
+http://www.blythvalley.gov.uk/	Blyth Valley District
+http://www.bolsover.gov.uk/	Bolsover District
+http://www.bolton.gov.uk/	Bolton District
+http://www.boston.gov.uk/	Boston District
+http://www.bournemouth.gov.uk/	Bournemouth
+http://www.bracknell-forest.gov.uk/	Bracknell Forest
+http://www.bradford.gov.uk/	Bradford District
+http://www.braintree.gov.uk/	Braintree District
+http://www.breckland.gov.uk/	Breckland District
+http://www.brent.gov.uk/	Brent London Boro
+http://www.brentwood-council.gov.uk/	Brentwood District
+http://www.bridgend.gov.uk/	Bridgend
+http://www.bridgnorth-dc.gov.uk/	Bridgnorth District
+http://www.brighton-hove.gov.uk/	The City of Brighton and Hove
+http://www.bristol-city.gov.uk/	City of Bristol
+http://www.broadland.gov.uk/	Broadland District
+http://www.bromley.gov.uk/	Bromley London Boro
+http://www.bromsgrove.gov.uk/	Bromsgrove District
+http://www.broxbourne.gov.uk/	Broxbourne District
+http://www.broxtowe.gov.uk/	Broxtowe District
+http://www.buckscc.gov.uk/bcc/	Buckinghamshire County
+http://www.burnley.gov.uk/	Burnley District
+http://www.bury.gov.uk/	Bury District
+http://www.caerphilly.gov.uk/	Caerphilly
+http://www.calderdale.gov.uk/	Calderdale District
+http://www.cambridgeshire.gov.uk/	Cambridgeshire County
+http://www.cannockchasedc.gov.uk/	Cannock Chase District
+http://www.canterbury.gov.uk/	Canterbury District
+http://www.caradon.gov.uk/	Caradon District
+http://www.cardiff.gov.uk/	Cardiff
+http://www.carlisle.gov.uk/	Carlisle District
+http://www.carmarthenshire.gov.uk/	Carmarthenshire
+http://www.carrick.gov.uk/	Carrick District
+http://www.carrickfergus.org/	Carrickfergus
+http://www.castlemorpeth.gov.uk/	Castle Morpeth District
+http://www.castlepoint.gov.uk/	Castle Point District
+http://www.castlereagh.gov.uk/	Castlereagh
+http://www.ceredigion.gov.uk/	Ceredigion
+http://www.charnwood.gov.uk/	Charnwood District
+http://www.chelmsford.gov.uk/	Chelmsford District
+http://www.cherwell-dc.gov.uk/	Cherwell District
+http://www.cheshire.gov.uk/	Cheshire County
+http://www.chester-le-street.gov.uk/	Chester District
+http://www.chester-le-street.gov.uk/	Chester-le-Street District
+http://www.chesterfieldbc.gov.uk/	Chesterfield District
+http://www.chichester.gov.uk/	Chichester District
+http://www.chiltern.gov.uk/	Chiltern District
+http://www.chorley.gov.uk/	Chorley District
+http://www.christchurch.gov.uk/	Christchurch District
+http://www.cityoflondon.gov.uk/	City of London
+http://www.cityofworchester.gov.uk	Worcester District
+http://www.clacks.gov.uk/	Clackmannanshire
+http://www.cne-siar.gov.uk/	Na H-Eileanan an Iar
+http://www.colchester.gov.uk/	Colchester District
+http://www.colerainebc.gov.uk/	Coleraine
+http://www.congleton.gov.uk/	Congleton District
+http://www.conwy.gov.uk/	Conwy
+http://www.cookstown.gov.uk/	Cookstown
+http://www.copelandbc.gov.uk/	Copeland District
+http://www.corby.gov.uk/	Corby District
+http://www.cornwall.gov.uk/	Cornwall County
+http://www.cotswold.gov.uk/	Cotswold District
+http://www.craigavon.gov.uk/	Craigavon
+http://www.cravendc.gov.uk/	Craven District
+http://www.crawley.gov.uk/	Crawley District
+http://www.crewe-nantwich.gov.uk/	Crewe and Nantwich District
+http://www.croydon.gov.uk/	Croydon London Boro
+http://www.cumbria.gov.uk/	Cumbria County
+http://www.dacorum.gov.uk/	Dacorum District
+http://www.darlington.gov.uk/	Darlington
+http://www.dartford.gov.uk/	Dartford District
+http://www.daventrydc.gov.uk/	Daventry District
+http://www.denbighshire.gov.uk/	Denbighshire
+http://www.derby.gov.uk/	City of Derby
+http://www.derbyshire.gov.uk/	Derbyshire County
+http://www.derbyshiredales.gov.uk/	Derbyshire Dales District
+http://www.derrycity.gov.uk/	Derry City
+http://www.derwentside.gov.uk/	Derwentside District
+http://www.devon.gov.uk/	Devon County
+http://www.doncaster.gov.uk/	Doncaster District
+http://www.dorsetcc.gov.uk/	Dorset County
+http://www.dover.gov.uk/	Dover District
+http://www.dumgal.gov.uk/	Dumfries and Galloway
+http://www.dundeecity.gov.uk/	Dundee City
+http://www.dungannon.gov.uk/	Dungannon
+http://www.durham.gov.uk/	Durham County
+http://www.durhamcity.gov.uk/	Durham District
+http://www.e-lindsey.gov.uk/	East Lindsey District
+http://www.ealing.gov.uk/	Ealing London Boro
+http://www.easington.gov.uk/	Easington District
+http://www.east-ayrshire.gov.uk/	East Ayrshire
+http://www.east-northamptonshire.gov.uk/	East Northamptonshire District
+http://www.eastbourne.gov.uk/	Eastbourne District
+http://www.eastcambs.gov.uk/	East Cambridgeshire District
+http://www.eastdevon.gov.uk/	East Devon District
+http://www.eastdorsetdc.gov.uk/	East Dorset District
+http://www.eastdunbarton.gov.uk/	East Dunbartonshire
+http://www.easthants.gov.uk/	East Hampshire District
+http://www.eastherts.gov.uk/	East Hertfordshire District
+http://www.eastleigh.gov.uk/	Eastleigh District
+http://www.eastlothian.gov.uk/	East Lothian
+http://www.eastrenfrewshire.gov.uk/	East Renfrewshire
+http://www.eastriding.gov.uk/	East Riding of Yorkshire
+http://www.eaststaffsbc.gov.uk/	East Staffordshire District
+http://www.eastsussex.gov.uk/	East Sussex County
+http://www.eden.gov.uk/	Eden District
+http://www.edinburgh.gov.uk/	City of Edinburgh
+http://www.ellesmereport-neston.gov.uk/	Ellesmere Port and Neston District
+http://www.elmbridge.gov.uk/	Elmbridge District
+http://www.enfield.gov.uk/	Enfield London Boro
+http://www.eppingforestdc.gov.uk/	Epping Forest District
+http://www.epsom-ewell.gov.uk/	Epsom and Ewell District
+http://www.erewash.gov.uk/	Erewash District
+http://www.essexcc.gov.uk/vip8/ecc/ECCWebsite/dis/hom.jsp	Essex County
+http://www.exeter.gov.uk/	Exeter District
+http://www.falkirk.gov.uk/	Falkirk
+http://www.fareham.gov.uk/	Fareham District
+http://www.fdean.gov.uk/	Forest of Dean District
+http://www.fenland.gov.uk/	Fenland District
+http://www.fermanagh.gov.uk/	Fermanagh
+http://www.fife.gov.uk/	Fife
+http://www.flintshire.gov.uk/	Flintshire
+http://www.forest-heath.gov.uk/	Forest Heath District
+http://www.fylde.gov.uk/	Fylde District
+http://www.gateshead.gov.uk/	Gateshead District
+http://www.gedling.gov.uk/	Gedling District
+http://www.glasgow.gov.uk/	Glasgow City
+http://www.gloucestershire.gov.uk/	Gloucestershire County
+http://www.gloucestershire.gov.uk/index.cfm?articleid=878	Cheltenham District
+http://www.gosport.gov.uk/	Gosport District
+http://www.gravesham.gov.uk/	Gravesham District
+http://www.great-yarmouth.gov.uk/news.htm	Great Yarmouth District
+http://www.greenwich.gov.uk/	Greenwich London Boro
+http://www.guildford.gov.uk/	Guildford District
+http://www.gwynedd.gov.uk/	Gwynedd
+http://www.hackney.gov.uk/	Hackney London Boro
+http://www.halton.gov.uk/	Halton
+http://www.hambleton.gov.uk/	Hambleton District
+http://www.hants.gov.uk/	Hampshire County
+http://www.harborough.gov.uk/	Harborough District
+http://www.haringey.gov.uk/	Haringey London Boro
+http://www.harlow.gov.uk/	Harlow District
+http://www.harrogate.gov.uk/	Harrogate District
+http://www.harrow.gov.uk/	Harrow London Boro
+http://www.hart.gov.uk/	Hart District
+http://www.hartlepool.gov.uk/	Hartlepool
+http://www.hastings.gov.uk/	Hastings District
+http://www.havant.gov.uk/	Havant District
+http://www.havering.gov.uk/	Havering London Boro
+http://www.herefordshire.gov.uk/	County of Herefordshire
+http://www.hertscc.gov.uk/	Hertfordshire County
+http://www.hertsmere.gov.uk/	Hertsmere District
+http://www.highland.gov.uk/	Highland
+http://www.highpeak.gov.uk/	High Peak District
+http://www.hillingdon.gov.uk/	Hillingdon London Boro
+http://www.hinckley-bosworth.gov.uk/	Hinckley and Bosworth District
+http://www.horsham.gov.uk/	Horsham District
+http://www.hounslow.gov.uk/	Hounslow London Boro
+http://www.hullcc.gov.uk/	City of Kingston upon Hull
+http://www.huntsdc.gov.uk/	Huntingdonshire District
+http://www.hyndburnbc.gov.uk/	Hyndburn District
+http://www.inverclyde.gov.uk/	Inverclyde
+http://www.iow.gov.uk/	Isle of Wight
+http://www.islington.gov.uk/	Islington London Boro
+http://www.kennet.gov.uk/	Kennet District
+http://www.kent.gov.uk/	Kent County
+http://www.kerrier.gov.uk/	Kerrier District
+http://www.kettering.gov.uk/	Kettering District
+http://www.kingston.gov.uk/	Kingston upon Thames London Boro
+http://www.kirkleesmc.gov.uk/	Kirklees District
+http://www.lambeth.gov.uk/	Lambeth London Boro
+http://www.lancashire.gov.uk/	Lancashire County
+http://www.lancaster.gov.uk/	Lancaster District
+http://www.larne.gov.uk/	Larne
+http://www.lbhf.gov.uk/	Hammersmith and Fulham London Boro
+http://www.lbwf.gov.uk/	Waltham Forest London Boro
+http://www.leeds.gov.uk/	Leeds District
+http://www.leicester.gov.uk/	City of Leicester
+http://www.leics.gov.uk/	Leicestershire County
+http://www.lewes.gov.uk/	Lewes District
+http://www.lewisham.gov.uk/	Lewisham London Boro
+http://www.lichfielddc.gov.uk/	Lichfield District
+http://www.limavady.gov.uk/	Limavady
+http://www.lincolnshire.gov.uk/	Lincoln District
+http://www.lincolnshire.gov.uk/	Lincolnshire County
+http://www.lisburncity.gov.uk/	Lisburn
+http://www.livepool.gov.uk/	Liverpool District
+http://www.london.gov.uk/	London
+http://www.luton.gov.uk/	Luton
+http://www.macclesfield.gov.uk/	Macclesfield District
+http://www.magherafelt.gov.uk/	Magherafelt
+http://www.maidstone.gov.uk/	Maidstone District
+http://www.maldon.gov.uk/	Maldon District
+http://www.malvernhills.gov.uk/	Malvern Hills District
+http://www.manchester.gov.uk/libraries/distlibs/	Manchester District
+http://www.mansfield.gov.uk/	Mansfield District
+http://www.medway.gov.uk/	Medway
+http://www.melton.gov.uk/	Melton District
+http://www.mendip.gov.uk/	Mendip District
+http://www.merthyr.gov.uk/	Merthyr Tydfil
+http://www.merton.gov.uk/	Merton London Boro
+http://www.midbeds.gov.uk/	Mid Bedfordshire District
+http://www.middevon.gov.uk/	Mid Devon District
+http://www.middlesbrough.gov.uk/	Middlesbrough
+http://www.midlothian.gov.uk/	Midlothian
+http://www.midsuffolk.gov.uk/	Ipswich District
+http://www.midsuffolk.gov.uk/	Mid Suffolk District
+http://www.midsussex.gov.uk/	Mid Sussex District
+http://www.miltonkeynes.gov.uk/	Milton Keynes
+http://www.mole-valley.gov.uk/	Mole Valley District
+http://www.monmouthshire.gov.uk/	Monmouthshire
+http://www.moray.gov.uk/	Moray
+http://www.moyle-council.org	Moyle
+http://www.n-kesteven.gov.uk/	North Kesteven District
+http://www.n-somerset.gov.uk/	North Somerset
+http://www.ncdc.gov.uk/	North Cornwall District
+http://www.ne-derbyshire.gov.uk/	North East Derbyshire District
+http://www.neath-porttalbot.gov.uk/	Neath Port Talbot
+http://www.nelincs.gov.uk/	North East Lincolnshire
+http://www.newark-sherwooddc.gov.uk/	Newark and Sherwood District
+http://www.newcastle-staffs.gov.uk/	Newcastle-under-Lyme District
+http://www.newcastle.gov.uk/compnewc.nsf/a/links_page	Newcastle upon Tyne District
+http://www.newham.gov.uk/	Newham London Boro
+http://www.newport.gov.uk/	Newport
+http://www.newryandmourne.gov.uk/	Newry and Mourne
+http://www.newtownabbey.gov.uk/	Newtownabbey
+http://www.nfdc.gov.uk/	New Forest District
+http://www.norfolk.gov.uk/	Norfolk County
+http://www.north-ayrshire.gov.uk/	North Ayrshire
+http://www.north-dorset.gov.uk/	North Dorset District
+http://www.north-herts.gov.uk/	North Hertfordshire District
+http://www.north-norfolk.gov.uk/	North Norfolk District
+http://www.northampton.gov.uk/	Northampton District
+http://www.northamptonshire.gov.uk/	Northamptonshire County
+http://www.northdevon.gov.uk/	North Devon District
+http://www.northdown.gov.uk/	Down
+http://www.northdown.gov.uk/	North Down
+http://www.northlan.gov.uk/	North Lanarkshire
+http://www.northlincs.gov.uk/	North Lincolnshire
+http://www.northshropshiredc.gov.uk/	North Shropshire District
+http://www.northtyneside.gov.uk/	North Tyneside District
+http://www.northumberland.gov.uk/	Northumberland County
+http://www.northwarks.gov.uk/	North Warwickshire District
+http://www.northwilts.gov.uk/	North Wiltshire District
+http://www.northyorks.gov.uk/	North Yorkshire County
+http://www.norwich.gov.uk/	Norwich District
+http://www.nottinghamcity.gov.uk/	City of Nottingham
+http://www.nottinghamshire.gov.uk/	Nottinghamshire County
+http://www.nuneaton.gov.uk/	Nuneaton and Bedworth District
+http://www.nwleics.gov.uk/	North West Leicestershire District
+http://www.oadby-wigston.gov.uk/	Oadby and Wigston District
+http://www.oldham.gov.uk/	Oldham District
+http://www.omagh.gov.uk/	Omagh
+http://www.orkney.gov.uk/	Orkney Islands
+http://www.oswestrybc.gov.uk/	Oswestry District
+http://www.oxfordshire.gov.uk/	Oxfordshire County
+http://www.pembrokeshire.gov.uk/	Pembrokeshire
+http://www.pendle.gov.uk/	Pendle District
+http://www.penwith.gov.uk/	Penwith District
+http://www.peterborough.gov.uk/	City of Peterborough
+http://www.pkc.gov.uk/	Perth and Kinross
+http://www.plymouth.gov.uk/	City of Plymouth
+http://www.poole.gov.uk/	Poole
+http://www.portsmouth.gov.uk/	City of Portsmouth
+http://www.powys.gov.uk/	Powys
+http://www.purbeck-dc.gov.uk/	Purbeck District
+http://www.rbkc.gov.uk/	Kensington and Chelsea London Boro
+http://www.rbwm.gov.uk/	Windsor and Maidenhead
+http://www.reading.gov.uk/	Reading
+http://www.redbridge.gov.uk/	Redbridge London Boro
+http://www.redcar-cleveland.gov.uk/	Redcar and Cleveland
+http://www.redditchbc.gov.uk/	Redditch District
+http://www.reigate-banstead.gov.uk/	Reigate and Banstead District
+http://www.renfrewshire.gov.uk/	Renfrewshire
+http://www.restormel.gov.uk/	Restormel District
+http://www.rhondda-cynon-taff.gov.uk/	Rhondda, Cynon, Taff
+http://www.ribblevalley.gov.uk/	Ribble Valley District
+http://www.richmond.gov.uk/	Richmond upon Thames London Boro
+http://www.richmondshire.gov.uk/	Richmondshire District
+http://www.rochdale.gov.uk	Rochdale District
+http://www.rochford.gov.uk/	Rochford District
+http://www.rossendale.gov.uk/	Rossendale District
+http://www.rother.gov.uk/	Rother District
+http://www.rotherham.gov.uk/	Rotherham District
+http://www.rugby.gov.uk/	Rugby District
+http://www.runnymede.gov.uk/	Runnymede District
+http://www.rushcliffe.gov.uk/	Rushcliffe District
+http://www.rushmoor.gov.uk/	Rushmoor District
+http://www.rutland.gov.uk/	Rutland
+http://www.ryedale.gov.uk/	Ryedale District
+http://www.salisbury.gov.uk/	Salisbury District
+http://www.sandwell.gov.uk/	Sandwell District
+http://www.scambs.gov.uk/	Cambridge District
+http://www.scambs.gov.uk/	South Cambridgeshire District
+http://www.scarborough.gov.uk/	Scarborough District
+http://www.scilly.gov.uk/	Isles of Scilly
+http://www.scotborders.gov.uk/	Scottish Borders
+http://www.sedgefield.gov.uk/	Sedgefield District
+http://www.sedgemoor.gov.uk/	Sedgemoor District
+http://www.sefton.gov.uk/	Sefton District
+http://www.selby.gov.uk/	Selby District
+http://www.sevenoaks.gov.uk/	Sevenoaks District
+http://www.sheffield.gov.uk/	Sheffield District
+http://www.shepway.gov.uk/	Shepway District
+http://www.shetland.gov.uk/	Shetland Islands
+http://www.sholland.gov.uk/	South Holland District
+http://www.shrewsbury.gov.uk/	Shrewsbury and Atcham District
+http://www.shropshire.gov.uk/	Shropshire County
+http://www.slough.gov.uk/	Slough
+http://www.somerset.gov.uk/	Somerset County
+http://www.south-ayrshire.gov.uk/	South Ayrshire
+http://www.south-derbys.gov.uk/	South Derbyshire District
+http://www.south-hams-dc.gov.uk/	South Hams District
+http://www.south-norfolk.gov.uk/	South Norfolk District
+http://www.south-ribblebc.gov.uk/	South Ribble District
+http://www.southampton.gov.uk/	City of Southampton
+http://www.southbeds.gov.uk/	South Bedfordshire District
+http://www.southbucks.gov.uk/	South Bucks District
+http://www.southend.gov.uk/	Southend-on-Sea
+http://www.southglos.gov.uk/	Gloucester District
+http://www.southglos.gov.uk/	South Gloucestershire
+http://www.southlakeland.gov.uk/	South Lakeland District
+http://www.southlanarkshire.gov.uk/	South Lanarkshire
+http://www.southoxon.gov.uk/	South Oxfordshire District
+http://www.southshropshire.gov.uk/	South Shropshire District
+http://www.southsomerset.gov.uk/	South Somerset District
+http://www.southtyneside.info/	South Tyneside District
+http://www.southwark.gov.uk/	Southwark London Boro
+http://www.spelthorne.gov.uk/	Spelthorne District
+http://www.sstaffs.gov.uk/	South Staffordshire District
+http://www.staffordbc.gov.uk/	Stafford District
+http://www.staffordshire.gov.uk/	Staffordshire County
+http://www.staffsmoorlands.gov.uk/	Staffordshire Moorlands District
+http://www.stalbans.gov.uk/	St. Albans District
+http://www.stedmundsbury.gov.uk/	St. Edmundsbury District
+http://www.stevenage.gov.uk/	Stevenage District
+http://www.sthelens.gov.uk/	St. Helens District
+http://www.stirling.gov.uk/	Stirling
+http://www.stockport.gov.uk/	Stockport District
+http://www.stockton.gov.uk/	Stockton-on-Tees
+http://www.stoke.gov.uk/	City of Stoke-on-Trent
+http://www.strabanedc.org.uk	Strabane
+http://www.stratford.gov.uk/	Salford District
+http://www.stratford.gov.uk/	Stratford-on-Avon District
+http://www.stroud.gov.uk/	Stroud District
+http://www.suffolk.gov.uk/	Suffolk County
+http://www.suffolkcoastal.gov.uk/	Suffolk Coastal District
+http://www.surreycc.gov.uk/	Surrey County
+http://www.surreyheath.gov.uk/	Surrey Heath District
+http://www.sutton.gov.uk/	Sutton London Boro
+http://www.swale.gov.uk/	Swale District
+http://www.swansea.gov.uk/	Swansea
+http://www.swindon.gov.uk/	Swindon
+http://www.tameside.gov.uk/	Tameside District
+http://www.tamworth.gov.uk/	Tamworth District
+http://www.tandridge.gov.uk/	Tandridge District
+http://www.tauntondeane.gov.uk/	Taunton Deane District
+http://www.teesdale.gov.uk/	Sunderland District
+http://www.teesdale.gov.uk/	Teesdale District
+http://www.teignbridge.gov.uk/	Teignbridge District
+http://www.telford.gov.uk/	Telford and Wrekin
+http://www.tendringdc.gov.uk/	Tendring District
+http://www.testvalley.gov.uk/	Test Valley District
+http://www.tewkesburybc.gov.uk/	Tewkesbury District
+http://www.thanet.gov.uk/	Thanet District
+http://www.thurrock.gov.uk/	Thurrock
+http://www.tmbc.gov.uk/	Tonbridge and Malling District
+http://www.together.gov.uk/authority.asp?letter=K	Knowsley District
+http://www.torbay.gov.uk/	Torbay
+http://www.torfaen.gov.uk/	Torfaen
+http://www.torridge.gov.uk/	Torridge District
+http://www.towerhamlets.gov.uk/	Tower Hamlets London Boro
+http://www.trafford.gov.uk/	Trafford District
+http://www.tunbridgewells.gov.uk/	Tunbridge Wells District
+http://www.tynedale.gov.uk/	Tynedale District
+http://www.uttlesford.gov.uk/	Uttlesford District
+http://www.valeroyal.gov.uk/	Vale Royal District
+http://www.valeofglamorgan.gov.uk/	Vale of Glamorgan
+http://www.wakefield.gov.uk/	Wakefield District
+http://www.walsall.gov.uk/	Walsall District
+http://www.wandsworth.gov.uk	Wandsworth London Boro
+http://www.wansbeck.gov.uk/	Wansbeck District
+http://www.warrington.gov.uk/	Warrington
+http://www.warwickdc.gov.uk/	Coventry District
+http://www.warwickdc.gov.uk/	Warwick District
+http://www.warwickshire.gov.uk/	Warwickshire County
+http://www.watford.gov.uk/	Watford District
+http://www.waveney.gov.uk/	Waveney District
+http://www.waverley.gov.uk/	Waverley District
+http://www.wealden.gov.uk/	Wealden District
+http://www.wearvalley.gov.uk/	Wear Valley District
+http://www.welhat.gov.uk/	Welwyn Hatfield District
+http://www.wellingborough.gov.uk/	Wellingborough District
+http://www.west-dunbarton.gov.uk/	West Dunbartonshire
+http://www.west-lindsey.gov.uk/	West Lindsey District
+http://www.west-norfolk.gov.uk/	King's Lynn and West Norfolk District
+http://www.westberks.gov.uk/	West Berkshire
+http://www.westdevon.gov.uk/	West Devon District
+http://www.westdorset-dc.gov.uk/	West Dorset District
+http://www.westlancsdc.gov.uk/	West Lancashire District
+http://www.westlothian.gov.uk/	West Lothian
+http://www.westminster.gov.uk/	Westminster City
+http://www.oxford.gov.uk/	Oxford District
+http://www.westoxon.gov.uk/	West Oxfordshire District
+http://www.westsomersetonline.gov.uk/	West Somerset District
+http://www.westsussex.gov.uk/	West Sussex County
+http://www.westwiltshire.gov.uk/	West Wiltshire District
+http://www.weymouth.gov.uk/	Weymouth and Portland District
+http://www.whitehorsedc.gov.uk/	Vale of White Horse District
+http://www.wigan.gov.uk/	Wigan District
+http://www.wiltshire.gov.uk/	Wiltshire County
+http://www.winchester.gov.uk/	Winchester District
+http://www.wirral.gov.uk/	Wirral District
+http://www.woking.gov.uk/	Woking District
+http://www.wokingham.gov.uk/	Wokingham
+http://www.wolverhampton.gov.uk/	City of Wolverhampton District
+http://www.worcestershire.gov.uk/	Worcestershire County
+http://www.worthing.gov.uk/	Worthing District
+http://www.wrexham.gov.uk/	Wrexham
+http://www.www.southkevesten.gov.uk/	South Kesteven District
+http://www.wychavon.gov.uk Wychavon District
+http://www.wycombe.gov.uk/	Wycombe District
+http://www.wyrebc.gov.uk/	Wyre District
+http://www.wyreforestdc.gov.uk/	Wyre Forest District
+http://www.york.gov.uk/	York
