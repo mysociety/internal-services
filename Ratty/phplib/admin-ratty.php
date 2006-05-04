@@ -6,7 +6,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-ratty.php,v 1.1 2006-05-02 13:36:15 francis Exp $
+ * $Id: admin-ratty.php,v 1.2 2006-05-04 12:14:13 chris Exp $
  * 
  */
 
@@ -253,7 +253,7 @@ EOF;
                     $rule['note'] = "&lt;unnamed&gt;";
                 print '<tr'.($c==1?' class="v"':'').'>';
                 print "<td>" . $rule['sequence'] . "</td>";
-                print "<td><a href=\"$self_link&action=editrule&rule_id=" .     /* XXX use new_url... */
+                print "<td><a href=\"$self_link&action=editrule&rule_id=" .     /* XXX use url_new... */
                     $rule['id'] . "\">" . $rule['note'] . "</a></td>";
                 if ($rule['requests'] == 0 && $rule['interval'] == 0) {
                     print "<td>blocked</td>";
@@ -263,7 +263,7 @@ EOF;
                 print "<td>" . trim_characters($rule['message'], 0, 40) . "</td>";
                 print "<td>" . $rule['hits'] . "</td>";
                 if ($this->scope == "fyr-abuse") {
-                    print "<td><a href=\"?page=fyrqueue&view=logsearch&query=" .     /* XXX use new_url... */
+                    print "<td><a href=\"?page=fyrqueue&view=logsearch&query=" .     /* XXX use url_new... */
                     urlencode(" rule #" . $rule['id'] . " ") . "\">View</a></td>";
                 }
                 print "</tr>";
