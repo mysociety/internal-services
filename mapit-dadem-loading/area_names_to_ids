@@ -1,0 +1,72 @@
+#!/usr/bin/perl -w -I../../perllib 
+#
+# area_names_to_ids
+# Feed a list of council names in, one line at a time. Dumps out ids of areas,
+# one line each.
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: area_names_to_ids,v 1.1 2006-05-04 23:14:38 dademcron Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+use Text::CSV_XS;
+use Data::Dumper;
+
+use mySociety::VotingArea;
+
+use Common;
+use CouncilMatch;
+
+my $types = $mySociety::VotingArea::council_parent_types;
+my $canon_function = \&CouncilMatch::canonicalise_council_name;
+#my $canon_function = \&CouncilMatch::canonicalise_constituency_name;
+
+my $dbh = connect_to_mapit_database();
+# DBI->trace(2);
+
+# %parent_to_id
+# Hash of voting area canonical name to voting area ID from existing
+# MaPit data.
+my %parent_to_id;
+
+# Cache of name-->id map of all the areas
+my $s = $dbh->prepare(
+        q#select area_id, name from area_name, area
+            where area_name.area_id = area.id
+            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)
+            and generation_low <= (select id from current_generation) and 
+                (select id from current_generation) <= generation_high
+            #
+    );
+$s->execute();
+
+while (my ($area_id, $name) = $s->fetchrow_array()) {
+    # "Durham" without specifying "County" or "City" is no use
+    next if ($name eq "Durham");
+
+    # Create canonical version of name and also hash it as lookup
+    $_ = &$canon_function($name);
+    if (exists($parent_to_id{$_}) and $parent_to_id{$_} != $area_id) {
+        die "$area_id: Already have different id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n"
+    }
+
+    $parent_to_id{$_} = $area_id;
+}
+
+while (my $line = <STDIN>) {
+    chomp($line);
+    $line = trim_spaces($line);
+
+    $_ = &$canon_function($line);
+    die "no constituency in database matches canonical name '$_'\n" unless (exists($parent_to_id{$_}));
+    my $id = $parent_to_id{$_};
+    print "$id\n";
+}
+
+$dbh->rollback();
+
