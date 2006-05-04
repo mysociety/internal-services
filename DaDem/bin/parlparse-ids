@@ -9,7 +9,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.4 2006-04-11 22:56:17 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.5 2006-05-04 11:15:46 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -99,13 +99,7 @@ sub process_one_type {
         # print "$name $cons $createdate $editdate\n";
         $wt->print("$name#$cons#$createdate\n");
         my $person_id_1 = $rd->getline();
-        $wt->print("$name#$cons#$createdate\n");
-        my $person_id_2 = $rd->getline();
-        die "none matched for $name ($cons)" if (!$person_id_1 && !$person_id_2);
-        if ($person_id_1 && $person_id_2 && ($person_id_1 ne $person_id_2)) {
-            die "for $name ($cons) got two people ids $person_id_1 ($editdate) and $person_id_2 ($createdate)\n";
-        }
-        
+        die "none matched for $name ($cons)" if (!$person_id_1);
         $person_id_1 =~ s/(\s+$)|(^\s+)//g;
         $d_dbh->do('insert into parlparse_link (representative_id, person_id) values (?, ?)', {}, $repid, $person_id_1);
     }

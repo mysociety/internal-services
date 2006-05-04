@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.16 2006-04-28 21:58:06 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.17 2006-05-04 11:15:46 dademcron Exp $';
 
 use strict;
 
@@ -296,10 +296,10 @@ while (my $line = <MAIN>) {
     my $origfinalparty = $finalparty;
     $finalparty = $mySociety::Parties::canonical{$finalparty};
     if (!$finalparty) {
-        print Dumper(\%mySociety::Parties::canonical);
-        print Dumper($origfinalparty);
+        #print Dumper(\%mySociety::Parties::canonical);
+        #print Dumper($origfinalparty);
     }
-    die "party '" . $origfinalparty .  "' not known, add it to Parties.pm\nLine: $line" if (!defined($finalparty));
+    die "party '$origfinalparty' for '$finalname' $kind of '$finalcons' not known, add it to Parties.pm\nLine: $line" if (!defined($finalparty));
 
     if ((!$allow_multiples) && exists($already_done->{$area_id})) {
         die "got area $area_id '$finalcons' twice";

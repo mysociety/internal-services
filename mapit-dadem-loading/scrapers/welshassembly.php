@@ -261,8 +261,8 @@ if($debug) {
             $count ++;
 		}		  
 
-if ($count != 60) {
-    err("Expected to get exactly 60 Welsh Assembly members, but got $count");
+if ($count <= 58) { // one dead, see TODO above
+    err("Expected to get 60 Welsh Assembly members, but got $count");
     exit(1);
 }
 
@@ -355,14 +355,19 @@ class listPageParser {
 				break;	
 
 			case 'li':	
-				$this->member[$this->membercount]['party']=preg_replace('/\s*[()]\s*/','',$this->textpending);	
-				$this->member[$this->membercount]['membertype']=$this->membertype;	
-				if($this->constituency && !($this->member[$this->membercount]['constituency'])) {
-					$this->member[$this->membercount]['constituency']=$this->constituency;
-				}		  
+                if (preg_match("/Presiding Officer Statement/", $this->member[$this->membercount]['membername'])) {
+                    // Probably member has died
+                    // TODO: Create convention for storing dead members better in DaDem
 
-				$this->membercount++;
+                } else {
+                    $this->member[$this->membercount]['party']=preg_replace('/\s*[()]\s*/','',$this->textpending);	
+                    $this->member[$this->membercount]['membertype']=$this->membertype;	
+                    if($this->constituency && !($this->member[$this->membercount]['constituency'])) {
+                        $this->member[$this->membercount]['constituency']=$this->constituency;
+                    }		  
 
+                    $this->membercount++;
+                }
 		}
 		$this->textpending=''; // Only one valid textblock can be open at once in our spec!
 	}
