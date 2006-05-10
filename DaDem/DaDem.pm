@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.73 2006-04-24 22:28:35 chris Exp $
+# $Id: DaDem.pm,v 1.74 2006-05-10 10:41:59 chris Exp $
 #
 
 package DaDem;
@@ -191,7 +191,7 @@ my %dummy_representatives = (
             'voting_area' => 1000008,
             'name' => 'Johnny No-Email',
             'method' => 'email',
-            'email' => 'thisaddressbounces@flourish.org'
+            'email' => 'thisaddressbounces@parliament.uk'
         },
 
         2000014 => {
