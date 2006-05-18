@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.74 2006-05-10 10:41:59 chris Exp $
+# $Id: DaDem.pm,v 1.75 2006-05-18 13:55:24 matthew Exp $
 #
 
 package DaDem;
@@ -315,6 +315,21 @@ sub get_area_status($) {
         select status from area_status where area_id = ?#, {}, $area_id);
     return 'none' if (!$status);
     return $status;
+}
+
+=item get_area_statuses
+
+Get the current electoral statuses.  Can be any of these:
+    none - no special status
+    pending_election - representative data invalid due to forthcoming election
+    recent_election - representative data invalid because we haven't updated since election
+
+=cut 
+sub get_area_statuses() {
+    my $ref = dbh()->selectall_arrayref(q#
+        select area_id,status from area_status#, {});
+    return 'none' if (!$ref);
+    return $ref;
 }
 
 =item search_representatives QUERY
