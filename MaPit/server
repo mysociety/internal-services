@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.10 2006-02-12 13:39:15 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.11 2006-05-30 11:23:46 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -30,32 +30,44 @@ use MaPit;
 my $req = FCGI::Request();
 my $W = new mySociety::WatchUpdate();
 
+use constant cache_age => 3600;
+
+# All the MaPit functions are cacheable.
+
 while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
-            'MaPit.get_voting_areas' => sub {
-                return MaPit::get_voting_areas($_[0]);
-            },
-            'MaPit.get_areas_by_type' => sub {
-                return MaPit::get_areas_by_type($_[0], $_[1]);
-            },
-            'MaPit.get_example_postcode' => sub {
-                return MaPit::get_example_postcode($_[0]);
-            },
-             'MaPit.get_voting_area_info' => sub {
-                return MaPit::get_voting_area_info($_[0]);
-            },
-            'MaPit.get_voting_areas_info' => sub {
-                return MaPit::get_voting_areas_info($_[0]);
-            },
-            'MaPit.get_voting_area_children' => sub {
-                return MaPit::get_voting_area_children($_[0]);
-            },
-            'MaPit.get_location' => sub {
-                return MaPit::get_location($_[0], $_[1]);
-            },
-            'MaPit.admin_get_stats' => sub {
-                return MaPit::admin_get_stats();
-            }
+            'MaPit.get_voting_areas' => [
+                sub { return MaPit::get_voting_areas($_[0]); },
+                cache_age
+            ],
+            'MaPit.get_areas_by_type' => [
+                sub { return MaPit::get_areas_by_type($_[0]); },
+                cache_age
+            ],
+            'MaPit.get_example_postcode' => [
+                sub { return MaPit::get_example_postcode($_[0]); },
+                cache_age
+            ],
+             'MaPit.get_voting_area_info' => [
+                sub { return MaPit::get_voting_area_info($_[0]); },
+                cache_age
+            ],
+            'MaPit.get_voting_areas_info' => [
+                sub { return MaPit::get_voting_areas_info($_[0]); },
+                cache_age
+            ],
+            'MaPit.get_voting_area_children' => [
+                sub { return MaPit::get_voting_area_children($_[0]); },
+                cache_age
+            ],
+            'MaPit.get_location' => [
+                sub { return MaPit::get_location($_[0], $_[1]); },
+                cache_age
+            ],
+            'MaPit.admin_get_stats' => [
+                sub { return MaPit::admin_get_stats(); },
+                cache_age
+            ]
         );
     $W->exit_if_changed();
 }

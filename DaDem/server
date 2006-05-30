@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.19 2006-05-18 13:55:24 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.20 2006-05-30 11:23:46 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -25,6 +25,10 @@ BEGIN {
 
 use FCGI;
 use RABX;
+use FindBin;
+
+use lib "$FindBin::Bin";
+use lib "$FindBin::Bin/../../perllib";
 
 use mySociety::DaDem;   # client interface
 use mySociety::VotingArea;
@@ -36,35 +40,45 @@ my $W = new mySociety::WatchUpdate();
 
 my $req = FCGI::Request();
 
+use constant cache_age => 3600;
+
 while ($req->Accept() >= 0) {
+    # Only want to make the query results cacheable, not the admin interface.
     RABX::Server::CGI::dispatch(
-            'DaDem.get_representatives' => sub {
-                return DaDem::get_representatives($_[0], $_[1]);
-            },
-            'DaDem.get_area_status' => sub {
-                return DaDem::get_area_status($_[0]);
-            },
-            'DaDem.get_area_statuses' => sub {
-                return DaDem::get_area_statuses();
-            },
-            'DaDem.search_representatives' => sub {
-                return DaDem::search_representatives($_[0]);
-            },
+            'DaDem.get_representatives' => [
+                sub { return DaDem::get_representatives($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_area_status' => [
+                sub { return DaDem::get_area_status($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_area_statuses' => [
+                sub { return DaDem::get_area_status($_[0]); },
+                cache_age
+            ],
+            'DaDem.search_representatives' => [
+                sub { return DaDem::search_representatives($_[0]); },
+                cache_age
+            ],
             'DaDem.get_bad_contacts' => sub {
                 return DaDem::get_bad_contacts();
             },
             'DaDem.get_user_corrections' => sub {
                 return DaDem::get_user_corrections();
             },
-            'DaDem.get_representative_info' => sub {
-                return DaDem::get_representative_info($_[0]);
-            },
-            'DaDem.get_representatives_info' => sub {
-                return DaDem::get_representatives_info($_[0]);
-            },
-            'DaDem.get_same_person' => sub {
-                return DaDem::get_same_person($_[0]);
-            },
+            'DaDem.get_representative_info' => [
+                sub { return DaDem::get_representative_info($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_representatives_info' => [
+                sub { return DaDem::get_representatives_info($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_same_person' => [
+                sub { return DaDem::get_same_person($_[0]); },
+                cache_age
+            ],
             'DaDem.get_representative_history' => sub {
                 return DaDem::get_representative_history($_[0]);
             },
@@ -99,6 +113,6 @@ while ($req->Accept() >= 0) {
                 return DaDem::admin_get_diligency_reps($_[0]);
             }
          );
-    $W->exit_if_changed();
+#    $W->exit_if_changed();
 }
 
