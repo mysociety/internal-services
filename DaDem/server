@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.22 2006-05-31 08:29:38 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.23 2006-06-06 08:55:28 chris Exp $';
 
 use strict;
 require 5.8.0;
@@ -40,7 +40,7 @@ my $W = new mySociety::WatchUpdate();
 
 my $req = FCGI::Request();
 
-use constant cache_age => 3600;
+use constant cache_age => 60;
 
 while ($req->Accept() >= 0) {
     # Only want to make the query results cacheable, not the admin interface.
