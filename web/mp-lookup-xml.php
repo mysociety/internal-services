@@ -6,7 +6,7 @@
  * Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
  * Email: matthew@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: mp-lookup-xml.php,v 1.1 2006-03-02 06:57:31 francis Exp $
+ * $Id: mp-lookup-xml.php,v 1.2 2006-06-08 10:15:37 matthew Exp $
  * 
  */
 require_once "../conf/general";
@@ -16,7 +16,9 @@ require_once '../../phplib/dadem.php';
 
 $pc = get_http_var('input_postcode');
 
-header("Content-Type: text/xml"); ?>
+header("Content-Type: text/xml");
+header('Cache-Control: max-age=3600');
+?>
 <FAXYOURMP>
 <?
 
