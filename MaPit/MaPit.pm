@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.43 2006-05-04 01:47:19 francis Exp $
+# $Id: MaPit.pm,v 1.44 2006-06-16 13:48:48 francis Exp $
 #
 
 package MaPit;
@@ -375,7 +375,7 @@ sub get_example_postcode ($) {
                 return get_example_postcode($child);
             } else {
                 # Area has no children. That means it must be LAE.
-warn "area $area_id has no children...\n";
+                warn "area $area_id has no children...\n";
                 return get_example_postcode(mySociety::VotingArea::LAS_AREA_ID);
             }
         }
