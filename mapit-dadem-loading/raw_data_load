@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.23 2006-02-21 12:00:59 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.24 2006-06-29 09:54:09 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -161,7 +161,10 @@ while (my $line = <STDIN>) {
         warn "skipping invalid geid $geid\nline $line_number: $line\n";
         next;
     }
+
     next if (!$first && !$last && $vdiv);  # GovEval sometimes use this to mark pending byelection, so no member ...
+    next if (!$first && ($last eq "Resigned")); # GovEval now mark resigned occasionally TODO: encode this explicitly in DaDem, and show on WTT
+
     # ... we still check we don't have individual empty strings
     warn "first name is empty geid $geid" if !$first;
     warn "last name is empty geid $geid" if !$last;
