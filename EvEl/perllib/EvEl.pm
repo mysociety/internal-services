@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.41 2006-03-10 18:38:09 chris Exp $
+# $Id: EvEl.pm,v 1.42 2006-07-03 09:51:25 francis Exp $
 #
 
 package EvEl::Error;
@@ -325,7 +325,7 @@ sub do_one_substitution ($$) {
     my ($p, $n) = @_;
     throw EvEl::Error("Substitution parameter '$n' is not present")
         unless (exists($p->{$n}));
-    throw EvEl::Error("Substitution parameter '$n' is not undefined")
+    throw EvEl::Error("Substitution parameter '$n' is not defined")
         unless (defined($p->{$n}));
     return $p->{$n};
 }
