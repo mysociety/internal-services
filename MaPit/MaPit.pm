@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.44 2006-06-16 13:48:48 francis Exp $
+# $Id: MaPit.pm,v 1.45 2006-07-18 08:13:52 francis Exp $
 #
 
 package MaPit;
@@ -68,6 +68,11 @@ The area ID refers to a non-existent area.
 
 # Special cases to represent parliaments, assemblies themselves.
 use constant DUMMY_ID => 1000000;
+use constant DUMMY_ID_MAX => 1999999;
+use constant DUMMY_ID_9ZZ_MIN => 1000000;
+use constant DUMMY_ID_9ZZ_MAX => 1000099;
+use constant DUMMY_ID_9ZY_MIN => 1000100; # AnimalAid
+use constant DUMMY_ID_9ZY_MAX => 1000199;
 
 my %special_cases = (
         # Enclosing areas.
@@ -118,7 +123,7 @@ my %special_cases = (
             name => 'Northern Ireland Assembly'
         },
 
-        # Test data
+        # ZZ9 9ZZ test data
         1000001 => {
             type => 'CTY',
             name => "Everyone's County Council"
@@ -152,8 +157,13 @@ my %special_cases = (
         1000008 => {
             type => 'EUR',
             name => 'Windward Euro Region'
-        }
-    );
+        },
+        # ZZ9 9ZY test data
+        1000100 => {
+            type => 'WMC',
+            name => 'AnimalAid Test Constituency'
+        },
+   );
 
 # Map area type to ID of "fictional" (i.e., not in DB) enclosing area.
 my %enclosing_areas = (
@@ -189,10 +199,19 @@ sub get_voting_areas ($) {
     $pc =~ s/\s+//g;
     $pc = uc($pc);
 
-    if ($pc eq 'ZZ99ZZ') {
-        # Dummy postcode case
+    if ($pc =~ m/^ZZ9/) {
+        # Dummy postcode cases
+        my $min = DUMMY_ID;
+        my $max = DUMMY_ID_MAX;
+        if ($pc eq 'ZZ99ZZ') {
+            $min = DUMMY_ID_9ZZ_MIN;
+            $max = DUMMY_ID_9ZZ_MAX
+        } elsif ($pc eq 'ZZ99ZY') {
+            $min = DUMMY_ID_9ZY_MIN;
+            $max = DUMMY_ID_9ZY_MAX
+        }
         $ret = {
-                map { $special_cases{$_}->{type} => $_ } grep { $_ >= DUMMY_ID } keys(%special_cases)
+                map { $special_cases{$_}->{type} => $_ } grep { $_ >= $min && $_ <= $max } keys(%special_cases)
             };
     } else {
         # Real data
@@ -365,8 +384,10 @@ sub get_example_postcode ($) {
         # XXX this will break with the new Scottish constituencies stuff
     # Have to catch special cases here.
     if (exists($special_cases{$area_id})) {
-        if ($area_id >= DUMMY_ID) {
+        if ($area_id >= DUMMY_ID_9ZZ_MIN && $area_id <= DUMMY_ID_9ZZ_MAX) {
             return "ZZ9 9ZZ";
+        } elsif ($area_id >= DUMMY_ID_9ZY_MIN && $area_id <= DUMMY_ID_9ZY_MAX) {
+            return "ZZ9 9ZY";
         } else {
             # These aren't in the database. First try finding a child area:
             my $child = (grep { !exists($special_cases{$_}) || $area_id >= DUMMY_ID } @{get_voting_area_children($area_id)})[0];
@@ -464,7 +485,7 @@ sub get_location ($;$) {
             northing => 0
         );
 
-    if ($pc ne 'ZZ99ZZ') {
+    if ($pc !~ m/^ZZ9/) {
         # Real data
         if ($partial) {
             if (mySociety::Util::is_valid_postcode($pc)) {

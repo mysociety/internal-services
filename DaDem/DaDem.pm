@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.75 2006-05-18 13:55:24 matthew Exp $
+# $Id: DaDem.pm,v 1.76 2006-07-18 08:13:52 francis Exp $
 #
 
 package DaDem;
@@ -232,8 +232,17 @@ my %dummy_representatives = (
             name => "Everyone's County Council",
             method => 'email',
             email => 'chris@ex-parrot.com'
-        }
-    );
+        },
+
+        # Specific to other organisations which need to test
+        2000100 => {
+            'type' => 'WMC',
+            'voting_area' => 1000100,
+            'name' => 'Old Chapel',
+            'method' => 'fax',
+            'fax' => '01732 366533'
+        },
+     );
 
 my %dummy_areas;
 foreach (keys %dummy_representatives) {
