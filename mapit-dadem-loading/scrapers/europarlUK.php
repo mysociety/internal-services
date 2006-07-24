@@ -42,6 +42,8 @@ $honorifics=array(
 	'Mrs','Rt. Hon. Sir','Mr','Dr' 
 );
 
+$mepsfound = array();
+
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 //"Mike","Tuffrey","Proportionally Elected Member","Liberal Democrat","mike.tuffrey@london.gov.uk",""
 
@@ -73,6 +75,7 @@ foreach($regionurls as $region => $regionurl) {
 #	$meplist_data=preg_replace("/\n/",' ',$meplist_data);
 	$meplist_data=preg_replace("/\s+/",' ',$meplist_data);
 	preg_match_all('#\d+. <a href="\#([^>]+)"><font[^>]+>([^>]+)</font></a><br>#',$meplist_data,$matches,PREG_SET_ORDER);
+    $mepsfound[$region] = 0;
 
 	foreach($matches as $match) {
 		$mep=$match[2];	

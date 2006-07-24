@@ -54,7 +54,7 @@ if($list_data=preg_match("/$list_source_block_start(.*)$list_source_block_end/",
 $list_data=preg_replace("/(&\S+;)/",'<![CDATA[\1]]>',$list_data);
 #print(htmlentities($list_data));
 if($debug) {
-	header('Content-type: text/plain');
+	#header('Content-type: text/plain');
 }
 
 //First page is actually clean HTML, that can be converted to XHTML easily enough 
@@ -68,6 +68,7 @@ $members=$lpp->member;
 
 //then grab the pages on which the biographies are found
  // (email addresses and links to the pages containing fax/phone)
+$contacturl = array();
 foreach ($lpp->biourls as $baseurl=>$alwaystrueval) {
 	
 	//split the base URL down so we can create relative URLs later
@@ -118,11 +119,10 @@ foreach ($lpp->biourls as $baseurl=>$alwaystrueval) {
 	foreach($matches as $anchor) {
 		$aparam=$anchor[2];
 		$avalue=$anchor[3];
-		$imgsrc=$anchor[5];
 		if($aparam === 'name') {
 			$biotag=$avalue;
 			$image[$biotag]=$imgurl; //images come before anchors; everything else just after
-		} else if (($aparam === 'href') && !$contacturl[$biotag]) {
+		} else if (($aparam === 'href') && !array_key_exists($biotag, $contacturl)) {
 //get a canonical URL for the contact page (where phone and fax data hide
 			if(preg_match('/^mailto:(.*)/',$avalue,$mailmatch)) {
 				$email[$biotag]=$mailmatch[1];
@@ -133,7 +133,8 @@ foreach ($lpp->biourls as $baseurl=>$alwaystrueval) {
 				$fullurl=preg_replace('/#.*/','',$fullurl);
 				$contacturls[$fullurl]=true;	
 			}					
-		} else if($imgsrc) {
+		} else if(count($anchor) >= 6) {
+            $imgsrc=$anchor[5];
 			//grab the image link for now, and assign it once we get to the anchor 
 			$imgurl=relativeUrlToAbsolute($baseurl,$imgsrc);
 		}
@@ -147,6 +148,8 @@ if($debug) {
     print("\n");
 }
 
+$phone = array();
+$fax = array();
 foreach ($contacturls as $cu=>$trueval) {
 	
 		preg_match("#(http://)([^/]*)/?((.*)/([^/]+))?$#",$cu,$urlparts);
@@ -155,13 +158,6 @@ foreach ($contacturls as $cu=>$trueval) {
 	$contact_data=preg_replace("/\n/",' ',$contact_data);
 	$contact_data=preg_replace("/\s+/",' ',$contact_data);
 	
-	if($contact_data=preg_match("/$contact_source_block_start(.*)$contact_source_block_end/",$contact_data,$matches)) {
-		$contact_data=$matches[1];
-	} else { 
-		fwrite(STDERR, "ERROR: Source page format (contact page) has changed"); 
-        exit(1);
-	}
-
 	$contact_data=preg_replace("/<br>/",'<br />',$contact_data);
 	$contact_data=preg_replace("/&(\W)/",'&amp;\1',$contact_data);
 	$contact_data=preg_replace("/&([^;]*)/",'&amp;\1',$contact_data);
@@ -191,7 +187,7 @@ foreach ($contacturls as $cu=>$trueval) {
 		#foreach($anchorset as $anchor) {
 			if($anchor[2] === 'name') {
 				$contacttag=$anchor[3];
-			} else if ($anchor[4] && !$phone[$contacttag]) { 
+			} else if (count($anchor) >= 5 && !array_key_exists($contacttag, $phone)) { 
 						// in case of duplicate anchors, at least one known
 				$phone[$contacttag]=trim($anchor[6]);
 				$fax[$contacttag]=trim($anchor[8]);
@@ -212,23 +208,23 @@ $count = 0;
 $mouse = array();
 foreach ($members as $member) {
 		   $biotag=preg_replace('/^(.*#)/','',$member['detailsurl']);
-		 	$member['email']=$email[$biotag];
-		 	$member['image']=$image[$biotag];
-		 	$member['contacturl']=$contacturl[$biotag];
+		 	$member['email']=array_key_exists($biotag, $email) ? $email[$biotag] : '';
+		 	$member['image']=array_key_exists($biotag, $image) ? $image[$biotag] : '';
+		 	$member['contacturl']=array_key_exists($biotag, $contacturl) ? $contacturl[$biotag] : '';
 		   $contacttag=preg_replace('/^(.*#)/','',$member['contacturl']);
 if($debug) {
 	print("Member: $member[membername]; contacttag: '$contacttag'\n");
 }
 
 //fix dodgy anchors - see conf section
-		 	if($member['phone']=$phone[$contacttag]) {
-				//OK
-			} else {
+		 	if(array_key_exists($contacttag, $phone)) {
+                $member['phone']=$phone[$contacttag];
+			} elseif (array_key_exists($contacttag, $translatetag)) {
 				$member['phone']=$phone[$translatetag[$contacttag]];
 			}
-		 	if($member['fax']=$fax[$contacttag]) {
-				//OK
-			} else {
+		 	if(array_key_exists($contacttag, $fax)) {
+                $member['fax']=$fax[$contacttag];
+			} elseif (array_key_exists($contacttag, $translatetag)) {
 				$member['fax']=$fax[$translatetag[$contacttag]];
 			}
 		 	//$member['fax']=$fax[$contacttag];
@@ -243,7 +239,7 @@ if($debug) {
 			$member['surname']=$matches[2];
 
 		//expand titles for parties
-			$member['fullparty']=$party_trans[$member['party']]?$party_trans[$member['party']]:$member['party'];
+			$member['fullparty']=array_key_exists($member['party'],$party_trans)?$party_trans[$member['party']]:$member['party'];
 
 		//protect "'s so as to avoid breaking CSV format
         //unescape ampersands
@@ -256,7 +252,10 @@ if($debug) {
             }
             if($debug) { print("\n"); }
             //	First,Last,Constituency,Party,Email,Fax, image
-			print("\"$member[firstname]\",\"$member[surname]\",\"$member[constituency]\",\"$member[fullparty]\",\"$member[email]\",\"$member[fax]\",\"$member[image]\"");
+            if (!$member['constituency']) {
+                die("$member[firstname] $member[surname] has no cons");
+            }
+			print "\"$member[firstname]\",\"$member[surname]\",\"$member[constituency]\",\"$member[fullparty]\",\"$member[email]\",\"".(array_key_exists('fax', $member) ? $member['fax'] : '')."\",\"$member[image]\"";
 			print("\n");
             $count ++;
 		}		  
@@ -277,6 +276,7 @@ class listPageParser {
 	var $textpending;
 	var $membercount=0;
 	var $member;
+    var $has_constituency=false;
 
 	function listPageParser($base_url) {
 		$this->base_url=$base_url;
@@ -344,6 +344,7 @@ class listPageParser {
 
 			case 'h3':
 				$this->constituency=$this->textpending;
+                $this->has_constituency=true;
 				break;	
 
 			case 'a':
@@ -362,7 +363,8 @@ class listPageParser {
                 } else {
                     $this->member[$this->membercount]['party']=preg_replace('/\s*[()]\s*/','',$this->textpending);	
                     $this->member[$this->membercount]['membertype']=$this->membertype;	
-                    if($this->constituency && !($this->member[$this->membercount]['constituency'])) {
+                    if($this->has_constituency && (!array_key_exists('constituency',$this->member[$this->membercount])
+                        || !$this->member[$this->membercount]['constituency'])) {
                         $this->member[$this->membercount]['constituency']=$this->constituency;
                     }		  
 

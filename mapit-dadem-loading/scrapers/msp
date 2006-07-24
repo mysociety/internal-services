@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.7 2006-04-28 21:58:07 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.8 2006-07-24 00:42:09 dademcron Exp $';
 
 use strict;
 
@@ -35,7 +35,7 @@ print "First,Last,Constituency,Party,Email,Fax,Image\n";
 
 my $n = 1;
 my $count = 0;
-while ($m->follow_link(n => $n, text_regex => qr/view pages/)) {
+while ($m->follow_link(n => $n, url_regex => qr#^.*_.*/index.htm$#)) {
     my $url = $m->uri();
 
     print STDERR "$url\n" if $debug;
