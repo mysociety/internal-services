@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.17 2006-05-04 11:15:46 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.18 2006-07-24 13:40:33 dademcron Exp $';
 
 use strict;
 
@@ -409,6 +409,17 @@ while (my $line = <MAIN>) {
                   method => $finalmethod, email => $finalemail, fax => $finalfax };
             if ($commit) {
                 DaDem::admin_edit_representative($dadem_rep_id, $new_data, "dadem_csv_load", "Updated by script dadem_csv_load");
+            }
+        } elsif ($cur_repinfo->{last_editor} ne "import" && $cur_repinfo->{last_editor} ne "dadem_csv_load") {
+            # We have no conflict, and no updates were required.
+            # However, the last editor was not a script - mark it as one so we know this 
+            # import was OK for comparing future changes against
+            print $dadem_rep_id . " " . $cur_repinfo->{name} . " marking as import same as last human change\n";
+            my $new_data = { area_id => $area_id, area_type => $area_type,
+                  name => $finalname, party => $finalparty, 
+                  method => $finalmethod, email => $finalemail, fax => $finalfax };
+            if ($commit) {
+                DaDem::admin_edit_representative($dadem_rep_id, $new_data, "dadem_csv_load", "Marked as same as import by script dadem_csv_load");
             }
         }
      
