@@ -1,0 +1,101 @@
+#!/usr/bin/perl -w
+#
+# generate-keywords
+#
+# Creates lists of representative types as keywords.
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: generate-keywords,v 1.1 2006-07-26 14:39:32 dademcron Exp $';
+
+use strict;
+require 5.8.0;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../../perllib";
+use lib "$FindBin::Bin/../../../perllib";
+use lib "$FindBin::Bin/../../mapit-dadem-loading";
+
+use POSIX qw(strftime);
+use Data::Dumper;
+use IPC::Open2;
+use utf8;
+binmode(STDOUT, ':utf8');
+
+use mySociety::Config;
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../../conf/general");
+}
+use mySociety::DBHandle qw(dbh);
+use mySociety::DaDem;
+use mySociety::MaPit;
+use mySociety::VotingArea;
+use mySociety::Util;
+use mySociety::Parties;
+
+#print "** Councils\n";
+#process_one_type(["CED", "DIW", "LBW", "LGE", "CED", "UTE", "UTW", "MTW", "COP"]);
+print "** Scottish Parliament\n";
+process_one_type(["SPE", "SPC"]);
+print "** Northern Ireland Assembly\n";
+process_one_type(["NIE"]);
+print "** Welsh Assembly\n";
+process_one_type(["WAE", "WAC"]);
+print "** London Assembly\n";
+process_one_type(["CED", "LAC", "LAE", ]);
+print "** House of Commons\n";
+process_one_type(["WMC"]);
+print "** House of Lords\n";
+process_one_type(["HOC"]);
+print "** European Parliament\n";
+process_one_type(["EUR"]);
+
+sub process_one_type {
+    my $area_types = shift;
+    
+    my $areaids = []; # array of ids of current generation for aresa
+    foreach my $area_type (@$area_types) {
+        my $new_areaids = mySociety::MaPit::get_areas_by_type($area_type); 
+        push @$areaids, @$new_areaids;
+    }
+    my %areainfo = %{mySociety::MaPit::get_voting_areas_info($areaids)}; # hash from area id to hash of info about area
+    my $repids = mySociety::DaDem::get_representatives([keys %areainfo], 1); # hash from area to reps for that area
+
+    my @allreps;
+    my $reptoarea; # hash from rep id to area represented
+    foreach (keys %$repids) {
+        if (!@{$repids->{$_}}) {
+            print STDERR "area #$_ ($areainfo{$_}->{name}) has no representative\n";
+        } else {
+            foreach my $repid (@{$repids->{$_}}) {
+                if ($repid !~ /^[1-9]\d*$/) {
+                    print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
+                }
+
+                push @allreps, $repid;
+                $reptoarea->{$repid} = $_;
+            }
+       }
+    }
+    my %repinfo = %{mySociety::DaDem::get_representatives_info(\@allreps)};
+
+    # Print place names
+    print "* Constituency names:\n";
+    foreach my $area_id (keys %areainfo) {
+        my $name = $areainfo{$area_id}->{name};
+        $name = lc($name);
+        print $name . "\n";
+    }
+
+    # Print rep names
+    print "* Representative names:\n";
+    foreach my $repid (@allreps) {
+        my $name = $repinfo{$repid}->{name};
+        $name = lc($name);
+        print $name . "\n";
+    }
+}
+

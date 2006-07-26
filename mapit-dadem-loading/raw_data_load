@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.24 2006-06-29 09:54:09 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.25 2006-07-26 14:39:32 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -155,9 +155,7 @@ while (my $line = <STDIN>) {
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
     # Check valid GovEval ids.
-    # 347115ark - bad GovEval id, which doesn't really matter, so don't
-    # let cron worry about it
-    unless ($geid =~ m/^[1-9][0-9]+$/ || $geid eq "347115ark") {
+    unless ($geid =~ m/^[1-9][0-9]+$/) {
         warn "skipping invalid geid $geid\nline $line_number: $line\n";
         next;
     }

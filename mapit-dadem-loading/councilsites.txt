@@ -460,7 +460,7 @@ http://www.worcestershire.gov.uk/	Worcestershire County
 http://www.worthing.gov.uk/	Worthing District
 http://www.wrexham.gov.uk/	Wrexham
 http://www.www.southkevesten.gov.uk/	South Kesteven District
-http://www.wychavon.gov.uk Wychavon District
+http://www.wychavon.gov.uk/	Wychavon District
 http://www.wycombe.gov.uk/	Wycombe District
 http://www.wyrebc.gov.uk/	Wyre District
 http://www.wyreforestdc.gov.uk/	Wyre Forest District
