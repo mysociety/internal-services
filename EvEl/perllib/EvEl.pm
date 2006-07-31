@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.43 2006-07-31 09:59:58 chris Exp $
+# $Id: EvEl.pm,v 1.44 2006-07-31 10:26:12 chris Exp $
 #
 
 package EvEl::Error;
@@ -358,73 +358,7 @@ templated body; or a Subject.
 =cut
 sub construct_email ($) {
     my $p = shift;
-
-    if (!exists($p->{_body_}) && !exists($p->{_unwrapped_body_})
-        && (!exists($p->{_template_}) || !exists($p->{_parameters_}))) {
-        throw EvEl::Error("Must specify field '_body_' or '_unwrapped_body_', or both '_template_' and '_parameters_'");
-    }
-
-    if (exists($p->{_unwrapped_body_})) {
-        throw EvEl::Error("Fields '_body_' and '_unwrapped_body_' both specified") if (exists($p->{_body_}));
-        local($Text::Wrap::columns = 69);
-        local($Text::Wrap::huge = 'overflow');
-        $p->{_body_} = Text::Wrap::wrap('     ', '     ', $p->{_unwrapped_body_});
-        $p->{_body_} =~ s/^\s+$//mg;
-        delete($p->{_unwrapped_body_});
-    }
-
-    if (exists($p->{_template_})) {
-        throw EvEl::Error("Template parameters '_parameters_' must be an associative array")
-            if (ref($p->{_parameters_}) ne 'HASH');
-        
-        (my $subject, $p->{_body_}) = mySociety::Email::do_template_substitution($p->{_template_}, $p->{_parameters_});
-        delete($p->{_template_});
-        delete($p->{_parameters_});
-
-        $p->{Subject} = $subject if (defined($subject));
-    }
-
-    throw EvEl::Error("missing field 'Subject' in MESSAGE") if (!exists($p->{Subject}));
-
-    my %hdr;
-    $hdr{Subject} = mySociety::Email::format_mimewords($p->{Subject});
-
-    # To: and Cc: are address-lists.
-    foreach (qw(To Cc)) {
-        next unless (exists($p->{$_}));
-
-        if (ref($p->{$_}) eq '') {
-            # Interpret as a literal string in UTF-8, so all we need to do is
-            # escape it.
-            $hdr{$_} = mySociety::Email::format_mimewords($p->{$_});
-        } elsif (ref($p->{$_}) eq 'ARRAY') {
-            # Array of addresses or [address, name] pairs.
-            my @a = ( );
-            foreach (@{$p->{$_}}) {
-                if (ref($_) eq '') {
-                    push(@a, $_);
-                } elsif (ref($_) ne 'ARRAY' || @$_ != 2) {
-                    throw EvEl::Error("Element of '$_' field should be string or 2-element array");
-                } else {
-                    push(@a, mySociety::Email::format_email_address($_->[1], $_->[0]));
-                }
-            }
-            $hdr{$_} = join(', ', @a);
-        } else {
-            throw EvEl::Error("Field '$_' in MESSAGE should be single value or an array");
-        }
-    }
-
-    if (exists($p->{From})) {
-        if (ref($p->{From}) eq '') {
-            $hdr{From} = $p->{From}; # XXX check syntax?
-        } elsif (ref($p->{From}) ne 'ARRAY' || @{$p->{From}} != 2) {
-            throw EvEl::Error("'From' field should be string or 2-element array");
-        } else {
-            $hdr{From} = mySociety::Email::format_email_address($p->{From}->[1], $p->{From}->[0]);
-        }
-    }
-
+    
     # Some defaults
     $hdr{To} ||= 'Undisclosed-recipients: ;';
     $hdr{From} ||= sprintf('%sno-reply@%s',
@@ -436,22 +370,8 @@ sub construct_email ($) {
                             unpack('h*', random_bytes(5)),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
                         );
-    $hdr{Date} ||= POSIX::strftime("%a, %d %h %Y %T %z", localtime(time()));
 
-    foreach (keys(%$p)) {
-        $hdr{$_} = $p->{$_} if ($_ ne '_data_' && !exists($hdr{$_}));
-    }
-
-    # MIME::Entity->build() apparently expects *byte strings* as its data
-    # argument; otherwise some crazy conversion goes on and it emits encoded
-    # ISO-8859-1 data, rather than UTF-8.
-    utf8::encode($p->{_body_});
-    return MIME::Entity->build(
-                    %hdr,
-                    Data => $p->{_body_},
-                    Type => 'text/plain; charset="utf-8"',
-                    Encoding => 'quoted-printable'
-                )->stringify();
+    return mySociety::Email::construct_email($p)->stringify();
 }
 
 =back
