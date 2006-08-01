@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.44 2006-07-31 10:26:12 chris Exp $
+# $Id: EvEl.pm,v 1.45 2006-08-01 07:07:57 francis Exp $
 #
 
 package EvEl::Error;
@@ -360,12 +360,12 @@ sub construct_email ($) {
     my $p = shift;
     
     # Some defaults
-    $hdr{To} ||= 'Undisclosed-recipients: ;';
-    $hdr{From} ||= sprintf('%sno-reply@%s',
+    $p->{To} ||= 'Undisclosed-recipients: ;';
+    $p->{From} ||= sprintf('%sno-reply@%s',
                             mySociety::Config::get('EVEL_VERP_PREFIX'),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
                         );
-    $hdr{'Message-ID'} ||= sprintf('<%s%s@%s>',
+    $p->{'Message-ID'} ||= sprintf('<%s%s@%s>',
                             mySociety::Config::get('EVEL_VERP_PREFIX'),
                             unpack('h*', random_bytes(5)),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
