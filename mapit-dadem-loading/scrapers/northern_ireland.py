@@ -21,6 +21,11 @@ NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership03.htm"
 NICVA_LIST_PAGE = "http://www.nicva.org/index.cfm/section/General/key/190805"
 NIA_OUTPUT_FILE = "nia_out.txt"
 NICVA_OUTPUT_FILE = "nicva_out.txt"
+
+# order preserving unique
+def uniq_preserve_order(alist):
+    s = {}
+    return [s.setdefault(e,e) for e in alist if e not in s]
          
 #=================================
 class NIATableParser( HTMLParser ):
@@ -413,8 +418,9 @@ def mergeData():
             #clean up NICVA emails using blacklist
             nicvaEmailList = [ email for email in nicvaEmail.split() if email not in emailBlacklist.get(niaKey, [])]
             
-            # combine all the emails we've found
-            combinedEmail = " ".join( set([email.lower() for email in niaEmail.split() + nicvaEmailList] ))
+            # combine all the emails we've found, use nicva ones as preference (list more maintained than nia).
+            # remove duplicates, but preserve order
+            combinedEmail = " ".join( uniq_preserve_order([email.lower() for email in nicvaEmailList + niaEmail.split()] ))
             nicvaDict.pop(niaKey)
         else:
             #can't match - just go with NIA
