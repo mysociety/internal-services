@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.32 2006-03-29 07:56:06 francis Exp $
+# $Id: match.cgi,v 1.33 2006-08-07 10:43:01 chris Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.32 2006-03-29 07:56:06 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.33 2006-08-07 10:43:01 chris Exp $';
 
 use strict;
 
@@ -609,7 +609,6 @@ sub do_mapit_names_edit ($) {
 my $q;
 try {
     while ($q = new CGI::Fast()) {
-        $W->exit_if_changed();
         #print Dumper($q->Vars);
 
         my $page = $q->param('page');
@@ -636,6 +635,8 @@ try {
         } else {
             do_summary($q);
         }
+
+        $W->exit_if_changed();
     }
 } catch Error::Simple with {
     my $E = shift;
