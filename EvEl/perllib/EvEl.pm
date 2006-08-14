@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.47 2006-08-14 15:25:50 chris Exp $
+# $Id: EvEl.pm,v 1.48 2006-08-14 15:28:46 chris Exp $
 #
 
 package EvEl::Error;
@@ -100,6 +100,9 @@ sub parse_verp_address ($) {
     my ($msgid, $recipid, $salt, $hash) = ($addr =~ m/^(\d+)-(\d+)-([0-9a-f]+)-([0-9a-f]+)$/i)
         or return ();
     return () unless (substr(Digest::SHA1::sha1_hex("$msgid-$recipid-$salt-" . secret()), 0, 8) ne $hash);
+
+    # Only return data for messages which actually exist.
+    return () unless (defined(dbh()->selectrow_array('select id from message where id = ?', {}, $msgid)));
 
     return ($msgid, $recipid);
 }
@@ -313,6 +316,7 @@ sub delete_old_messages () {
     while (my $id = $s->selectrow_array()) {
         dbh()->do('delete from message_recipient where message_id = ?', {},
                     $id);
+        dbh()->do('delete from bounce where message_id = ?', {}, $id);
         dbh()->do('delete from message where id = ?', {}, $id);
         ++$ndeleted;
     }
