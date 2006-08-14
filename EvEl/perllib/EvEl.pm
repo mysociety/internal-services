@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.46 2006-08-09 11:29:21 chris Exp $
+# $Id: EvEl.pm,v 1.47 2006-08-14 15:25:50 chris Exp $
 #
 
 package EvEl::Error;
@@ -120,12 +120,16 @@ sub do_smtp ($$$) {
     throw EvEl::Error("SMTP server: command $what: " . $smtp->code() . " " . $smtp->message());
 }
 
+# Consider moving these into config file.
+use constant SEND_MAX_ATTEMPTS => 10;
+use constant SEND_RETRY_INTERVAL => 60;     # seconds
+# Time we hang on to message information in case bounces arrive.
+use constant RETAIN_TIME => 7 * 86400;
+
 # run_queue
 # Run the queue of outgoing messages. Returns the number of messages sent. This
 # function commits its changes.
 sub run_queue () {
-    use constant send_max_attempts => 10;
-    use constant send_retry_interval => 60;
     my $s = dbh()->prepare('
                     select message_id, recipient_id
                     from message_recipient
@@ -135,7 +139,7 @@ sub run_queue () {
                             or whenlastattempt < ? - ? * (2 ^ numattempts - 1))
                     order by random()
                 ');
-    $s->execute(send_max_attempts, time(), send_retry_interval);
+    $s->execute(SEND_MAX_ATTEMPTS, time(), SEND_RETRY_INTERVAL);
 
     my $smtp;
     my $nsent = 0; # Number of messages sent on this SMTP transaction
@@ -153,8 +157,8 @@ sub run_queue () {
                         and whensent is null
                         and (whenlastattempt is null
                             or whenlastattempt < ? - ? * (2 ^ numattempts - 1))
-                    for update of message_recipient
-                    ', {}, $msg, $recip, time(), send_retry_interval);
+                    for update of message_recipient', {},
+                    $msg, $recip, time(), SEND_RETRY_INTERVAL);
         next unless ($d);
 
         print_log('debug', "considering delivery of message $msg to recipient $recip <$d->{address}>");
@@ -284,6 +288,37 @@ sub recipient_id ($) {
                     {}, $id, $addr);
     }
     return $id;
+}
+
+# delete_old_messages
+# Delete messages which have been delivered, or which have failed completely.
+sub delete_old_messages () {
+    print_log('debug', "deleting old messages from queue");
+
+    # Find messages which are old enough to discard, and for which all
+    # deliveries have succeeded or been abandoned.
+    my $s = dbh()->prepare("
+            select id from message
+            where whensubmitted < extract(epoch from current_timestamp) - ?
+                and (select recipient_id from message_recipient
+                        where message_id = message.id
+                            and (whensent is null or numattempts < ?)
+                        limit 1) is null
+                and (select max(whensent) from message_recipient
+                        where message_id = message.id)
+                            < extract(epoch from current_timestamp) - ?");
+    
+    $s->execute(RETAIN_TIME, SEND_MAX_ATTEMPTS, RETAIN_TIME);
+    my $ndeleted = 0;
+    while (my $id = $s->selectrow_array()) {
+        dbh()->do('delete from message_recipient where message_id = ?', {},
+                    $id);
+        dbh()->do('delete from message where id = ?', {}, $id);
+        ++$ndeleted;
+    }
+
+#    dbh()->commit();
+    print_log('debug', "deleted $ndeleted messages");
 }
 
 #

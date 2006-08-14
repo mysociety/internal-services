@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.6 2005-08-25 17:10:49 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.7 2006-08-14 15:25:50 chris Exp $';
 
 use strict;
 
@@ -49,6 +49,19 @@ sub run_queue_process () {
         ++$niter;
     }
     print_log('debug', "queue-running process shutting down after $niter iterations");
+}
+
+# run_delete_process
+# Period old message deletion process.
+sub run_delete_process () {
+    my $niter = 0;
+    my $delay = 3600;
+    while (!$foad && $niter < 1000) {
+        print_log('debug', "deleting old messages");
+        EvEl::delete_old_messages();
+        ++$niter;
+    }
+    print_log('debug', "message-deleting process shutting down after $niter iterations");
 }
 
 # Entry point.
@@ -99,7 +112,8 @@ $SIG{TERM} = $SIG{INT} = sub { $foad = POSIX::SIGTERM }; # so children know to e
     # catch SIGINT so that we can conveniently be run from the terminal with
     # --debug, and still shut down cleanly.
 my $termsig = mySociety::Util::manage_child_processes({
-        queue =>      [1, \&run_queue_process]
+        queue =>      [1, \&run_queue_process],
+        delete =>     [1, \&run_delete_process]
     });
 
 undef($pidfile);
@@ -164,5 +178,5 @@ Copyright (c) 2005 UK Citizens Online Democracy
 
 =head1 VERSION
 
-$Id: eveld,v 1.6 2005-08-25 17:10:49 francis Exp $
+$Id: eveld,v 1.7 2006-08-14 15:25:50 chris Exp $
 
