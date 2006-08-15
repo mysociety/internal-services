@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.48 2006-08-14 15:28:46 chris Exp $
+# $Id: EvEl.pm,v 1.49 2006-08-15 11:49:01 francis Exp $
 #
 
 package EvEl::Error;
@@ -313,7 +313,7 @@ sub delete_old_messages () {
     
     $s->execute(RETAIN_TIME, SEND_MAX_ATTEMPTS, RETAIN_TIME);
     my $ndeleted = 0;
-    while (my $id = $s->selectrow_array()) {
+    while (my $id = $s->fetchrow_array()) {
         dbh()->do('delete from message_recipient where message_id = ?', {},
                     $id);
         dbh()->do('delete from bounce where message_id = ?', {}, $id);
