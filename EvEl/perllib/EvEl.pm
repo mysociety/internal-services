@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.49 2006-08-15 11:49:01 francis Exp $
+# $Id: EvEl.pm,v 1.50 2006-08-16 09:29:49 chris Exp $
 #
 
 package EvEl::Error;
@@ -70,12 +70,16 @@ sub secret () {
     return scalar(dbh()->selectrow_array('select secret from secret'));
 }
 
-# verp_address MESSAGE RECIPIENT
+# verp_address MESSAGE RECIPIENT DATA
 # Return a unique address which can be used for delivery of MESSAGE to
-# RECIPIENT.
-sub verp_address ($$) {
+# RECIPIENT. DATA is a reference to the data of the message.
+sub verp_address ($$$) {
     my ($msgid, $recipid) = @_;
-    my $salt = unpack('h*', random_bytes(3));
+    # Want to salt this with something unpredictable, but want to avoid using
+    # random bytes because that creates a potential problem with "greylisting"
+    # setups which defer mail from unknown senders until it's been retried. So
+    # use a hash of the message contents.
+    my $salt = substr(Digest::SHA1::sha1_hex($_[2]), 0, 6);
     my $hash = Digest::SHA1::sha1_hex("$msgid-$recipid-$salt-" . secret());
     return sprintf('%s%d-%d-%s-%s@%s',
                 mySociety::Config::get('EVEL_VERP_PREFIX'),
@@ -198,7 +202,7 @@ sub run_queue () {
 
         # Construct a unique return-path for this address, so that we can do
         # bounce detection. Ignore the VERP/XVERP ESMTP stuff, for the moment.
-        my $verp = verp_address($msg, $recip);
+        my $verp = verp_address($msg, $recip, $d->{data});
         print_log('debug', "VERP address for this message and recipient: <$verp>");
         try {
             do_smtp($smtp, $smtp->mail($verp), 'MAIL FROM');
