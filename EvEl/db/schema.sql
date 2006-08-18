@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.10 2006-08-18 22:25:49 chris Exp $
+-- $Id: schema.sql,v 1.11 2006-08-18 22:26:49 chris Exp $
 --
 
 create table secret (
@@ -106,13 +106,4 @@ create table subscriber (
 
 create index subscriber_mailinglist_id_idx on subscriber(mailinglist_id);
 create index subscriber_recipient_id_idx on subscriber(recipient_id);
-
--- Cache of address status results.
-create table deliverableaddress (
-    address text not null primary key,
-    whenchecked timestamp not null,
-    status char(1) not null check (status in ('Y', 'N', '?')),
-    reason text,
-    longreason text
-);
 
