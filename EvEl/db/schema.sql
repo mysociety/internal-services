@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.11 2006-08-18 22:26:49 chris Exp $
+-- $Id: schema.sql,v 1.12 2006-08-18 22:29:30 chris Exp $
 --
 
 create table secret (
@@ -26,7 +26,7 @@ create table message (
     isprobe boolean not null default false
 );
 
-create message_whensubmitted_idx on message(whensubmitted);
+create index message_whensubmitted_idx on message(whensubmitted);
 
 -- A recipient is one of the targets of a mail. We identify recipients uniquely
 -- by email address.
