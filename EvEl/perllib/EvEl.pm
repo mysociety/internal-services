@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.50 2006-08-16 09:29:49 chris Exp $
+# $Id: EvEl.pm,v 1.51 2006-08-19 14:13:59 chris Exp $
 #
 
 package EvEl::Error;
@@ -325,7 +325,7 @@ sub delete_old_messages () {
         ++$ndeleted;
     }
 
-#    dbh()->commit();
+    dbh()->commit();
     print_log('debug', "deleted $ndeleted messages");
 }
 
