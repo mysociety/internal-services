@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.7 2005-10-18 23:07:22 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.8 2006-08-21 14:46:56 dademcron Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
@@ -19,6 +19,7 @@ use Text::CSV;
 use Data::Dumper;
 use Text::Wrap;
 use POSIX qw(strftime);
+use Error qw(:try);
 
 use Common;
 use mySociety::VotingArea;
@@ -53,7 +54,17 @@ while (my $row = $s->fetchrow_hashref()) {
     my $area_id = $row->{voting_area_id};
     my $parent_id = $area_id_data->{$area_id}->{parent_area_id};
     if ($row->{representative_id}) {
-        my $orig_info = DaDem::get_representative_info($row->{representative_id});
+        my $orig_info;
+        try { 
+            $orig_info = DaDem::get_representative_info($row->{representative_id});
+        } catch RABX::Error::User with {
+            my $E = shift;
+            # Ignore REP_NOT_FOUND errors - we just skip this item if the rep 
+            # has already been deleted.
+            if ($E->value() != mySociety::DaDem::REP_NOT_FOUND) {
+                $E->throw();
+            }
+        };
         if (!$orig_info) {
             print STDERR "Representative ".$row->{representative_id}." no longer there\n";
             $d_dbh->do("update user_corrections set admin_done = 't' where user_correction_id = ?", 
