@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.45 2006-07-18 08:13:52 francis Exp $
+# $Id: MaPit.pm,v 1.46 2006-08-22 17:58:13 francis Exp $
 #
 
 package MaPit;
@@ -24,6 +24,7 @@ use mySociety::DBHandle qw(dbh);
 use mySociety::MaPit;
 use mySociety::Util;
 use mySociety::VotingArea;
+use mySociety::GeoUtil;
 
 mySociety::DBHandle::configure(
         Name => mySociety::Config::get('MAPIT_DB_NAME'),
@@ -439,7 +440,7 @@ sub get_voting_area_children ($) {
         return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
     }
 }
-
+ 
 =item get_location POSTCODE [PARTIAL]
 
 Return the location of the given POSTCODE. The return value is a reference to
@@ -513,29 +514,7 @@ sub get_location ($;$) {
         }
     }
 
-    # Obtain lat/lon.
-    our ($wgs84, $airy1830, $airy1830m);
-    $wgs84      ||= Geo::HelmertTransform::datum("WGS84");
-    $airy1830   ||= Geo::HelmertTransform::datum("Airy1830");
-    $airy1830m  ||= Geo::HelmertTransform::datum("Airy1830Modified");
-
-    my ($lat, $lon, $d);
-
-    if ($result{coordsyst} eq 'G') {
-        my $p = new Geography::NationalGrid('GB', Easting => $result{easting}, Northing => $result{northing});
-        $lat = $p->latitude();
-        $lon = $p->longitude();
-        $d = $airy1830;
-    } elsif ($result{coordsyst} eq 'I') {
-        my $p = new Geography::NationalGrid('IE', Easting => $result{easting}, Northing => $result{northing});
-        $lat = $p->latitude();
-        $lon = $p->longitude();
-        $d = $airy1830m;
-    } else {
-        die "bad value '$result{coordsyst}' for coordinate system in get_location";
-    }
-    
-    ($lat, $lon) = Geo::HelmertTransform::convert_datum($d, $wgs84, $lat, $lon, 0); # 0 is altitude
+    my ($lat, $lon) = mySociety::GeoUtil::national_grid_to_wgs84($result{easting}, $result{northing}, $result{coordsyst});
     $result{wgs84_lat} = $lat;
     $result{wgs84_lon} = $lon;
 
