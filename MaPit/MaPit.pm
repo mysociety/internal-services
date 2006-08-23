@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.47 2006-08-23 00:34:55 francis Exp $
+# $Id: MaPit.pm,v 1.48 2006-08-23 08:23:05 francis Exp $
 #
 
 package MaPit;
@@ -18,6 +18,7 @@ use DBD::Pg;
 
 use Geography::NationalGrid;
 use Geo::HelmertTransform;
+use Data::Dumper;
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
@@ -337,7 +338,10 @@ sub get_voting_areas_info ($) {
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
 
-=item get_voting_area_geometry AREA
+my $doublesize = length(pack('d', 0));
+my $intsize = length(pack('i', 0));
+
+=item get_voting_area_geometry AREA [POLYGON_TYPE] [TOLERANCE]
 
 Return geometry information about the given voting area. Return value is a
 reference to a hash containing elements. Coordinates with names ending _e and
@@ -347,13 +351,27 @@ _lon are WGS84 latitude and longitude.
 centre_e, centre_n, centre_lat, centre_lon - centre of bounding rectangle
 min_e, min_n, min_lat, min_lon - south-west corner of bounding rectangle
 max_e, max_n, max_lat, max_lon - north-east corner of bounding rectangle
+area - surface area of the polygon, in metres squared
+parts - number of parts the polygon of the boundary has
+
+If POLYGON_TYPE is present, then the hash also contains a member 'polygon'.
+This is an array of parts. Each part is a hash of the following values:
+
+sense - a positive value to include the part, negative to exclude (a hole)
+points - an array of pairs of (eastings, northings) if POLYGON_TYPE is 'ng",
+or (latitude, longitude) if POLYGON_TYPE is 'wgs84'.
+
+XXX If TOLERANCE is present then the points are first pruned. Not yet
+implemeneted.
 
 =cut
-sub get_voting_area_geometry ($) {
-    my ($id) = @_;
+sub get_voting_area_geometry ($;$$) {
+    my ($id, $polygon_type, $tolerance) = @_;
 
-    throw RABX::Error("ID must be defined", RABX::Error::INTERFACE)
-        if (!defined($id));
+    throw RABX::Error("ID must be defined", RABX::Error::INTERFACE) if (!defined($id));
+    throw RABX::Error("TOLERANCE not yet implemented", RABX::Error::INTERFACE) if (defined($tolerance));
+    throw RABX::Error("POLYGON_TYPE must be 'ng' or 'wgs84'", RABX::Error::INTERFACE) if (defined($polygon_type) &&
+        $polygon_type ne 'ng' && $polygon_type ne 'wgs84');
 
     my $generation = get_generation();
 
@@ -362,18 +380,13 @@ sub get_voting_area_geometry ($) {
         throw RABX::Error("Special case areas not yet covered for get_voting_area_geometry", mySociety::MaPit::AREA_NOT_FOUND)
     } else {
         # Real data
-        my ($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n);
+        my ($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts);
         throw RABX::Error("Voting area geometry info not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
-            unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n) = dbh()->selectrow_array("
-            select centre_e, centre_n, min_e, min_n, max_e, max_n
+            unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts) = dbh()->selectrow_array("
+            select centre_e, centre_n, min_e, min_n, max_e, max_n, area, parts
                 from area_geometry
                 where area_id = ?
             ", {}, $id));
-
-        # TODO:
-        #area double precision, -- in grid square units squared
-        #parts integer, -- number of parts in the polygon
-        #polygon bytea, -- a packed structure, NULL if not available
 
         my ($centre_lat, $centre_lon) = mySociety::GeoUtil::national_grid_to_wgs84($centre_e, $centre_n, 'G');
         my ($min_lat, $min_lon) = mySociety::GeoUtil::national_grid_to_wgs84($min_e, $min_n, 'G');
@@ -385,11 +398,51 @@ sub get_voting_area_geometry ($) {
                 max_e => $max_e, max_n => $max_n,
                 centre_lat => $centre_lat, centre_lon => $centre_lon,
                 min_lat => $min_lat, min_lon => $min_lon,
-                max_lat => $max_lat, max_lon => $max_lon
+                max_lat => $max_lat, max_lon => $max_lon,
+                area => $area, parts => $parts
             };
+
+        if ($polygon_type) {
+            my @part_array;
+            my $polygon_array = [];
+            my $polygon;
+            throw RABX::Error("Voting area geometry info not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
+                unless (($polygon) = dbh()->selectrow_array("
+                select polygon from area_geometry where area_id = ?", {}, $id));
+            while (length($polygon)) {
+                my $part;
+                my $sense = unpack('i', substr($polygon, 0, $intsize));
+                my $vertex_count = unpack('i', substr($polygon, $intsize, $intsize));
+                my @vertices = unpack('d*', substr($polygon, 2*$intsize, $vertex_count * $doublesize * 2));
+                die "internal vertex count mismatch: ".($vertex_count * 2)." vs ".scalar(@vertices)
+                    if $vertex_count * 2 != scalar(@vertices);
+                $polygon = substr($polygon, 2*$intsize + $vertex_count * $doublesize * 2);
+
+                $part->{sense} = $sense;
+                $part->{points} = [];
+                for (my $i = 0; $i < @vertices; $i += 2) {
+                    if ($polygon_type eq 'ng') {
+                        push @{$part->{points}}, [$vertices[$i], $vertices[$i+1]];
+                    } else {
+                        my ($lat, $lon) = mySociety::GeoUtil::national_grid_to_wgs84($vertices[$i], $vertices[$i+1], 'G');
+                        push @{$part->{points}}, [$lat, $lon];
+                    }
+                }
+                push @$polygon_array, $part;
+            }
+            $ret->{'polygon'} = $polygon_array;
+        }
     }
 
     return $ret;
+}
+
+=item get_voting_areas_geometry ARY
+
+=cut
+sub get_voting_areas_geometry ($) {
+    my ($ary) = @_;
+    return { (map { $_ => get_voting_area_geometry($_) } grep { defined($_) } @$ary) };
 }
 
 

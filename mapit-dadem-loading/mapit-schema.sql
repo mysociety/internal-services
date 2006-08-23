@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.20 2006-08-23 00:34:56 francis Exp $
+-- $Id: mapit-schema.sql,v 1.21 2006-08-23 08:23:05 francis Exp $
 --
 
 -- generations, for currency of data
@@ -90,9 +90,22 @@ create table area_geometry (
     min_n double precision,
     max_e double precision,
     max_n double precision,
-    area double precision, -- in grid square units squared
-    parts integer, -- number of parts in the polygon
-    polygon bytea, -- a packed structure, NULL if not available
+    -- the area of the polygon measured in eastings/northings, so roughly in
+    -- metres-squared
+    area double precision, 
+    -- number of parts in the polygon
+    parts integer, 
+    -- All the parts of the polygon, NULL if data not available.
+    -- Each part is a binary structure which begins like this:
+    --      sense, a native int.
+    --      number of vertices, a native int.
+    -- Then for each vertex in order the following two values:
+    --      eastings, a native double precision float.
+    --      northings, a native double precision float.
+    -- The parts follow each other consecutively in the bytea. A positive
+    -- "sense" means the area is included, a negative that it is excluded (a
+    -- hole)
+    polygon bytea, 
     primary key (area_id)
 );
 

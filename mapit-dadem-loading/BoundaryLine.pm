@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.1 2006-08-23 00:34:56 francis Exp $
+# $Id: BoundaryLine.pm,v 1.2 2006-08-23 08:23:05 francis Exp $
 #
 
 use strict;
@@ -16,16 +16,18 @@ use File::stat;
 
 @BoundaryLine::ISA = qw(Exporter);
 @BoundaryLine::EXPORT_OK = qw(
-    $doublesize
+    &doublesize
     %interesting_areas
     @interesting_areas
     %childmap
     %parentmap
     &load_ntf_file
+    &poly_area
 );
 
 # Record the size of a double for use later.
 my $doublesize = length(pack('d', 0));
+sub doublesize { return $doublesize; }
 
 #
 # Point-in-polygon tests. Do these in C, so that the performance isn't too
