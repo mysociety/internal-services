@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.46 2006-08-22 17:58:13 francis Exp $
+# $Id: MaPit.pm,v 1.47 2006-08-23 00:34:55 francis Exp $
 #
 
 package MaPit;
@@ -336,6 +336,62 @@ sub get_voting_areas_info ($) {
     my ($ary) = @_;
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
+
+=item get_voting_area_geometry AREA
+
+Return geometry information about the given voting area. Return value is a
+reference to a hash containing elements. Coordinates with names ending _e and
+_n are UK National Grid eastings and northings. Coordinates ending _lat and
+_lon are WGS84 latitude and longitude.
+
+centre_e, centre_n, centre_lat, centre_lon - centre of bounding rectangle
+min_e, min_n, min_lat, min_lon - south-west corner of bounding rectangle
+max_e, max_n, max_lat, max_lon - north-east corner of bounding rectangle
+
+=cut
+sub get_voting_area_geometry ($) {
+    my ($id) = @_;
+
+    throw RABX::Error("ID must be defined", RABX::Error::INTERFACE)
+        if (!defined($id));
+
+    my $generation = get_generation();
+
+    my $ret;
+    if (exists($special_cases{$id})) {
+        throw RABX::Error("Special case areas not yet covered for get_voting_area_geometry", mySociety::MaPit::AREA_NOT_FOUND)
+    } else {
+        # Real data
+        my ($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n);
+        throw RABX::Error("Voting area geometry info not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
+            unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n) = dbh()->selectrow_array("
+            select centre_e, centre_n, min_e, min_n, max_e, max_n
+                from area_geometry
+                where area_id = ?
+            ", {}, $id));
+
+        # TODO:
+        #area double precision, -- in grid square units squared
+        #parts integer, -- number of parts in the polygon
+        #polygon bytea, -- a packed structure, NULL if not available
+
+        my ($centre_lat, $centre_lon) = mySociety::GeoUtil::national_grid_to_wgs84($centre_e, $centre_n, 'G');
+        my ($min_lat, $min_lon) = mySociety::GeoUtil::national_grid_to_wgs84($min_e, $min_n, 'G');
+        my ($max_lat, $max_lon) = mySociety::GeoUtil::national_grid_to_wgs84($max_e, $max_n, 'G');
+     
+        $ret = {
+                centre_e => $centre_e, centre_n => $centre_n,
+                min_e => $min_e, min_n => $min_n,
+                max_e => $max_e, max_n => $max_n,
+                centre_lat => $centre_lat, centre_lon => $centre_lon,
+                min_lat => $min_lat, min_lon => $min_lon,
+                max_lat => $max_lat, max_lon => $max_lon
+            };
+    }
+
+    return $ret;
+}
+
 
 =item get_areas_by_type TYPE [ALL]
 

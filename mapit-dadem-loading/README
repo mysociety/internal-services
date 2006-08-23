@@ -1,4 +1,4 @@
-$Id: README,v 1.10 2006-02-10 09:23:10 chris Exp $
+$Id: README,v 1.11 2006-08-23 00:34:56 francis Exp $
 
 General
 -------
@@ -9,6 +9,8 @@ README-check - Use this one-liner to test for files that need adding to this REA
 NAMETYPES - Types of voting area names in MaPit.
 dadem-schema.sql, mapit-schema.sql - Database schemas.
 Common.pm - some shared functions
+BoundaryLine.pm - functions shared by Boundary Line scripts
+Area.pm - a simple polygon area class
 
 Postcode / Boundary Loading
 ---------------------------
@@ -17,6 +19,8 @@ create_new_generation - Create new generation in MaPit, if there isn't one alrea
 process_boundary_line - Create postcode to voting area mappings for GB.
 boundaryline-2005-05.control - Control file for import of 2005-05 version of Boundary Line.
 boundaryline-2005-05-missing-CEDs.csv - For county councils with new boundaries
+boundaryline-2005-10.control - Control file for import of 2005-10 version of Boundary Line
+boundaryline-2005-10-2.control
 
 new_scottish_constituencies new_scottish_constituencies2
 new-scottish-constituencies-council-wards.csv
@@ -27,6 +31,8 @@ process_codepoint_ni - Create postcode to voting area mappings for NI.
 process_codepoint_scilly - Create postcode to voting area mappings for Isles of Scilly.
 
 ni-electoral-areas.csv - Maps ONS ward codes to NI local authority electoral areas
+
+add_boundaryline_geodata - Fill in the area_geometry table in MaPit
 
 Voting Area Name Matching
 -------------------------
@@ -70,4 +76,4 @@ oneoffs/council-elections-2005.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.10 2006-02-10 09:23:10 chris Exp $
+# $Id: README,v 1.11 2006-08-23 00:34:56 francis Exp $

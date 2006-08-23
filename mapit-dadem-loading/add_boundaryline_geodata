@@ -1,0 +1,108 @@
+#!/usr/bin/perl -w -I../perllib -I ../../perllib
+#
+# add_boundaryline_geodata:
+# Add geographical information about boundaries to MaPit, from BoundaryLine NTF files.
+#
+# Specify a directory containing BoundaryLine NTF files as the only parameter. Existing
+# data in area_geometry for each area found in the NTF files is replaced.
+#
+# XXX Currently only loads _CONST.NTF files, as only tested and needed for Westminster
+# constituencies. Should work for other areas.
+
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.1 2006-08-23 00:34:56 francis Exp $';
+
+use strict;
+
+use DBI;
+use DBD::Pg;
+use Fcntl;
+use Geo::OSBoundaryLine;
+use IO::Handle;
+use Data::Dumper;
+use mySociety::GeoUtil;
+use File::Find;
+
+use Common;
+use Area;
+use BoundaryLine qw(%interesting_areas @interesting_areas %childmap %parentmap $doublesize);
+
+my $boundaryline_directory = shift(@ARGV);
+die "argument is directory containing boundaryline NTF files" unless $boundaryline_directory;
+
+# @shapes
+# List of Area objects for each area we're interested in.
+my @shapes;
+my %onscode_to_shape;
+my %area_type_to_shape;
+# We may have several shapes in files with the same administrative area ID. We
+# amalgamate them before writing them to the database.
+my %aaid_to_shape;
+
+# Open database.
+my $dbh = Common::connect_to_mapit_database();
+
+# Get list of all areas, indexed by OS name
+my $g = current_generation($dbh);
+my $s = "select id, parent_area_id, unit_id, ons_code, type, name from area, area_name where area.id = area_name.area_id and name_type = 'O' and ($g >= generation_low and $g <= generation_high)";
+my $os_name_to_db_info = $dbh->selectall_hashref($s, 'name');
+#print Dumper($os_name_to_db_info);
+
+# Load in the shape files
+#my $filename = "/home/francis/toobig/geodata-mysociety/boundaryline-2005-10-xx/England/Westminster_Constituency/CAMBRIDGE_BORO_CONST.NTF";
+#my $filename = "/home/francis/toobig/geodata-mysociety/boundaryline-2005-10-xx/England/County/CAMBRIDGESHIRE_COUNTY.NTF";
+#BoundaryLine::load_ntf_file($filename, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+
+# Recursively scan for NTF files and load them all in
+find(\&wanted, $boundaryline_directory);
+sub wanted {
+    # XXX For now, just load Westminster constituency files. Others should work, but need testing/debugging.
+    if (m/_CONST\.NTF$/) {
+        BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+    }
+}
+
+# Loop through shapes
+foreach my $A (@shapes) {
+    my ($min_lat, $min_lon) = mySociety::GeoUtil::national_grid_to_wgs84($A->minx(), $A->miny(), 'G');
+    my ($max_lat, $max_lon) = mySociety::GeoUtil::national_grid_to_wgs84($A->maxx(), $A->maxy(), 'G');
+    my $centre_e = ($A->minx() + $A->maxx()) / 2;
+    my $centre_n = ($A->miny() + $A->maxy()) / 2;
+    my ($centre_lat, $centre_lon) = mySociety::GeoUtil::national_grid_to_wgs84($centre_e, $centre_n, 'G');
+
+    my $db_entry = $os_name_to_db_info->{$A->name()}; 
+    if (!$db_entry) {
+        warn "couldn't find exact name match ". $A->name() . " in database";
+        next;
+    }
+
+    print STDERR $A->name() . " " . $A->area_type() . "\n";
+    print STDERR "\tDB identifier: " . $db_entry->{id} . "\n";
+    print STDERR "\tBounds: " . $A->minx() . "E " . $A->miny() . "N";
+    print STDERR " " . $A->maxx() . "E " . $A->maxy() . "N\n";
+    print STDERR "\tBounds lat/lon: $min_lat $min_lon --> $max_lat $max_lon\n";
+    print STDERR "\tCentre: $centre_e E $centre_n N ";
+    print STDERR " lat/lon: $centre_lat $centre_lon\n";
+
+    $dbh->do("delete from area_geometry where area_id = ?", {}, $db_entry->{id});
+    $dbh->do("insert into area_geometry (
+            area_id,
+            centre_e, centre_n,
+            min_e, min_n,
+            max_e, max_n
+        ) values (
+            ?,
+            ?, ?,
+            ?, ?,
+            ?, ?
+        ) ", {}, 
+            $db_entry->{id},
+            $centre_e, $centre_n,
+            $A->minx(), $A->miny(),
+            $A->maxx(), $A->maxy(),
+        );
+    #area, parts, polygon 
+}
+
+$dbh->commit();
+
+

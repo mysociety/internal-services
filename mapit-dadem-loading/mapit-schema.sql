@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.19 2005-09-30 14:57:02 francis Exp $
+-- $Id: mapit-schema.sql,v 1.20 2006-08-23 00:34:56 francis Exp $
 --
 
 -- generations, for currency of data
@@ -31,7 +31,7 @@ create table area (
     parent_area_id integer references area(id),
     unit_id integer,        -- ESRI shapefile unit ID (really admin area ID)
     ons_code varchar(7),    -- 6+-digit ward code
-    geom_hash char(40),     -- SHA1 hash of geometry (see process_boundary_line)
+    geom_hash char(40),     -- SHA1 hash of geometry (see process_boundary_line). Now obsolete.
     type char(3) not null,  -- 'CTY' or whatever
     -- Country in which this area lies.
     -- 'E'  England
@@ -78,6 +78,25 @@ create table area_name (
 );
 
 create index area_name_area_id_idx on area_name(area_id);
+
+-- full boundaries
+create table area_geometry (
+    area_id integer references area(id),
+    -- centre of bounding rectangle
+    centre_e double precision,
+    centre_n double precision,
+    -- bounding rectangle
+    min_e double precision,
+    min_n double precision,
+    max_e double precision,
+    max_n double precision,
+    area double precision, -- in grid square units squared
+    parts integer, -- number of parts in the polygon
+    polygon bytea, -- a packed structure, NULL if not available
+    primary key (area_id)
+);
+
+create index area_geometry_area_id_idx on area_geometry(area_id);
 
 -- lookup table for postcodes
 create table postcode (
