@@ -9,7 +9,7 @@
 # XXX Currently only loads _CONST.NTF files, as only tested and needed for Westminster
 # constituencies. Should work for other areas.
 
-my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.2 2006-08-23 08:23:05 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.3 2006-08-23 11:47:35 francis Exp $';
 
 use strict;
 
@@ -73,7 +73,7 @@ foreach my $A (@shapes) {
 
     my $binary_poly; # format as documented in mapit-schema.sql
     my $parts_count = scalar(@{$A->parts()});
-    my $total_surface_area;
+    my $calculated_surface_area;
     foreach (@{$A->parts()}) {
         my ($sense, $vv) = @$_;
         my $vertices_count = length($vv) / (2 * doublesize());
@@ -82,17 +82,20 @@ foreach my $A (@shapes) {
         $binary_poly .= pack('i', $vertices_count);
         $binary_poly .= $vv;
         
-        # XXX is this area calculation at all correct/useful?
-        my $surface_area = poly_area($vertices_count, $vv);
+        # Calculate area from the polygon 
+        my $surface_area = abs(poly_area($vertices_count, $vv));
         if ($sense > 0) {  
-            $total_surface_area += $surface_area;
+            $calculated_surface_area += $surface_area;
         } elsif ($sense < 0) {
-            $total_surface_area -= $surface_area;
+            $calculated_surface_area -= $surface_area;
         } else {
             die "zero sense value for part in " . $A->name();
         }
     }
-    die "Total surface zero or negative ($total_surface_area) for " . $A->name() if ($total_surface_area <= 0);
+    die "Calculated surface zero or negative ($calculated_surface_area) for " . $A->name() if ($calculated_surface_area <= 0);
+    my $non_inland_area = $A->non_inland_area();
+    my $hectares = $A->hectares();
+    my $area_discrepency = abs(($calculated_surface_area - ($hectares * 10000)));
 
     print STDERR "\tDB identifier: " . $db_entry->{id} . "\n";
     print STDERR "\tBounds: " . $A->minx() . "E " . $A->miny() . "N";
@@ -100,7 +103,11 @@ foreach my $A (@shapes) {
     print STDERR "\tBounds lat/lon: $min_lat $min_lon --> $max_lat $max_lon\n";
     print STDERR "\tCentre: $centre_e E $centre_n N ";
     print STDERR " lat/lon: $centre_lat $centre_lon\n";
-    print STDERR "\tsurface area $total_surface_area square metres\n";
+    print STDERR "\tcalc area $calculated_surface_area m2, ntf area $hectares ha, non inland area $non_inland_area ha\n";
+    print STDERR "\tdiscrepency " . $area_discrepency . " ratio " . ($area_discrepency / $calculated_surface_area) . "\n";
+    print STDERR "\tgnuplot $area_discrepency $non_inland_area\n";
+
+    die "calculated $calculated_surface_area and hectares $hectares areas disagree by lots" if $area_discrepency > 200;
 
     $dbh->do("delete from area_geometry where area_id = ?", {}, $db_entry->{id});
 
@@ -121,7 +128,7 @@ foreach my $A (@shapes) {
             $centre_e, $centre_n,
             $A->minx(), $A->miny(),
             $A->maxx(), $A->maxy(),
-            $total_surface_area, $parts_count
+            $hectares * 10000, $parts_count
         );
     #area 
 

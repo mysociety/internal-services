@@ -6,13 +6,14 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.2 2006-08-23 08:23:05 francis Exp $
+# $Id: BoundaryLine.pm,v 1.3 2006-08-23 11:47:35 francis Exp $
 #
 
 use strict;
 package BoundaryLine;
 
 use File::stat;
+use Data::Dumper;
 
 @BoundaryLine::ISA = qw(Exporter);
 @BoundaryLine::EXPORT_OK = qw(
@@ -181,7 +182,7 @@ sub load_ntf_file {
     # down.
     foreach my $collectid (keys %{$ntf->{collections}}) {
         my $C = $ntf->{collections}->{$collectid};
-        my ($area_type, $ons_code, $aaid, $name) = map { $C->attributes()->{$_} } qw(area_type ons_code admin_area_id name);
+        my ($area_type, $ons_code, $aaid, $name, $non_inland_area) = map { $C->attributes()->{$_} } qw(area_type ons_code admin_area_id name non_inland_area);
 
         next unless (defined($area_type) && exists($interesting_areas{$area_type}));
 
@@ -214,10 +215,10 @@ sub load_ntf_file {
             }
 
             my $polydata = pack('d*', map { @$_ } @verts);
-            my $area = 0; # XXX area including winding
-            push(@parts, [$sense, $polydata, $area]);
+            push(@parts, [$sense, $polydata]);
             @verts = ( );
         }
+        my $hectares = $C->flatten_area(1);
 
         # Determine whether this is a new shape or a new part of a previous
         # shape.
@@ -286,6 +287,8 @@ sub load_ntf_file {
                             maxy => $maxy,
                             cx => $cx,
                             cy => $cy,
+                            non_inland_area => $non_inland_area,
+                            hectares => $hectares
                         );
             
             $onscode_to_shape->{$ons_code} = $row if (defined($ons_code));
@@ -293,15 +296,15 @@ sub load_ntf_file {
             push(@{$area_type_to_shape->{$area_type}}, $row);
 
             push(@$shapes, $row);
-            STDERR->printf("\rreading shapes: %d", scalar(@$shapes));
         } else {
             # Shape already exists. Form union of its parts and ours.
-            print STDERR "adding collection to '", $row->name(), "'\n";
             push(@{$row->parts()}, @parts);
             $row->minx($minx) if ($minx < $row->minx());
             $row->maxx($maxx) if ($maxx > $row->maxx());
             $row->miny($miny) if ($miny < $row->miny());
             $row->maxy($maxy) if ($maxy > $row->maxy());
+            $row->non_inland_area($row->non_inland_area() + $non_inland_area);
+            $row->hectares($row->hectares() + $hectares);
         }
 
         $collectid_to_area{$C->id()} = $row;

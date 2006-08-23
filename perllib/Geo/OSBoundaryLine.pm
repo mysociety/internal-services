@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.13 2006-02-14 13:13:28 chris Exp $
+# $Id: OSBoundaryLine.pm,v 1.14 2006-08-23 11:47:35 francis Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -45,6 +45,10 @@ Type of area (e.g. 'WMC', 'CED', etc.).
 =item name
 
 Name of area.
+
+=item non_inland_area
+
+Non inland surface area in hectares.
 
 =item non_type_codes
 
@@ -94,11 +98,12 @@ my $debug = 0;
         WMC => ['Westminster constituency', 'VA']
     );
 
-use fields qw(id admin_area_id ons_code area_type name non_type_codes type);
+use fields qw(id admin_area_id ons_code area_type non_inland_area name non_type_codes type);
 
 my %checks = (
         id => qr/^\d+$/,
         admin_area_id => qr/^\d+$/,
+        non_inland_area => qr/^[\.\d]+$/,
         ons_code => sub { return !defined($_[0]) || $_[0] =~ /^[0-9A-Z]+$/ },
         area_type => sub { return defined($_[0]) && exists($area_types{$_[0]}) },
         name => qr/.*/,   # can be blank?
@@ -131,6 +136,62 @@ foreach (keys %checks) {
     eval 'sub ' . $_ . ' ($) { my $self = shift; return $self->{' . $_ . '} }';
 }
 
+package Geo::OSBoundaryLine::PolyAttribute;
+
+=head1 NAME
+
+Geo::OSBoundaryLine::PolyAttribute
+
+=head1 DESCRIPTION
+
+Object representing attributes of polygons in Boundary-Line. These objects are
+constructed during the parsing process and should be regarded as read-only by
+callers.
+
+=head1 METHODS
+
+=over 4
+
+=item hectares
+
+Area in hectares.
+
+=back
+
+=cut
+
+use fields qw(id hectares);
+
+my %poly_checks = (
+        id => qr/^\d+$/,
+        hectares => qr/^[\.\d]+$/,
+    );
+
+sub new ($%) {
+    my ($class, %a) = @_;
+    my $self = fields::new($class);
+    foreach (keys %a) {
+        my $v = $a{$_};
+        next unless (defined($v));
+        $v =~ s# +$##;
+        next if ($v eq '');
+        if (!exists($poly_checks{$_})) {
+            die "unknown field '$_' in constructor for Geo::OSBoundaryLine::PolyAttribute";
+        } elsif ((ref($poly_checks{$_}) eq 'Regexp' && $v !~ $poly_checks{$_})
+                 || (ref($poly_checks{$_}) eq 'CODE' && !&{$poly_checks{$_}}($v))) {
+            throw Geo::OSBoundaryLine::Error("Bad value '$a{$_}' ['$v'] for field '$_' in constructor for Geo::OSBoundaryLine::PolyAttribute");
+        } else {
+            $self->{$_} = $v;
+        }
+    }
+    return $self;
+}
+
+# accessor methods
+foreach (keys %poly_checks) {
+    eval 'sub ' . $_ . ' ($) { my $self = shift; return $self->{' . $_ . '} }';
+}
+
 package Geo::OSBoundaryLine::Polygon;
 
 =head1 NAME
@@ -150,16 +211,17 @@ nonselfintersecting and holefree.
 
 use Scalar::Util qw(weaken);
 
-use fields qw(ntf id);
+use fields qw(ntf id attrid);
 
-sub new ($$$) {
-    my ($class, $ntf, $id) = @_;
+sub new ($$$$) {
+    my ($class, $ntf, $id, $attrid) = @_;
     my $self = fields::new($class);
     # Weaken the reference back to the parent object so that GC doesn't fail
     # on the circular reference.
     $self->{ntf} = $ntf;
     weaken($self->{ntf});
     $self->{id} = $id;
+    $self->{attrid} = $attrid;
     return bless($self, $class);
 }
 
@@ -212,15 +274,16 @@ hole.
 
 use Scalar::Util qw(weaken);
 
-use fields qw(ntf id parts);
+use fields qw(ntf id parts attrid);
 
-sub new ($$$$) {
-    my ($class, $ntf, $id, $parts) = @_;
+sub new ($$$$$) {
+    my ($class, $ntf, $id, $parts, $attrid) = @_;
     my $self = fields::new($class);
     $self->{ntf} = $ntf;
     weaken($self->{ntf});
     $self->{id} = $id;
     $self->{parts} = $parts;
+    $self->{attrid} = $attrid;
     return bless($self, $class);
 }
 
@@ -350,6 +413,41 @@ sub flatten ($;$$) {
     return @parts;
 }
 
+=item flatten_area [NORECURSE]
+
+Return the surface area in hectares of the polygons in the collection.  If
+NORECURSE is true, then do not recurse into enclosed collections-of-features.
+
+=cut
+sub flatten_area ($;$$);
+sub flatten_area ($;$$) {
+    my ($self, $norecurse, $ids_seen) = @_;
+    my $hectares = 0.0;
+    $ids_seen ||= { };
+    $ids_seen->{$self->{id}} = 1;
+    foreach my $p ($self->parts()) {
+        if ($p->isa("Geo::OSBoundaryLine::CollectionOfFeatures")) {
+            next if ($norecurse);
+            die "collection #$self->{id} is part of a referential cycle of collections"
+                if (exists($ids_seen->{$p->{id}}));
+            #warn "recursive flatten";
+            $hectares += $p->flatten_area($norecurse, $ids_seen);
+        } elsif ($p->isa("Geo::OSBoundaryLine::ComplexPolygon")) {
+            #warn "adding complex poly " .  $self->{ntf}->{attributes}->{$p->{attrid}}->hectares();
+            $hectares += $self->{ntf}->{attributes}->{$p->{attrid}}->hectares();
+        } elsif ($p->isa("Geo::OSBoundaryLine::Polygon")) {
+            #warn "adding simple poly " .  $self->{ntf}->{attributes}->{$p->{attrid}}->hectares();
+            $hectares += $self->{ntf}->{attributes}->{$p->{attrid}}->hectares();
+        } else {
+            die "bad object of type " . ref($p) . " in collection #$self->{id}";
+        }
+        $ids_seen->{$p->{id}} = 1;
+    }
+    #warn "returning, got $hectares";
+    return $hectares;
+}
+
+
 =item attributes
 
 Return this collection's attributes.
@@ -368,6 +466,7 @@ use Error qw(:try);
 use IO::File;
 use IO::Handle;
 use Fcntl;
+use Data::Dumper;
 
 use fields qw(attributes geometries chains polygons complexes collections);
 
@@ -488,12 +587,26 @@ sub parse_14 ($$) {
     my ($obj, $rec) = @_;
 
     # There are various sorts of attribute records. We only care about the ones
-    # which apply to "collections".
-    if ($rec !~ /^\d{6}AI/) {
-        $debug && print "Attribute Record ignored for non-collection object\n";
+    # which apply to "collections" or "polygons".
+
+    # Parse attributes for polygons
+    if ($rec =~ /^\d{6}PI/) {
+        die "bad PI attributes record \"$rec\"" unless $rec =~ m/^(\d{6})PI(\d{6})HA(\d{12})0%$/;
+        $obj->{attributes}->{int($1)} =
+            new Geo::OSBoundaryLine::PolyAttribute(
+                    id => int($1),
+                    hectares => int($3) / 1000.0,  
+                );
         return;
     }
 
+    # Return if we don't have a collection
+    if ($rec !~ /^\d{6}AI/) {
+        $debug && print "Attribute Record ignored for non-collection, non-polygon object\n";
+        return;
+    }
+
+    # Parse attributes for collections
     die "Bad Attribute Record \"$rec\""
         unless ($rec =~ m/^(\d{6})      # attribute ID
                             AI
@@ -527,6 +640,7 @@ sub parse_14 ($$) {
         new Geo::OSBoundaryLine::Attribute(
                 id => int($1),
                 admin_area_id => $2,
+                non_inland_area => int($3) / 1000.0,  
                 ons_code => ($4 eq '999999 ' ? undef : $4),
                 type => $5,
                 area_type => $6,
@@ -634,7 +748,7 @@ sub parse_31 ($$) {
     my $polyid = int($1);
     my $attrid = defined($2) ? int($2) : undef;
 
-    $obj->{polygons}->{$polyid} = new Geo::OSBoundaryLine::Polygon($obj, $polyid);
+    $obj->{polygons}->{$polyid} = new Geo::OSBoundaryLine::Polygon($obj, $polyid, $attrid);
 
     $debug && print <<EOF;
 Polygon:
@@ -671,7 +785,7 @@ EOF
             unless (exists($obj->{polygons}->{int($parts[$i])}));
         push(@pp, [$obj->{polygons}->{int($parts[$i])}, $parts[$i + 1] eq '+' ? +1 : -1]);
     }
-    $obj->{complexes}->{$complexid} = new Geo::OSBoundaryLine::ComplexPolygon($obj, $complexid, \@pp);
+    $obj->{complexes}->{$complexid} = new Geo::OSBoundaryLine::ComplexPolygon($obj, $complexid, \@pp, $attrid);
 }
 
 # parse_34 OBJECT RECORD

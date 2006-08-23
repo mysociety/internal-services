@@ -6,13 +6,13 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Area.pm,v 1.1 2006-08-23 00:34:56 francis Exp $
+# $Id: Area.pm,v 1.2 2006-08-23 11:47:35 francis Exp $
 #
 
 use strict;
 package Area;
 
-use fields qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent children deleted alreadyexists);
+use fields qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent children deleted alreadyexists non_inland_area hectares);
 
 # Accessor methods
 my $x = fields::new('Area');
