@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.48 2006-08-23 08:23:05 francis Exp $
+# $Id: MaPit.pm,v 1.49 2006-08-23 12:03:45 francis Exp $
 #
 
 package MaPit;
@@ -351,7 +351,8 @@ _lon are WGS84 latitude and longitude.
 centre_e, centre_n, centre_lat, centre_lon - centre of bounding rectangle
 min_e, min_n, min_lat, min_lon - south-west corner of bounding rectangle
 max_e, max_n, max_lat, max_lon - north-east corner of bounding rectangle
-area - surface area of the polygon, in metres squared
+area - approximate surface area of the constituency, in metres squared
+(this is taken from the OS data, but roughly agrees with the polygon's area)
 parts - number of parts the polygon of the boundary has
 
 If POLYGON_TYPE is present, then the hash also contains a member 'polygon'.
