@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.49 2006-08-23 12:03:45 francis Exp $
+# $Id: MaPit.pm,v 1.50 2006-08-24 15:54:18 francis Exp $
 #
 
 package MaPit;
@@ -332,14 +332,13 @@ sub get_voting_area_info ($) {
 
 =item get_voting_areas_info ARY
 
+As get_voting_area_info, only takes an array of ids, and returns an array of hashes.
+
 =cut
 sub get_voting_areas_info ($) {
     my ($ary) = @_;
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
-
-my $doublesize = length(pack('d', 0));
-my $intsize = length(pack('i', 0));
 
 =item get_voting_area_geometry AREA [POLYGON_TYPE] [TOLERANCE]
 
@@ -404,6 +403,9 @@ sub get_voting_area_geometry ($;$$) {
             };
 
         if ($polygon_type) {
+            my $doublesize = length(pack('d', 0));
+            my $intsize = length(pack('i', 0));
+
             my @part_array;
             my $polygon_array = [];
             my $polygon;
@@ -439,6 +441,8 @@ sub get_voting_area_geometry ($;$$) {
 }
 
 =item get_voting_areas_geometry ARY
+
+As get_voting_area_geometry, only takes an array of ids, and returns an array of hashes.
 
 =cut
 sub get_voting_areas_geometry ($) {
@@ -550,7 +554,7 @@ sub get_voting_area_children ($) {
         return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
     }
 }
- 
+
 =item get_location POSTCODE [PARTIAL]
 
 Return the location of the given POSTCODE. The return value is a reference to
