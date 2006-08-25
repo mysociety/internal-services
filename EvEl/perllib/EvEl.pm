@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.52 2006-08-25 15:22:57 chris Exp $
+# $Id: EvEl.pm,v 1.53 2006-08-25 16:00:17 francis Exp $
 #
 
 package EvEl::Error;
@@ -328,7 +328,8 @@ sub delete_old_messages () {
                     from message_recipient
                     where message_id = ?
                         and whensent
-                            < extract(epoch from current_timestamp) - ?', {},
+                            > extract(epoch from current_timestamp) - ?
+                    limit 1', {},
                     $id, RETAIN_TIME);
         next if ($r_id);
         
