@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.53 2006-08-25 16:00:17 francis Exp $
+# $Id: EvEl.pm,v 1.54 2006-08-25 16:15:22 francis Exp $
 #
 
 package EvEl::Error;
@@ -312,14 +312,16 @@ sub delete_old_messages () {
 
     my $ndeleted = 0;
     while (my $id = $s->fetchrow_array()) {
+        print_log('debug', "considering deleting old message $id");
         # Recipients to whom delivery hasn't been attempted at all or not
         # enough times, and has not succeeded.
         my $r_id = dbh()->selectrow_array('
                     select recipient_id
                     from message_recipient
                     where message_id = ?
-                        and (whensent is null or numattempts < ?)
+                        and (whensent is null and numattempts < ?)
                     limit 1', {}, $id, SEND_MAX_ATTEMPTS);
+        print_log('debug', "not deleting $id as not sent to all recipients and not enough attempts to give up") if ($r_id);
         next if ($r_id);
         # Deliveries which took place too recently (in case a bounce might
         # arrive).
@@ -331,7 +333,9 @@ sub delete_old_messages () {
                             > extract(epoch from current_timestamp) - ?
                     limit 1', {},
                     $id, RETAIN_TIME);
+        print_log('debug', "not deleting $id as was sent to at least one recipient too recently") if ($r_id);
         next if ($r_id);
+        print_log('debug', "yes, deleting $id");
         
         dbh()->do('delete from message_recipient where message_id = ?', {},
                     $id);
@@ -339,7 +343,6 @@ sub delete_old_messages () {
         dbh()->do('delete from message where id = ?', {}, $id);
         ++$ndeleted;
     }
-
     dbh()->commit();
     print_log('debug', "deleted $ndeleted messages");
 }
