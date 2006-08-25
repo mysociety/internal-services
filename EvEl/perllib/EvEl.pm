@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.54 2006-08-25 16:15:22 francis Exp $
+# $Id: EvEl.pm,v 1.55 2006-08-25 19:31:53 francis Exp $
 #
 
 package EvEl::Error;
@@ -306,7 +306,8 @@ sub delete_old_messages () {
     # any for which all deliveries have succeeded or been abandoned.
     my $s = dbh()->prepare("
             select id from message
-            where whensubmitted < extract(epoch from current_timestamp) - ?");
+            where whensubmitted < extract(epoch from current_timestamp) - ?
+            order by random()");
     
     $s->execute(RETAIN_TIME);
 
@@ -341,9 +342,9 @@ sub delete_old_messages () {
                     $id);
         dbh()->do('delete from bounce where message_id = ?', {}, $id);
         dbh()->do('delete from message where id = ?', {}, $id);
+        dbh()->commit();
         ++$ndeleted;
     }
-    dbh()->commit();
     print_log('debug', "deleted $ndeleted messages");
 }
 
