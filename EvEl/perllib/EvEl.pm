@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.51 2006-08-19 14:13:59 chris Exp $
+# $Id: EvEl.pm,v 1.52 2006-08-25 15:22:57 chris Exp $
 #
 
 package EvEl::Error;
@@ -302,22 +302,36 @@ sub recipient_id ($) {
 sub delete_old_messages () {
     print_log('debug', "deleting old messages from queue");
 
-    # Find messages which are old enough to discard, and for which all
-    # deliveries have succeeded or been abandoned.
+    # Find messages old enough to discard, and iterate through them deleting
+    # any for which all deliveries have succeeded or been abandoned.
     my $s = dbh()->prepare("
             select id from message
-            where whensubmitted < extract(epoch from current_timestamp) - ?
-                and (select recipient_id from message_recipient
-                        where message_id = message.id
-                            and (whensent is null or numattempts < ?)
-                        limit 1) is null
-                and (select max(whensent) from message_recipient
-                        where message_id = message.id)
-                            < extract(epoch from current_timestamp) - ?");
+            where whensubmitted < extract(epoch from current_timestamp) - ?");
     
-    $s->execute(RETAIN_TIME, SEND_MAX_ATTEMPTS, RETAIN_TIME);
+    $s->execute(RETAIN_TIME);
+
     my $ndeleted = 0;
     while (my $id = $s->fetchrow_array()) {
+        # Recipients to whom delivery hasn't been attempted at all or not
+        # enough times, and has not succeeded.
+        my $r_id = dbh()->selectrow_array('
+                    select recipient_id
+                    from message_recipient
+                    where message_id = ?
+                        and (whensent is null or numattempts < ?)
+                    limit 1', {}, $id, SEND_MAX_ATTEMPTS);
+        next if ($r_id);
+        # Deliveries which took place too recently (in case a bounce might
+        # arrive).
+        $r_id = dbh()->selectrow_array('
+                    select recipient_id
+                    from message_recipient
+                    where message_id = ?
+                        and whensent
+                            < extract(epoch from current_timestamp) - ?', {},
+                    $id, RETAIN_TIME);
+        next if ($r_id);
+        
         dbh()->do('delete from message_recipient where message_id = ?', {},
                     $id);
         dbh()->do('delete from bounce where message_id = ?', {}, $id);
