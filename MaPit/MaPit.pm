@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.50 2006-08-24 15:54:18 francis Exp $
+# $Id: MaPit.pm,v 1.51 2006-08-30 23:21:23 francis Exp $
 #
 
 package MaPit;
@@ -364,6 +364,12 @@ or (latitude, longitude) if POLYGON_TYPE is 'wgs84'.
 XXX If TOLERANCE is present then the points are first pruned. Not yet
 implemeneted.
 
+If for some reason any of the values above are not known, they will not
+be present in the array. For example, we currently only have data
+for Westminster constituencies in Great Britain. Northern Ireland has
+a separate Ordnance Survey, from whom we do not have the data. So
+for Northern Ireland constituencies an empty hash will be returned.
+
 =cut
 sub get_voting_area_geometry ($;$$) {
     my ($id, $polygon_type, $tolerance) = @_;
@@ -375,14 +381,15 @@ sub get_voting_area_geometry ($;$$) {
 
     my $generation = get_generation();
 
-    my $ret;
     if (exists($special_cases{$id})) {
         throw RABX::Error("Special case areas not yet covered for get_voting_area_geometry", mySociety::MaPit::AREA_NOT_FOUND)
     } else {
         # Real data
+        throw RABX::Error("Voting area not found at all id $id", mySociety::MaPit::AREA_NOT_FOUND)
+            unless (dbh()->selectrow_array("select id from area where id = ?", {}, $id));
+
         my ($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts);
-        throw RABX::Error("Voting area geometry info not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
-            unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts) = dbh()->selectrow_array("
+        return {} unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts) = dbh()->selectrow_array("
             select centre_e, centre_n, min_e, min_n, max_e, max_n, area, parts
                 from area_geometry
                 where area_id = ?
@@ -392,7 +399,7 @@ sub get_voting_area_geometry ($;$$) {
         my ($min_lat, $min_lon) = mySociety::GeoUtil::national_grid_to_wgs84($min_e, $min_n, 'G');
         my ($max_lat, $max_lon) = mySociety::GeoUtil::national_grid_to_wgs84($max_e, $max_n, 'G');
      
-        $ret = {
+        my $ret = {
                 centre_e => $centre_e, centre_n => $centre_n,
                 min_e => $min_e, min_n => $min_n,
                 max_e => $max_e, max_n => $max_n,
@@ -435,9 +442,10 @@ sub get_voting_area_geometry ($;$$) {
             }
             $ret->{'polygon'} = $polygon_array;
         }
+        return $ret;
     }
 
-    return $ret;
+    throw RABX::Error("Flow of execution should never get here");
 }
 
 =item get_voting_areas_geometry ARY
