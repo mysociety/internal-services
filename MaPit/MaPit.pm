@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.51 2006-08-30 23:21:23 francis Exp $
+# $Id: MaPit.pm,v 1.52 2006-09-01 11:43:41 francis Exp $
 #
 
 package MaPit;
@@ -340,7 +340,7 @@ sub get_voting_areas_info ($) {
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
 
-=item get_voting_area_geometry AREA [POLYGON_TYPE] [TOLERANCE]
+=item get_voting_area_geometry AREA [POLYGON_TYPE]
 
 Return geometry information about the given voting area. Return value is a
 reference to a hash containing elements. Coordinates with names ending _e and
@@ -361,9 +361,6 @@ sense - a positive value to include the part, negative to exclude (a hole)
 points - an array of pairs of (eastings, northings) if POLYGON_TYPE is 'ng",
 or (latitude, longitude) if POLYGON_TYPE is 'wgs84'.
 
-XXX If TOLERANCE is present then the points are first pruned. Not yet
-implemeneted.
-
 If for some reason any of the values above are not known, they will not
 be present in the array. For example, we currently only have data
 for Westminster constituencies in Great Britain. Northern Ireland has
@@ -371,11 +368,10 @@ a separate Ordnance Survey, from whom we do not have the data. So
 for Northern Ireland constituencies an empty hash will be returned.
 
 =cut
-sub get_voting_area_geometry ($;$$) {
-    my ($id, $polygon_type, $tolerance) = @_;
+sub get_voting_area_geometry ($;$) {
+    my ($id, $polygon_type) = @_;
 
     throw RABX::Error("ID must be defined", RABX::Error::INTERFACE) if (!defined($id));
-    throw RABX::Error("TOLERANCE not yet implemented", RABX::Error::INTERFACE) if (defined($tolerance));
     throw RABX::Error("POLYGON_TYPE must be 'ng' or 'wgs84'", RABX::Error::INTERFACE) if (defined($polygon_type) &&
         $polygon_type ne 'ng' && $polygon_type ne 'wgs84');
 
@@ -453,7 +449,7 @@ sub get_voting_area_geometry ($;$$) {
 As get_voting_area_geometry, only takes an array of ids, and returns an array of hashes.
 
 =cut
-sub get_voting_areas_geometry ($) {
+sub get_voting_areas_geometry ($;$) {
     my ($ary) = @_;
     return { (map { $_ => get_voting_area_geometry($_) } grep { defined($_) } @$ary) };
 }
