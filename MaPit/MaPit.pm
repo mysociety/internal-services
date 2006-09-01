@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.53 2006-09-01 11:47:15 francis Exp $
+# $Id: MaPit.pm,v 1.54 2006-09-01 18:00:02 francis Exp $
 #
 
 package MaPit;
@@ -454,6 +454,84 @@ sub get_voting_areas_geometry ($;$) {
     return { (map { $_ => get_voting_area_geometry($_, $polygon_type) } grep { defined($_) } @$ary) };
 }
 
+
+=item get_voting_area_by_location LAT LON METHOD [TYPE]
+
+Returns an array of voting areas which the given coordinate is in. This only
+works for areas which have geometry information associated with them. i.e.
+That get_voting_area_geometry will return data for.
+
+METHOD can be 'box' to just use a bounding box test, or 'polygon' to also do an
+exact point in polygon test. 'box' is quicker, but will return too many results.
+'polygon' should return at most one result for a type.
+
+If TYPE is present, restricts to areas of that type.  Currently TYPE must be
+present, and have the value WMC.
+
+=cut
+sub get_voting_area_by_location ($$$;$) {
+    my ($lat, $lon, $method, $type) = @_;
+
+    throw RABX::Error("TYPE must be defined at the moment", RABX::Error::INTERFACE) if (!defined($type));
+    throw RABX::Error("TYPE must be WMC at the moment", RABX::Error::INTERFACE) if ($type ne 'WMC');
+    throw RABX::Error("METHOD must be defined at the moment", RABX::Error::INTERFACE) if (!defined($method));
+    throw RABX::Error("MEHOD must be 'box' or 'polygon' at the moment", RABX::Error::INTERFACE) if ($method ne 'box' and $method ne 'polygon');
+
+    my ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($lat, $lon, 'G');
+
+    my ($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts);
+    return {} unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts) = 
+    
+    # Search for areas in the bounding box, of the right type
+    my $inbounding = dbh()->selectcol_arrayref("
+        select area_id from area_geometry
+            left join area on area_geometry.area_id = area.id
+            where min_e < ? and ? < max_e and
+                  min_n < ? and ? < max_n
+                  and type = ?
+        ", {}, $e, $e, $n, $n, $type));
+
+    if ($method eq 'box') {
+        return $inbounding;
+    }
+
+    my $doublesize = length(pack('d', 0));
+    my $intsize = length(pack('i', 0));
+
+    throw RABX::Error("'polygon' method not finished yet :)");
+
+=comment
+    my @found;
+    foreach my $inbound (@$inbounding) {
+        my @part_array;
+        my $polygon_array = [];
+        my $polygon;
+        throw RABX::Error("Voting area geometry info not found id $inbound", mySociety::MaPit::AREA_NOT_FOUND)
+            unless (($polygon) = dbh()->selectrow_array("
+            select polygon from area_geometry where area_id = ?", {}, $inbound));
+        while (length($polygon)) {
+            my $part;
+            my $sense = unpack('i', substr($polygon, 0, $intsize));
+            my $vertex_count = unpack('i', substr($polygon, $intsize, $intsize));
+            my @vertices = unpack('d*', substr($polygon, 2*$intsize, $vertex_count * $doublesize * 2));
+            die "internal vertex count mismatch: ".($vertex_count * 2)." vs ".scalar(@vertices)
+                if $vertex_count * 2 != scalar(@vertices);
+            $polygon = substr($polygon, 2*$intsize + $vertex_count * $doublesize * 2);
+
+            $part->{sense} = $sense;
+            $part->{points} = [];
+            for (my $i = 0; $i < @vertices; $i += 2) {
+                push @{$part->{points}}, [$vertices[$i], $vertices[$i+1]];
+            }
+            push @$polygon_array, $part;
+        }
+    }
+
+    return $ret;
+=cut
+}
+=cut
+}
 
 =item get_areas_by_type TYPE [ALL]
 
