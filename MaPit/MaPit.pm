@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.52 2006-09-01 11:43:41 francis Exp $
+# $Id: MaPit.pm,v 1.53 2006-09-01 11:47:15 francis Exp $
 #
 
 package MaPit;
@@ -444,14 +444,14 @@ sub get_voting_area_geometry ($;$) {
     throw RABX::Error("Flow of execution should never get here");
 }
 
-=item get_voting_areas_geometry ARY
+=item get_voting_areas_geometry ARY [POLYGON_TYPE]
 
 As get_voting_area_geometry, only takes an array of ids, and returns an array of hashes.
 
 =cut
 sub get_voting_areas_geometry ($;$) {
-    my ($ary) = @_;
-    return { (map { $_ => get_voting_area_geometry($_) } grep { defined($_) } @$ary) };
+    my ($ary, $polygon_type) = @_;
+    return { (map { $_ => get_voting_area_geometry($_, $polygon_type) } grep { defined($_) } @$ary) };
 }
 
 
