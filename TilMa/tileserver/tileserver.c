@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.1 2006-09-22 13:57:01 francis Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.2 2006-09-22 17:43:34 chris Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -22,8 +22,10 @@ static const char rcsid[] = "$Id: tileserver.c,v 1.1 2006-09-22 13:57:01 francis
  *      to get the identities of the tiles in the block with SW corner (W, S)
  *      and NE corner (E, N) in the given FORMAT.
  * 
- * What FORMATS should we support? RABX and JSON are the obvious ones I guess.
- * Add TEXT for debugging.
+ * FORMAT is "RABX" (RABX-encoded array of arrays of tile IDs), "JSON" (the
+ * same, encoded in JSON), "text" (space- and newline-separated matrix of tile
+ * IDs), or "html" (very simple HTML map interface). Arrays are row-major,
+ * ordered north-south, east-west.
  */
 
 #include <sys/types.h>
