@@ -6,10 +6,8 @@
 # Specify a directory containing BoundaryLine NTF files as the only parameter. Existing
 # data in area_geometry for each area found in the NTF files is replaced.
 #
-# XXX Currently only loads _CONST.NTF files, as only tested and needed for Westminster
-# constituencies. Should work for other areas.
 
-my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.5 2006-08-30 23:05:45 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.6 2006-09-26 20:19:14 francis Exp $';
 
 use strict;
 
@@ -49,10 +47,7 @@ my $os_name_to_db_info = $dbh->selectall_hashref($s, 'name');
 # Recursively scan for NTF files and load them all in
 find(\&wanted, $boundaryline_directory);
 sub wanted {
-    # XXX For now, just load Westminster constituency files. Others should work, but need testing/debugging.
-    if (m/_CONST\.NTF$/) {
-        BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
-    }
+    BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
 }
 
 # Loop through shapes
