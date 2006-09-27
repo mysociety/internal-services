@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.2 2006-09-22 17:43:34 chris Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.3 2006-09-27 14:51:37 matthew Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -430,7 +430,7 @@ void handle_request(void) {
 
                 case F_JSON:
                     *(p++) = ']';
-                    if (y < R->r_north)
+                    if (y > R->r_south)
                         *(p++) = ',';
                     break;
 
