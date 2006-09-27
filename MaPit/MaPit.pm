@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.55 2006-09-27 10:13:07 matthew Exp $
+# $Id: MaPit.pm,v 1.56 2006-09-27 10:16:18 matthew Exp $
 #
 
 package MaPit;
@@ -493,7 +493,6 @@ sub get_voting_area_by_location_en ($$$;$) {
     my ($e, $n, $method, $type) = @_;
 
     throw RABX::Error("TYPE must be defined at the moment", RABX::Error::INTERFACE) if (!defined($type));
-    throw RABX::Error("TYPE must be WMC at the moment", RABX::Error::INTERFACE) if ($type ne 'WMC');
     throw RABX::Error("METHOD must be defined at the moment", RABX::Error::INTERFACE) if (!defined($method));
     throw RABX::Error("MEHOD must be 'box' or 'polygon' at the moment", RABX::Error::INTERFACE) if ($method ne 'box' and $method ne 'polygon');
 
