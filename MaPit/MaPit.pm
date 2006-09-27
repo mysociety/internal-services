@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.54 2006-09-01 18:00:02 francis Exp $
+# $Id: MaPit.pm,v 1.55 2006-09-27 10:13:07 matthew Exp $
 #
 
 package MaPit;
@@ -454,7 +454,6 @@ sub get_voting_areas_geometry ($;$) {
     return { (map { $_ => get_voting_area_geometry($_, $polygon_type) } grep { defined($_) } @$ary) };
 }
 
-
 =item get_voting_area_by_location LAT LON METHOD [TYPE]
 
 Returns an array of voting areas which the given coordinate is in. This only
@@ -466,18 +465,37 @@ exact point in polygon test. 'box' is quicker, but will return too many results.
 'polygon' should return at most one result for a type.
 
 If TYPE is present, restricts to areas of that type.  Currently TYPE must be
-present, and have the value WMC.
+present.
 
 =cut
 sub get_voting_area_by_location ($$$;$) {
     my ($lat, $lon, $method, $type) = @_;
+    my ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($lat, $lon, 'G');
+    return get_voting_area_by_location($e, $n, $method, $type);
+}
+
+=item get_voting_area_by_location_en EASTING NORTHING METHOD [TYPE]
+
+Returns an array of voting areas which the given coordinate is in. This only
+works for areas which have geometry information associated with them. i.e.
+That get_voting_area_geometry will return data for.
+
+METHOD can be 'box' to just use a bounding box test, or 'polygon' to also do an
+exact point in polygon test. 'box' is quicker, but will return too many results.
+'polygon' should return at most one result for a type.
+
+If TYPE is present, restricts to areas of that type.  Currently TYPE must be
+present.
+
+=cut
+
+sub get_voting_area_by_location_en ($$$;$) {
+    my ($e, $n, $method, $type) = @_;
 
     throw RABX::Error("TYPE must be defined at the moment", RABX::Error::INTERFACE) if (!defined($type));
     throw RABX::Error("TYPE must be WMC at the moment", RABX::Error::INTERFACE) if ($type ne 'WMC');
     throw RABX::Error("METHOD must be defined at the moment", RABX::Error::INTERFACE) if (!defined($method));
     throw RABX::Error("MEHOD must be 'box' or 'polygon' at the moment", RABX::Error::INTERFACE) if ($method ne 'box' and $method ne 'polygon');
-
-    my ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($lat, $lon, 'G');
 
     my ($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts);
     return {} unless (($centre_e, $centre_n, $min_e, $min_n, $max_e, $max_n, $area, $parts) = 
@@ -500,7 +518,7 @@ sub get_voting_area_by_location ($$$;$) {
 
     throw RABX::Error("'polygon' method not finished yet :)");
 
-=comment
+=cut
     my @found;
     foreach my $inbound (@$inbounding) {
         my @part_array;
@@ -528,8 +546,6 @@ sub get_voting_area_by_location ($$$;$) {
     }
 
     return $ret;
-=cut
-}
 =cut
 }
 
