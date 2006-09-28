@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.3 2006-09-27 14:51:37 matthew Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.4 2006-09-28 09:46:06 matthew Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -23,9 +23,9 @@ static const char rcsid[] = "$Id: tileserver.c,v 1.3 2006-09-27 14:51:37 matthew
  *      and NE corner (E, N) in the given FORMAT.
  * 
  * FORMAT is "RABX" (RABX-encoded array of arrays of tile IDs), "JSON" (the
- * same, encoded in JSON), "text" (space- and newline-separated matrix of tile
- * IDs), or "html" (very simple HTML map interface). Arrays are row-major,
- * ordered north-south, east-west.
+ * same, encoded in JSON, with callback), "text" (space- and newline-separated
+ * matrix of tile IDs), or "html" (very simple HTML map interface). Arrays are
+ * row-major, ordered north-south, east-west.
  */
 
 #include <sys/types.h>
@@ -310,7 +310,7 @@ void handle_request(void) {
 
             case F_JSON:
                 /* Ditto. */
-                *(p++) = '[';
+		p += sprintf(p, "tiles_loaded([");
                 break;
 
             case F_TEXT:
@@ -450,7 +450,7 @@ void handle_request(void) {
                 break;
 
             case F_JSON:
-                *(p++) = ']';
+		p += sprintf(p, "])");
                 break;
                 
             case F_TEXT:
