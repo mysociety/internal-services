@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.3 2006-08-23 11:47:35 francis Exp $
+# $Id: BoundaryLine.pm,v 1.4 2006-09-28 10:06:42 francis Exp $
 #
 
 use strict;
@@ -14,6 +14,7 @@ package BoundaryLine;
 
 use File::stat;
 use Data::Dumper;
+use mySociety::Polygon;
 
 @BoundaryLine::ISA = qw(Exporter);
 @BoundaryLine::EXPORT_OK = qw(
@@ -23,83 +24,11 @@ use Data::Dumper;
     %childmap
     %parentmap
     &load_ntf_file
-    &poly_area
 );
 
 # Record the size of a double for use later.
 my $doublesize = length(pack('d', 0));
 sub doublesize { return $doublesize; }
-
-#
-# Point-in-polygon tests. Do these in C, so that the performance isn't too
-# miserable.
-#
-use Inline C => <<'EOF';
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-
-/* pnpoly NUM XX YY X Y
- * Does the point (X, Y) lie inside the NUM-point polygon with vertices
- * (XX[0], YY[0]) ... ? */
-int pnpoly(int npol, double *xp, double *yp, double x, double y) {
-    int i, j, c = 0;
-    for (i = 0, j = npol - 1; i < npol; j = i++) {
-        if ((((yp[i] <= y) && (y < yp[j])) ||
-             ((yp[j] <= y) && (y < yp[i]))) &&
-                (x < (xp[j] - xp[i]) * (y - yp[i]) / (yp[j] - yp[i]) + xp[i]))
-          c = !c;
-    }
-    return c;
-}
-
-/* Hack: pass the polygon data as packed char*, so that we don't have to unpick
- * AV/SV types. */
-
-/* poly_area NUM DATA
- * Return the area and winding order of the NUM-point polygon with vertices
- * given by DATA. Positive return values indicate ccw winding. */
-double poly_area(size_t npts, char *vv) {
-    /* XXX returns double because Inline::C doesn't pick up functions which
-     * return float. */
-    int i;
-    double a;
-    for (i = 0, a = 0; i < npts; ++i) {
-        double x0, y0, x1, y1;
-        int j;
-        memcpy(&x0, vv + i * 2 * sizeof x0, sizeof x0);
-        memcpy(&y0, vv + (sizeof y0) + i * 2 * sizeof y0, sizeof y0);
-        j = (i + 1) % npts;
-        memcpy(&x1, vv + j * 2 * sizeof x0, sizeof x0);
-        memcpy(&y1, vv + (sizeof y0) + j * 2 * sizeof y0, sizeof y0);
-        a += x0 * y1 - x1 * y0;
-    }
-    return a / 2.;
-}
-
-
-/* is_point_in_poly X Y NUM DATA
- * Adapter for pnpoly. */
-int is_point_in_poly(double x, double y, size_t npts, char *vv) {
-    static double *xx, *yy;
-    static size_t nvv;
-    int i;
-
-    if (!xx || nvv < npts) {
-        xx = realloc(xx, npts * sizeof *xx);
-        yy = realloc(yy, npts * sizeof *yy);
-        nvv = npts;
-    }
-
-    for (i = 0; i < npts; ++i) {
-        memcpy(xx + i, vv + i * 2 * sizeof(double), sizeof(double));
-        memcpy(yy + i, vv + sizeof(double) + i * 2 * sizeof(double), sizeof(double));
-    }
-
-    return pnpoly(npts, xx, yy, x, y);
-}
-
-EOF
 
 my %interesting_areas = map { $_ => 1 } (
     my @interesting_areas = (
@@ -258,7 +187,7 @@ sub load_ntf_file {
             do {
                 $cx = $vx + rand(20) - 10;
                 $cy = $vy + rand(20) - 10;
-            } while (!is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1]));
+            } while (!mySociety::Polygon::is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1]));
 
             # Determine areas covered by devolved assemblies using
             # Euro-regions, which are coterminous with them.
