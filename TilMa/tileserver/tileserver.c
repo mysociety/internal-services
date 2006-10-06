@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.5 2006-09-28 10:03:19 matthew Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.6 2006-10-06 12:01:53 matthew Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -472,7 +472,7 @@ void handle_request(void) {
                 /* Not really clear what CT to use here but Yahoo use
                  * "text/javascript" and presumably they've done more testing
                  * than us.... */
-                printf("text/javascript");
+                printf("text/javascript; charset=us-ascii");
                 break;
 
             case F_TEXT:
