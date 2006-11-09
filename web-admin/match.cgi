@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.33 2006-08-07 10:43:01 chris Exp $
+# $Id: match.cgi,v 1.34 2006-11-09 10:58:39 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.33 2006-08-07 10:43:01 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.34 2006-11-09 10:58:39 matthew Exp $';
 
 use strict;
 
@@ -437,11 +437,12 @@ sub do_council_edit ($) {
     print $q->submit('Cancel');
 
     print $q->start_table();
+    my $r = $q->param('r') || '';
     print $q->Tr({}, $q->th({}, [map 
         { $_->[1] eq $sort_by ? $_->[0] :
                     $q->a({href=>build_url($q, $q->url('relative'=>1), 
                       {'area_id' => $area_id, 'page' => 'counciledit',
-                      'r' => $q->param('r'), 'sort_by' => $_->[1]})}, $_->[0]) 
+                      'r' => $r, 'sort_by' => $_->[1]})}, $_->[0]) 
         } 
         (['Key', 'key'],
         ['Ward (erase to del rep)', 'ward_name'],
