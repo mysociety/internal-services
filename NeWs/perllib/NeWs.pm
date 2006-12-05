@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.6 2006-05-01 15:08:06 louise Exp $
+# $Id: NeWs.pm,v 1.7 2006-12-05 12:50:44 louise Exp $
 #
 
 package NeWs;
@@ -183,6 +183,66 @@ sub get_coverage($){
 
 }
 
+=item get_locations LON LAT RADIUS
+
+Given a longitude, latitude and radius, returns a reference to an array of hashes containing information on locations within that 
+radius from the point defined by the latitude and longitude
+
+=cut
+
+sub get_locations($$$){
+    my ($lon, $lat, $radius) = @_;
+    my @ret;
+
+   
+    my $rows =  dbh()->selectall_arrayref("SELECT location.name, location.lon, location.lat, distance
+                                           FROM location_find_nearby(?, ?, ?) AS nearby
+                                           LEFT JOIN location on nearby.location_id = location.id
+                                           ORDER BY distance", {}, $lon, $lat, $radius);
+    
+    foreach (@$rows){
+	
+	my ($name, $lon, $lat, $distance) = @$_;
+
+	push( @ret, {'name' => $name,
+                     'lon' => $lon,
+                     'lat' => $lat,
+                     'distance' =>  $distance });
+
+    }
+    return \@ret;
+}
+
+=item get_newspapers_by_location LON LAT RADIUS
+
+Given a longitude, latitude and radius, returns a reference to an array of hashes containing information on newspapers that have 
+coverage of locations within that radius from the point defined by the latitude and longitude
+
+=cut
+
+sub get_newspapers_by_location($$$){
+
+    my ($lon, $lat, $radius) = @_;
+    my @ret;
+
+    my $rows =  dbh()->selectall_arrayref("SELECT newspaper_id, newspaper.name, sum(coverage)
+                                           FROM location_find_nearby(?,?,?) AS nearby
+                                           LEFT JOIN coverage on nearby.location_id = coverage.location_id
+                                           LEFT JOIN newspaper on coverage.newspaper_id = newspaper.id
+                                           GROUP BY newspaper_id, newspaper.name ORDER BY sum(coverage) desc;", {}, $lon, $lat, $radius);
+
+    foreach (@$rows){
+
+        my ($id, $name, $coverage) = @$_;
+
+        push( @ret, {'id' => $id, 
+	             'name' => $name,
+                     'coverage' =>  $coverage });
+
+    }
+    return \@ret;
+
+}
 #=============================================
 
 package NeWs::Paper;
