@@ -6,7 +6,7 @@
 #  Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.t,v 1.2 2006-05-01 15:05:43 louise Exp $
+# $Id: NeWs.t,v 1.3 2006-12-05 12:53:54 louise Exp $
 #
 
 use strict;
@@ -17,7 +17,7 @@ use FindBin;
 use lib "$FindBin::Bin/../perllib";
 use lib "$FindBin::Bin/../../../perllib";
 
-use Test::More tests=>16;
+use Test::More tests=>20;
 
 # Do this first of all, because NeWs.pm needs to see the config file.
 BEGIN {
@@ -155,9 +155,32 @@ sub test_get_coverage(){
 
 #----------------------------------
 
+sub test_get_locations(){
+
+    my $locations_array_ref = NeWs::get_locations(51.5012, -0.091322, 2.72);
+    my @locations_array = @$locations_array_ref;
+    ok(@locations_array > 1);
+    return 1;
+}
+
+
+#----------------------------------
+
+sub test_get_newspapers_by_location(){
+    my $newspapers_array_ref = NeWs::get_newspapers_by_location(51.5012, -0.091322, 2.72);
+    my @newspapers_array = @$newspapers_array_ref;
+    ok(@newspapers_array > 1);
+    return 1;
+
+}
+
+#----------------------------------
+
 use_ok('NeWs');
 ok(test_new() == 1);
 ok(test_update_name() == 1);
 ok(test_delete() == 1);
 ok(test_get_newspapers_by_name() == 1);
 ok(test_get_coverage() == 1);
+ok(test_get_locations() == 1);
+ok(test_get_newspapers_by_location() == 1);
