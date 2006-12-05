@@ -7,7 +7,7 @@
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.4 2006-05-01 15:08:52 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.5 2006-12-05 12:54:41 louise Exp $';
 
 use strict;
 require 5.8.0;
@@ -22,9 +22,13 @@ BEGIN {
 use FCGI;
 use RABX;
 
+
+use mySociety::WatchUpdate;
 use NeWs;
 
 my $req = FCGI::Request();
+my $W = new mySociety::WatchUpdate();
+
 
 while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
@@ -42,7 +46,14 @@ while ($req->Accept() >= 0) {
             },
             'NeWs.get_coverage' => sub {
                 return NeWs::get_coverage($_[0]);
+            }, 
+            'NeWs.get_locations' => sub {
+                return NeWs::get_locations($_[0],$_[1],$_[2]);
+            },
+            'NeWs.get_newspapers_by_location' => sub {
+                return NeWs::get_newspapers_by_location($_[0],$_[1],$_[2]);
             }
-
         );
+        last if ($W->changed());
+
 }
