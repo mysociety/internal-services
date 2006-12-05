@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.4 2006-03-26 13:18:46 louise Exp $
+-- $Id: schema.sql,v 1.5 2006-12-05 13:01:38 louise Exp $
 --
 
 create table newspaper (
@@ -66,3 +66,68 @@ create table newspaper_edit_history (
     isdeleted boolean not null default false
 );
 
+-- 
+-- Geographical stuff
+-- 
+
+-- angle_between A1 A2
+-- Given two angles A1 and A2 on a circle expressed in radians, return the
+-- smallest angle between them.
+create function angle_between(double precision, double precision)
+    returns double precision as '
+select case
+    when abs($1 - $2) > pi() then 2 * pi() - abs($1 - $2)
+    else abs($1 - $2)
+    end;
+' language sql immutable;
+
+-- R_e
+-- Radius of the earth, in km. This is something like 6372.8 km:
+--  http://en.wikipedia.org/wiki/Earth_radius
+create function R_e()
+    returns double precision as '
+select 6372.8::double precision;
+' language sql immutable;
+
+create type location_nearby_match as (
+    location_id integer,
+    distance double precision   -- km
+);
+
+-- location_find_nearby LATITUDE LONGITUDE DISTANCE
+-- Find locations within DISTANCE (km) of (LATITUDE, LONGITUDE).
+create function location_find_nearby(double precision, double precision, double precision)
+    returns setof location_nearby_match as
+    -- Write as SQL function so that we don't have to construct a temporary
+    -- table or results set in memory. That means we can't check the values of
+    -- the parameters, sadly.
+    -- Through sheer laziness, just use great-circle distance; that'll be off
+    -- by ~0.1%:
+    --  http://www.ga.gov.au/nmd/geodesy/datums/distance.jsp
+    -- We index locations on lat/lon so that we can select the locations which lie
+    -- within a wedge of side about 2 * DISTANCE. That cuts down substantially
+    -- on the amount of work we have to do.
+'
+    -- trunc due to inaccuracies in floating point arithmetic
+    select location.id,
+           R_e() * acos(trunc(
+                (sin(radians($1)) * sin(radians(lat))
+                + cos(radians($1)) * cos(radians(lat))
+                    * cos(radians($2 - lon)))::numeric, 14)
+            ) as distance
+        from location
+        where
+            lon is not null and lat is not null
+            and radians(lat) > radians($1) - ($3 / R_e())
+            and radians(lat) < radians($1) + ($3 / R_e())
+            and (abs(radians($1)) + ($3 / R_e()) > pi() / 2     -- case where search pt is near pole
+                    or angle_between(radians(lon), radians($2))
+                            < $3 / (R_e() * cos(radians($1 + $3 / R_e()))))
+            -- ugly -- unable to use attribute name "distance" here, sadly
+            and R_e() * acos(trunc(
+                (sin(radians($1)) * sin(radians(lat))
+                + cos(radians($1)) * cos(radians(lat))
+                    * cos(radians($2 - lon)))::numeric, 14)
+                ) < $3
+        order by distance desc
+' language sql; -- should be "stable" rather than volatile per default?
