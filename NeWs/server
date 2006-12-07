@@ -7,7 +7,7 @@
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.5 2006-12-05 12:54:41 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.6 2006-12-07 15:43:57 louise Exp $';
 
 use strict;
 require 5.8.0;
@@ -38,21 +38,37 @@ while ($req->Accept() >= 0) {
             'NeWs.get_newspapers' => sub {
                 return NeWs::get_newspapers();
             }, 
-            'NeWs.publish_update' => sub {
-                return NeWs::publish_update($_[0],$_[1],$_[2]);
+            'NeWs.publish_newspaper_update' => sub {
+                return NeWs::publish_newspaper_update($_[0],$_[1],$_[2]);
             },
-            'NeWs.get_history' => sub {
-                return NeWs::get_history($_[0]);
+            'NeWs.get_newspaper_history' => sub {
+                return NeWs::get_newspaper_history($_[0]);
             },
-            'NeWs.get_coverage' => sub {
-                return NeWs::get_coverage($_[0]);
+            'NeWs.get_newspaper_coverage' => sub {
+                return NeWs::get_newspaper_coverage($_[0]);
             }, 
-            'NeWs.get_locations' => sub {
-                return NeWs::get_locations($_[0],$_[1],$_[2]);
+            'NeWs.get_newspaper_journalists' => sub {
+                return NeWs::get_newspaper_journalists($_[0]);
+            },
+            'NeWs.get_locations_by_location' => sub {
+                return NeWs::get_locations_by_location($_[0],$_[1],$_[2]);
             },
             'NeWs.get_newspapers_by_location' => sub {
                 return NeWs::get_newspapers_by_location($_[0],$_[1],$_[2]);
+            },
+            'NeWs.get_newspapers_by_name' => sub {
+                return NeWs::get_newspapers_by_name($_[0]);
+            },
+            'NeWs.get_journalist' => sub{
+                return NeWs::get_journalist($_[0]);
+            },
+            'NeWs.publish_journalist_update' => sub {
+                return NeWs::publish_journalist_update($_[0],$_[1]);
+            },
+            'NeWs.get_journalist_history' => sub {
+                return NeWs::get_journalist_history($_[0]);
             }
+
         );
         last if ($W->changed());
 
