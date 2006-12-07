@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.5 2006-12-05 13:01:38 louise Exp $
+-- $Id: schema.sql,v 1.6 2006-12-07 15:45:40 louise Exp $
 --
 
 create table newspaper (
@@ -131,3 +131,28 @@ create function location_find_nearby(double precision, double precision, double 
                 ) < $3
         order by distance desc
 ' language sql; -- should be "stable" rather than volatile per default?
+
+-- Journalists
+--
+create table journalist (
+    id serial not null primary key,
+    name text not null,
+    newspaper_id integer not null references newspaper(id),
+    lastchange timestamp not null default current_timestamp,
+    interests text,
+    email text,
+    telephone text, 
+    fax text,
+    isdeleted boolean not null default false
+);
+
+create index journalist_newspaper_id_idx on journalist(newspaper_id);
+
+create table journalist_edit_history (
+    id serial not null primary key,
+    journalist_id integer not null references journalist(id),
+    lastchange timestamp not null default current_timestamp,
+    source text,            -- a username
+    data bytea not null,    -- serialised NeWs::Journalist object
+    isdeleted boolean not null default false
+);
