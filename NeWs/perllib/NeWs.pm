@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.7 2006-12-05 12:50:44 louise Exp $
+# $Id: NeWs.pm,v 1.8 2006-12-07 15:47:27 louise Exp $
 #
 
 package NeWs;
@@ -85,33 +85,39 @@ sub get_newspapers(){
 
 =item get_newspapers_by_name
 
-Get a hash keyed on id of newspapers in the DB matching a partial name string
-
+Get a reference to an array of hashes of  newspapers in the DB matching a partial name string
 =cut 
 
 sub get_newspapers_by_name($){
     my ($partial_name) = @_;
     $partial_name = lc $partial_name;
-    my %ret;
-    foreach my $row (@{  dbh()->selectall_arrayref("select id, name
-                                                     from newspaper 
-                                                     where isdeleted = false
-                                                     and lower(name) like ?
-                                                     order by name asc", {}, '%' . $partial_name . '%')}){
-	my ($id, $name) = @$row;
-	$ret{ $id } = {'name' => $name };
+    my @ret;
+
+
+    my $rows = dbh()->selectall_arrayref("select distinct id, name
+                                       from newspaper 
+                                       where isdeleted = false
+                                       and lower(name) like ?
+                                       order by name asc", {}, '%' . $partial_name . '%');
+      
+    foreach (@$rows){
+
+        my ($id, $name) = @$_;
+	push( @ret, {'id' => $id,
+                     'name' => $name });
     }
-    return \%ret;
+
+    return \@ret;
 }
 
-=item publish_update ID EDITOR HASH
+=item publish_newspaper_update ID EDITOR HASH
 
 Update the newspaper with the ID using the attribute values in the hash and assigning the update
 to the username EDITOR.
 
 =cut
 
-sub publish_update($$$){
+sub publish_newspaper_update($$$){
 
     my ($id, $editor, $fields) = @_;
     
@@ -122,13 +128,13 @@ sub publish_update($$$){
     
 }
 
-=item get_history ID
+=item get_newspaper_history ID
 
 Given a newspaper ID, returns the history of edits to that newspaper's record in the database 
 
 =cut
 
-sub get_history($){
+sub get_newspaper_history($){
     
     my ($id) = @_;
     my @ret;
@@ -152,13 +158,13 @@ sub get_history($){
     return \@ret;
 }
 
-=item get_coverage ID
+=item get_newspaper_coverage ID
 
 Given a newspaper ID, returns a reference to an array of hashes containing the coverage information related to that newspaper
 
 =cut
 
-sub get_coverage($){
+sub get_newspaper_coverage($){
     
     my ($id) = @_;
     my @ret;
@@ -183,14 +189,46 @@ sub get_coverage($){
 
 }
 
-=item get_locations LON LAT RADIUS
+=item get_newspaper_journalists ID
+
+Given a newspaper ID, returns a reference to an array of hashes containing the journalist information associated with that newspaper
+
+=cut
+
+sub get_newspaper_journalists($){
+    my ($id) = @_;
+    my @ret;
+
+    my $rows = dbh()->selectall_arrayref("select id, name, interests, email, telephone, fax
+                                          from journalist
+                                          where newspaper_id = ?
+                                          and isdeleted = false
+                                          order by name asc", {}, $id);
+
+
+    foreach (@$rows){
+        my ($id, $name, $interests, $email, $telephone, $fax) = @$_;
+
+        push( @ret, {'id' => $id,
+	             'name' => $name,
+                     'interests' => $interests,
+		     'email' => $email,
+		     'telephone' => $telephone, 
+		     'fax' => $fax});
+    }
+    return \@ret;
+
+
+}
+
+=item get_locations_by_location LON LAT RADIUS
 
 Given a longitude, latitude and radius, returns a reference to an array of hashes containing information on locations within that 
 radius from the point defined by the latitude and longitude
 
 =cut
 
-sub get_locations($$$){
+sub get_locations_by_location($$$){
     my ($lon, $lat, $radius) = @_;
     my @ret;
 
@@ -243,6 +281,75 @@ sub get_newspapers_by_location($$$){
     return \@ret;
 
 }
+
+=item get_journalist ID
+
+Given a journalist ID, return a hash of information about that journalist
+
+=cut 
+
+sub get_journalist($){
+
+    my ($id) = @_;
+    my (@q) = dbh()->selectrow_array("select id, newspaper_id, name, interests, email, telephone, fax 
+                                      from journalist
+                                      where id = ? and isdeleted = false", {}, $id);
+    return {'id'=>$q[0],
+            'newspaper_id'=>$q[1],
+            'name'=>$q[2],
+            'interests'=>$q[3],
+            'email'=>$q[4],
+            'telephone'=>$q[5],
+            'fax'=>$q[6]};
+           
+}
+
+=item publish_journalist_update EDITOR HASH
+
+Publish a journalist record created from the attributes in the HASH to the newspaper indicated by ID 
+This can either be a new record or an edit to an existing record. The edit is attributed to EDITOR
+=cut
+
+sub publish_journalist_update($$){
+   
+    my ($editor, $fields) = @_;
+
+    my $journalist = NeWs::Journalist->new($fields);
+    # records are not deleted using this API function
+    $journalist->{'isdeleted'} = 'f';
+    my $journalist_id = $journalist->publish($editor);
+    return $journalist->id(); 
+}
+
+=item get_journalist_history ID
+
+Given a journalist ID, returns the history of edits to that journalist's record in the database
+
+=cut
+
+sub get_journalist_history($){
+
+    my ($id) = @_;
+    my @ret;
+
+    my $rows = dbh()->selectall_arrayref("select id, lastchange, source, data, isdeleted
+                                                  from journalist_edit_history
+                                                  where journalist_id = ?
+                                                  order by lastchange desc", {}, $id);
+
+    foreach (@$rows){
+        my ($change_id, $lastchange, $source, $data, $isdel) = @$_;
+
+        my $data = RABX::wire_rd(new IO::String($data));
+        push( @ret, {'lastchange' => $lastchange,
+                     'source' => $source,
+                     'isdel' => $isdel,
+                     'data' =>  $data});
+    }
+    return \@ret;
+}
+
+
 #=============================================
 
 package NeWs::Paper;
@@ -458,6 +565,88 @@ sub new ($%) {
     return bless($self, $class);
 }
 
+#===========================================
+
+package NeWs::Journalist;
+
+# Object representing a journalist attached to a newspaper. 
+
+use strict;
+use Data::Dumper;
+
+use fields qw( id name interests email telephone fax newspaper_id isdeleted );
+
+
+mySociety::Util::create_accessor_methods();
+
+#-------------------------------------------
+# Constructor.
+sub new ($$) {
+
+    my ($class, $f) = @_;
+    my $self = fields::new($class);
+    foreach(keys %$f){
+        $self->{$_} = $f->{$_};
+    }
+    return bless($self, $class);
+}
+
+#----------------------------------------------
+# publish
+# Publish the record to the database as the current record for this journalist.
+sub publish ($$){
+
+    my ($self, $editor) = @_;
+      
+    if (defined($self->id())){
+
+	# existing record
+	my @update_list;
+	foreach ( sort grep { $_ ne 'id'} keys %$self ){
+	    unshift(@update_list, $_ . " = " . NeWs::dbh()->quote($self->{$_}));
+	}
+	my $stmt = "update journalist set " . join(", ", @update_list) . " where id = " . $self->id();
+	NeWs::dbh()->do($stmt);
+
+    }else{
+
+	# new record
+	NeWs::dbh()->do('insert into journalist( newspaper_id, name, interests, telephone, fax, email) values (?, ?, ?, ?, ?, ?)',
+		      {}, $self->newspaper_id(), $self->name(), $self->interests(), $self->telephone(), $self->fax(), $self->email());
+
+	NeWs::dbh()->commit();
+	$self->{'id'} = scalar(NeWs::dbh()->selectrow_array("select currval('journalist_id_seq')"));
+
+    }
+   
+    #save a copy of the record in the journalist_edit_history table
+    $self->save_db( $editor );
+
+    NeWs::dbh()->commit();
+}
+
+#------------------------------------------
+# save_db EDITOR
+# Save a copy of the record in the database edit history, as from EDITOR
+sub save_db ($$) {
+    my ($self, $editor) = @_;
+
+    my $h = new IO::String();
+    my $storage;
+
+    foreach(keys %$self){
+        $storage->{$_} = $self->{$_};
+    }
+
+    RABX::wire_wr( $storage, $h);
+
+    my $s = NeWs::dbh()->prepare('insert into journalist_edit_history (journalist_id, source, data, isdeleted) values (?, ?, ?, ?)');
+    $s->bind_param(1, $self->id());
+    $s->bind_param(2, $editor);
+    $s->bind_param(3, ${$h->string_ref()}, { pg_type => DBD::Pg::PG_BYTEA });
+    $s->bind_param(4, $self->isdeleted() ? 't' : 'f');
+    $s->execute();
+}
+
 
 1;
-
