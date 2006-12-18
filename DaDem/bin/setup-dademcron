@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.3 2006-04-28 23:50:58 francis Exp $
+# $Id: setup-dademcron,v 1.4 2006-12-18 10:50:21 francis Exp $
 #
 
 set -e
@@ -65,6 +65,9 @@ cd $DADEMHOME
 # Copy conifguration files
 cat /data/vhost/services.mysociety.org/mysociety/services/conf/general | su dademcron "cat >mysociety/services/conf/general"
 cat /data/vhost/www.writetothem.com/mysociety/fyr/conf/general | su dademcron "cat >mysociety/fyr/conf/general"
+
+# Install .forward
+su - dademcron "echo \"team@mysociety.org\" >~dademcron/.forward"
 
 # Install crontab
 su dademcron crontab repdata/bin/crontab
