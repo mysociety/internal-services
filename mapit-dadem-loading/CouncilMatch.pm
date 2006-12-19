@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.10 2006-04-28 21:58:06 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.11 2006-12-19 11:53:43 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -763,7 +763,7 @@ sub get_raw_data($;$) {
     while (my $edit = $sth->fetchrow_hashref) {
         my $key = $edit->{ge_id} ? 'ge_id'.$edit->{ge_id} : 'newrow_id'.$edit->{newrow_id};
         if ($edit->{alteration} eq 'delete') {
-            die "get_raw_data: delete row that doesn't exist" if (!exists($council->{$key}));
+            die "get_raw_data: delete row $key that doesn't exist" if (!exists($council->{$key}));
             delete $council->{$key};
         } elsif ($edit->{alteration} eq 'modify') {
             $council->{$key} = $edit;
