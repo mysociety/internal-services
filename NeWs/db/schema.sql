@@ -5,7 +5,7 @@
 -- Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: schema.sql,v 1.6 2006-12-07 15:45:40 louise Exp $
+-- $Id: schema.sql,v 1.7 2007-01-18 13:44:54 louise Exp $
 --
 
 create table newspaper (
@@ -155,4 +155,8 @@ create table journalist_edit_history (
     source text,            -- a username
     data bytea not null,    -- serialised NeWs::Journalist object
     isdeleted boolean not null default false
+);
+
+create table secret (
+     secret text NOT NULL
 );
