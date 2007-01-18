@@ -13,7 +13,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.21 2006-02-15 08:39:04 francis Exp $
+ * $Id: general-example,v 1.22 2007-01-18 13:25:14 louise Exp $
  * 
  */
 
@@ -48,6 +48,13 @@ define('OPTION_EVEL_DB_USER', 'evel');
 define('OPTION_EVEL_DB_PASS', '');
 define('OPTION_EVEL_DB_HOST', 'localhost');
 define('OPTION_EVEL_DB_PORT', '5432');
+
+// PostgreSQL database for NeWs
+define('OPTION_NEWS_DB_NAME', 'news');
+define('OPTION_NEWS_DB_USER', 'news');
+define('OPTION_NEWS_DB_PASS', '');
+define('OPTION_NEWS_DB_HOST', 'localhost');
+define('OPTION_NEWS_DB_PORT', '5432');
 
 define('OPTION_EVEL_VERP_PREFIX', 'evel-');
 define('OPTION_EVEL_VERP_DOMAIN', 'evel.services.mysociety.org');
