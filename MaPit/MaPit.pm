@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.57 2006-09-28 10:06:42 francis Exp $
+# $Id: MaPit.pm,v 1.58 2007-01-19 16:19:43 matthew Exp $
 #
 
 package MaPit;
@@ -474,7 +474,7 @@ sub get_voting_area_by_location ($$$;$) {
     return get_voting_area_by_location_en($e, $n, $method, $type);
 }
 
-=item get_voting_area_by_location_en EASTING NORTHING METHOD [TYPE]
+=item get_voting_area_by_location_en EASTING NORTHING METHOD [TYPE(S)]
 
 As get_voting_area_by_location only takes coordinates in EASTINGs and NORTHINGs
 rather than latitude and longitude.
@@ -490,7 +490,12 @@ sub get_voting_area_by_location_en ($$$;$) {
     # Search for areas in the bounding box, of the right type
     my $type_clause = "";
     my @params = ($e, $e, $n, $n);
-    if ($type) {
+    if (ref($type) eq 'ARRAY') {
+        my $qs = '?,' x @$type;
+        chop($qs);
+        $type_clause = " and type in ($qs)";
+        push @params, @$type;
+    } elsif ($type) {
         $type_clause = " and type = ?";
         push @params, $type;
     }
