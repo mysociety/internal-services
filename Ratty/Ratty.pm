@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.27 2005-02-11 17:16:26 chris Exp $
+# $Id: Ratty.pm,v 1.28 2007-01-25 15:07:30 louise Exp $
 #
 
 package Ratty::Error;
@@ -458,6 +458,23 @@ sub admin_delete_rule ($$$) {
         }
     }
 
+    return $return;
+}
+
+=item admin_delete_rules SCOPE
+
+I<Instance method.> Deletes all rules in the specified SCOPE. 
+
+=cut
+sub admin_delete_rules($$){
+    my ($self, $scope) = @_;
+    die "All database rules for scope will be deleted so for safety must have name ending '_testharness' or '-testharness'" if (mySociety::Config::get('RATTY_DB_NAME') !~ m/[_-]testharness$/);
+    my $return = undef;
+    my $rules = dbh()->selectcol_arrayref("select id from rule where scope = ?", {}, $scope);
+    my $rule;
+    foreach $rule (@$rules){
+        $self->admin_delete_rule($scope, $rule);
+    }
     return $return;
 }
 
