@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.8 2005-01-31 20:11:46 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.9 2007-01-25 15:08:00 louise Exp $';
 
 # Do this first of all, because Ratty.pm needs to see the config file.
 BEGIN {
@@ -46,6 +46,9 @@ while ($req->Accept() >= 0) {
             },
             'Ratty.admin_delete_rule' => sub {
                 $R->admin_delete_rule(@_);
+            },
+            'Ratty.admin_delete_rules' => sub {
+                $R->admin_delete_rules(@_);
             },
             'Ratty.admin_get_rules' => sub {
                 $R->admin_get_rules(@_);
