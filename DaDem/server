@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.24 2006-06-08 15:42:16 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.25 2007-02-01 16:30:16 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -46,7 +46,7 @@ while ($req->Accept() >= 0) {
     # Only want to make the query results cacheable, not the admin interface.
     RABX::Server::CGI::dispatch(
             'DaDem.get_representatives' => [
-                sub { return DaDem::get_representatives($_[0]); },
+                sub { return DaDem::get_representatives($_[0], $_[1]); },
                 cache_age
             ],
             'DaDem.get_area_status' => [
