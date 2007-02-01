@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.58 2007-01-19 16:19:43 matthew Exp $
+# $Id: MaPit.pm,v 1.59 2007-02-01 18:15:46 francis Exp $
 #
 
 package MaPit;
@@ -474,7 +474,7 @@ sub get_voting_area_by_location ($$$;$) {
     return get_voting_area_by_location_en($e, $n, $method, $type);
 }
 
-=item get_voting_area_by_location_en EASTING NORTHING METHOD [TYPE(S)]
+=item get_voting_area_by_location_en EASTING NORTHING METHOD [TYPE_OR_TYPES]
 
 As get_voting_area_by_location only takes coordinates in EASTINGs and NORTHINGs
 rather than latitude and longitude.
