@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.76 2006-07-18 08:13:52 francis Exp $
+# $Id: DaDem.pm,v 1.77 2007-02-01 17:00:35 francis Exp $
 #
 
 package DaDem;
@@ -277,6 +277,8 @@ even deleted representatives are returned.
 =cut
 sub get_representatives ($;$) {
     my ($id, $all) = @_;
+    
+    warn "get_representatives id:".($id?$id:'')." all:".($all?$all:'')."\n";
 
     if (ref($id)) {
         if (ref($id) eq 'ARRAY') {
@@ -304,8 +306,10 @@ sub get_representatives ($;$) {
     } 
     
     if ($all) {
+        warn "all\n";
         return [ map { $_->[0] } @$y ];
     } else {
+        warn "notall\n";
         return [ map { $_->[0] } grep { !($_->[1]) } @$y ];
     }
 }
