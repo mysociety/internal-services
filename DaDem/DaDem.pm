@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.78 2007-02-01 17:34:06 francis Exp $
+# $Id: DaDem.pm,v 1.79 2007-02-02 08:00:52 francis Exp $
 #
 
 package DaDem;
@@ -849,7 +849,7 @@ sub admin_mark_failing_contact ($$$$$) {
 
     my $r = get_representative_info($i);
 
-    if (($r->{method} eq $method || $r->{method} eq 'either') and $r->{$method} eq $x) {
+    if (($r->{method} eq $method || $r->{method} eq 'either') and $r->{$method} eq $x and (!$r->{deleted})) {
         my $newmethod;
         if ($r->{method} eq $method) {
             $newmethod = 'unknown';
