@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: tileserver,v 1.1 2006-09-22 17:08:42 francis Exp $
+# $Id: tileserver,v 1.2 2007-02-06 00:26:06 chris Exp $
 #
-/data/vhost/tilma.mysociety.org/mysociety/services/TilMa/tileserver/tileserver /data/vhost/tilma.mysociety.org/tiledata
+exec /data/vhost/tilma.mysociety.org/mysociety/services/TilMa/tileserver/tileserver /data/vhost/tilma.mysociety.org/tiledata
 
