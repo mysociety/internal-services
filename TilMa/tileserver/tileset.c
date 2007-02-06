@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileset.c,v 1.1 2006-09-22 13:57:01 francis Exp $";
+static const char rcsid[] = "$Id: tileset.c,v 1.2 2007-02-06 00:25:16 chris Exp $";
 
 /*
  * Tile sets are stored in directory trees which contain indices of tile
@@ -44,7 +44,6 @@ struct tileset {
      * tile which is not present, each information block is preceded by a
      * coverage bitmap. */
     unsigned t_blocking;
-    bool t_first;
     unsigned t_x, t_y;
     cdb_datum t_block;
     /* File pointer open on an image file and the name of the file it's open
@@ -66,7 +65,6 @@ tileset tileset_open(const char *path) {
     T = xmalloc(sizeof *T);
     *T = Tz;
 
-    T->t_first = 1;
     T->t_path = xstrdup(path);
     T->t_pathbuf = xmalloc(strlen(path) + sizeof "/tiles/a/b/c/tiles.cdb");
     
@@ -130,11 +128,10 @@ bool tileset_get_tileid(tileset T, const unsigned x, const unsigned y,
     unsigned x2, y2, off, off0;
     uint8_t *b;
 
-    if (T->t_first || T->t_x != x || T->t_y != y) {
+    if (!T->t_block || T->t_x != x || T->t_y != y) {
         /* Grab block from database. */
         char buf[32];
 
-        T->t_first = 0;
         if (T->t_block) cdb_datum_free(T->t_block);
         
         sprintf(buf, "%u,%u", x / T->t_blocking, y / T->t_blocking);
