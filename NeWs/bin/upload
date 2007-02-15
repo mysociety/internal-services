@@ -7,7 +7,7 @@
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: upload,v 1.5 2006-04-16 18:40:54 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: upload,v 1.6 2007-02-15 15:32:12 louise Exp $';
 
 use strict;
 require 5.8.0;
@@ -52,23 +52,26 @@ sub upload_prepared_data(){
         eval $dumpee;
         my %record = %{$VAR1};
       
-	# extract the postcode from address
-	my $a = $record{address};
-	my @address_lines = split(/\n/,$a);
-	my $lastline = $address_lines[-1];
+        # extract the postcode from address
+        my $a = $record{address};
+        my @address_lines = split(/\n/,$a);
+        my $lastline = $address_lines[-1];
         if ($lastline =~ m/^([[:upper:]]{1,2}\s?\d{1,2}[[:upper:]]{0,1}\s?[\d|[:upper:]]{1,2}\s?[[:upper:]]{2})$/m){
-	    $record{postcode} = $lastline;
-	}else{
-	    $record{postcode} = "UNKNOWN";
-	}
+            $record{postcode} = $lastline;
+        }else{
+            $record{postcode} = "UNKNOWN";
+        }
 
-	#mark the record as not deleted
+        #mark the record as not deleted
         $record{isdeleted} = 0;
   
         my $news = NeWs::Paper->new(\%record);
-	my $update_coverage = 1;
-	my $source = '';
-	$news->publish($source, $update_coverage);
+        my $update_coverage = 1;
+        my $source = '';
+        # TODO: Need to check here that the Newspaper Society haven't changed their IDs
+        # as this is used to match records in the db - if there's a change, we need to 
+        # remap.
+        $news->publish($source, $update_coverage);
     }
 
 }
