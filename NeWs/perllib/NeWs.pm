@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.8 2006-12-07 15:47:27 louise Exp $
+# $Id: NeWs.pm,v 1.9 2007-03-08 21:46:23 matthew Exp $
 #
 
 package NeWs;
@@ -229,14 +229,14 @@ radius from the point defined by the latitude and longitude
 =cut
 
 sub get_locations_by_location($$$){
-    my ($lon, $lat, $radius) = @_;
+    my ($lat, $lon, $radius) = @_;
     my @ret;
 
    
     my $rows =  dbh()->selectall_arrayref("SELECT location.name, location.lon, location.lat, distance
                                            FROM location_find_nearby(?, ?, ?) AS nearby
                                            LEFT JOIN location on nearby.location_id = location.id
-                                           ORDER BY distance", {}, $lon, $lat, $radius);
+                                           ORDER BY distance", {}, $lat, $lon, $radius);
     
     foreach (@$rows){
 	
@@ -260,14 +260,14 @@ coverage of locations within that radius from the point defined by the latitude 
 
 sub get_newspapers_by_location($$$){
 
-    my ($lon, $lat, $radius) = @_;
+    my ($lat, $lon, $radius) = @_;
     my @ret;
 
     my $rows =  dbh()->selectall_arrayref("SELECT newspaper_id, newspaper.name, sum(coverage)
                                            FROM location_find_nearby(?,?,?) AS nearby
                                            LEFT JOIN coverage on nearby.location_id = coverage.location_id
                                            LEFT JOIN newspaper on coverage.newspaper_id = newspaper.id
-                                           GROUP BY newspaper_id, newspaper.name ORDER BY sum(coverage) desc;", {}, $lon, $lat, $radius);
+                                           GROUP BY newspaper_id, newspaper.name ORDER BY sum(coverage) desc;", {}, $lat, $lon, $radius);
 
     foreach (@$rows){
 
