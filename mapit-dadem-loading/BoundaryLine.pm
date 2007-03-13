@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.4 2006-09-28 10:06:42 francis Exp $
+# $Id: BoundaryLine.pm,v 1.5 2007-03-13 20:33:07 matthew Exp $
 #
 
 use strict;
@@ -16,22 +16,23 @@ use File::stat;
 use Data::Dumper;
 use mySociety::Polygon;
 
-@BoundaryLine::ISA = qw(Exporter);
-@BoundaryLine::EXPORT_OK = qw(
-    &doublesize
+use vars qw(@ISA @EXPORT_OK %interesting_areas @interesting_areas %childmap %parentmap);
+@ISA = qw(Exporter);
+@EXPORT_OK = qw(
+    doublesize
     %interesting_areas
     @interesting_areas
     %childmap
     %parentmap
-    &load_ntf_file
+    load_ntf_file
 );
 
 # Record the size of a double for use later.
 my $doublesize = length(pack('d', 0));
 sub doublesize { return $doublesize; }
 
-my %interesting_areas = map { $_ => 1 } (
-    my @interesting_areas = (
+%interesting_areas = map { $_ => 1 } (
+    @interesting_areas = (
 #
 # Types of areas about which we care:
 #
@@ -71,7 +72,7 @@ my %interesting_areas = map { $_ => 1 } (
 );
 
 # Areas for which we compute parentage, and their parent types.
-my %parentmap = qw(
+%parentmap = qw(
         CED CTY
         DIW DIS
         LBW LBO
@@ -86,7 +87,6 @@ my %parentmap = qw(
 #$childmap{DIS}->{CPC} = 1;
 #$childmap{UTA}->{CPC} = 1;
 
-my %childmap;
 foreach (keys %parentmap) {
     $childmap{$parentmap{$_}}->{$_} = 1;
 }
