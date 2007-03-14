@@ -29,7 +29,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.18 2006-02-15 19:38:22 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.19 2007-03-14 14:43:32 matthew Exp $';
 
 use strict;
 
@@ -196,9 +196,6 @@ foreach (read_csv_file($onscodesfile, 1)) {
 }
 print STDERR "done.\n";
 
-#$dbh->commit();
-#<STDIN>;
-
 my %unused = map { $_ => 1 } grep(/^95/, keys %ward_to_const);
 
 my @postcode;
@@ -336,21 +333,34 @@ push(@postcode, @reassigned);
 # Now @postcode contains all the postcodes for which we have ward codes.
 print STDERR "writing postcodes into database...\n";
 my $n = 0;
+my $check = $dbh->prepare("
+    select postcode_id from postcode_area
+        where postcode_id = ? and area_id = ?");
 foreach (@postcode) {
     ++$n;
     printf STDERR "\r%d/%d", $n, scalar(@postcode) if (0 == ($n % 100));
     my ($pc, $E, $N, $ward) = @$_;
 
     my $pcid = get_postcode_id($dbh, $pc, $E, $N);
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eaid{$ward});
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $cid{$ward_to_const{$ward}});
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eid{$ward_to_const{$ward}});
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $aid{$ward_to_district{$ward}});
-    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $euro_area_id);
+    $check->execute($pcid, $eaid{$ward});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eaid{$ward})
+        if (!$check->fetchrow_array);
+    $check->execute($pcid, $cid{$ward_to_const{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $cid{$ward_to_const{$ward}})
+        if (!$check->fetchrow_array);
+    $check->execute($pcid, $eid{$ward_to_const{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eid{$ward_to_const{$ward}})
+        if (!$check->fetchrow_array);
+    $check->execute($pcid, $aid{$ward_to_district{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $aid{$ward_to_district{$ward}})
+        if (!$check->fetchrow_array);
+    $check->execute($pcid, $euro_area_id);
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $euro_area_id)
+        if (!$check->fetchrow_array);
 }
 printf STDERR "\r%d/%d\n", $n, scalar(@postcode);
-print STDERR "committing changes... ";
-$dbh->commit();
+# print STDERR "committing changes... ";
+# $dbh->commit();
 $dbh->disconnect();
 print STDERR "done.\n";
 
