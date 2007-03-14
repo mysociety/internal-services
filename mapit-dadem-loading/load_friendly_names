@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.12 2005-10-26 09:43:20 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.13 2007-03-14 15:32:11 matthew Exp $';
 
 use strict;
 
@@ -88,6 +88,7 @@ while (my ($area_id) = $s->fetchrow_array()) {
         $friendly =~ s/ \(BC\)$/ Borough Council/;
         $friendly =~ s/ \(DC\)$/ District Council/;
         $friendly =~ s/ \(UC\)$/ Council/;
+	$friendly =~ s/Corporation of London/City of London Corporation/; # XXX: This the right place?
         warn "Brackets in name $friendly" if $friendly =~ m/\(|\)/;
     } elsif (exists($names->{L})) {
         $friendly = friendly_from_os($names->{L}->{name});
