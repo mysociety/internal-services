@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.4 2006-08-02 09:15:43 francis Exp $
+ * $Id: admin-reps.php,v 1.5 2007-03-15 19:03:39 matthew Exp $
  * 
  */
 
@@ -252,7 +252,7 @@ class ADMIN_PAGE_REPS {
             $form->addElement('static', 'note2', null, "Make sure you update contact method when you change email or fax numbers.");
             $form->addElement('select', 'method', "Contact method:", 
                     array(
-                        'either' => 'Fax or Email', 'fax' => 'Fax only', 
+                        #'either' => 'Fax or Email', 'fax' => 'Fax only', 
                         'email' => 'Email only',
                         'shame' => "Shame! Doesn't want contacting",
                         'via' => 'Contact via electoral body (e.g. Democratic Services)',
