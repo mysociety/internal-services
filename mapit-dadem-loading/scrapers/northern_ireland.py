@@ -18,8 +18,8 @@ import sys
 import re
 import string
 
-print "NI scraper doesn't work with the new NIA page for the 2007 assembly"
-sys.exit()
+print >>sys.stderr, "NI scraper doesn't work with the new NIA page for the 2007 assembly"
+sys.exit(1)
 
 NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership07.htm"
 NICVA_LIST_PAGE = "http://www.nicva.org/index.cfm/section/General/key/190805"
