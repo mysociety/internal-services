@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.18 2006-07-24 13:40:33 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.19 2007-03-20 00:08:19 dademcron Exp $';
 
 use strict;
 
@@ -495,7 +495,9 @@ foreach my $area_id (keys %$canon_repnames){
             }
 
             # Remember we have deleted it
-            delete $expected_deleted->{$canon_cons}->{$canon_repname};
+            if ($expected_deleted) {
+                delete $expected_deleted->{$canon_cons}->{$canon_repname};
+            }
         }
     }
 }
