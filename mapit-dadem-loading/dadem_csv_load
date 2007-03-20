@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.19 2007-03-20 00:08:19 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.20 2007-03-20 15:36:09 dademcron Exp $';
 
 use strict;
 
@@ -46,6 +46,8 @@ use mySociety::VotingArea;
 use CouncilMatch;
 use DaDem;
 #DBI->trace(1);
+
+our $rep_edit_url = "https://secure.mysociety.org/admin/fyr/index.php?page=reps&rep_id=";
 
 my $action = shift(@ARGV);
 die "specify 'test' or 'commit' as first parameter" if ((!$action) || ($action ne "test" && $action ne "commit"));
@@ -314,6 +316,21 @@ while (my $line = <MAIN>) {
         #print "Already have $finalname, $finalcons:\n";
         my $updates_required = 0;
         my $conflict = "";
+        my $mark_last_ok = 1;
+
+        # Whether a script or a human made last change
+        my $last_editor_robot = ($cur_repinfo->{last_editor} eq "import" || $cur_repinfo->{last_editor} eq "dadem_csv_load");
+
+        # Trust the humans - new policy is to believe fax/email we've edited
+        # above anything on the websites we're scraping from.
+        # XXX this overrides many of the conflict checks below, which can 
+        # probably be removed as a result. Not sure though.
+        if (!$last_editor_robot) {
+            $finalmethod = $cur_repinfo->{method};
+            $finalfax = $cur_repinfo->{fax};
+            $finalemail = $cur_repinfo->{email};
+            $mark_last_ok = 0;
+        }
 
         # Changing party is a conflict
         if ($cur_repinfo->{party} ne $finalparty) {
@@ -340,11 +357,22 @@ while (my $line = <MAIN>) {
             $finalemail = $cur_repinfo->{email};
         } else {
             if ($cur_repinfo->{method} ne $finalmethod) {
-                $updates_required = 1;
-                if ($cur_repinfo->{method} eq "either" && $finalmethod eq "email") {
-                    # OK to change from either to email method
+                # Scraping saying the contact is "via" doesn't overwrite another one
+                # which we have manually set.
+                if (!$last_editor_robot
+                        && ($cur_repinfo->{method} eq "email" || $cur_repinfo->{method} eq "fax")
+                        && $finalmethod eq "via") {
+                    $finalmethod = $cur_repinfo->{method};
+                    $mark_last_ok = 0;
+                    die if (($finalmethod eq "fax" && $cur_repinfo->{fax} ne $finalfax) || 
+                            ($finalmethod eq "email" && $cur_repinfo->{email} ne $finalemail));
                 } else {
-                    $conflict .= "Method changed ";
+                    $updates_required = 1;
+                    if ($cur_repinfo->{method} eq "either" && $finalmethod eq "email") {
+                        # OK to change from either to email method
+                    } else {
+                        $conflict .= "Method changed ";
+                    }
                 }
             }
 
@@ -388,7 +416,7 @@ while (my $line = <MAIN>) {
         }
 
         # Overwrite changes to things that were done by scripts like us, rather than humans
-        if ($conflict && ($cur_repinfo->{last_editor} eq "import" || $cur_repinfo->{last_editor} eq "dadem_csv_load")) {
+        if ($conflict && $last_editor_robot) {
             # print "Conflict ignored, as last edit was by " . $cur_repinfo->{last_editor} . "\n";
             $conflict = 0;
         }
@@ -400,6 +428,7 @@ while (my $line = <MAIN>) {
             print "\tLast edited by: " . $cur_repinfo->{last_editor} . "\n";
             print "\tCur: " . $cur_repinfo->{name} . " (".$cur_repinfo->{party}.") ".$cur_repinfo->{method} . " " . ($cur_repinfo->{fax} || "NOFAX") . " " . ($cur_repinfo->{email} || "NOEMAIL"). "\n";
             print "\tNew: ".$finalname." (".$finalparty.") ".$finalmethod." ". ($finalfax || 'NOFAX') . " " . ($finalemail || 'NOEMAIL'). "\n";
+            print "\t$rep_edit_url$dadem_rep_id\n";
         } elsif ($updates_required) {
             print "Updating rep $dadem_rep_id\n";
             print "\tCur: " . $cur_repinfo->{name} . " (".$cur_repinfo->{party}.") ".$cur_repinfo->{method} . " " . ($cur_repinfo->{fax} || "NOFAX") . " " . ($cur_repinfo->{email} || "NOEMAIL"). "\n";
@@ -410,7 +439,7 @@ while (my $line = <MAIN>) {
             if ($commit) {
                 DaDem::admin_edit_representative($dadem_rep_id, $new_data, "dadem_csv_load", "Updated by script dadem_csv_load");
             }
-        } elsif ($cur_repinfo->{last_editor} ne "import" && $cur_repinfo->{last_editor} ne "dadem_csv_load") {
+        } elsif (!$last_editor_robot && $mark_last_ok) {
             # We have no conflict, and no updates were required.
             # However, the last editor was not a script - mark it as one so we know this 
             # import was OK for comparing future changes against
@@ -481,6 +510,7 @@ foreach my $area_id (keys %$canon_repnames){
             # Overwrite changes to things that were done by scripts like us, rather than humans
             if ($repinfo->{last_editor} ne "import" && $repinfo->{last_editor} ne "dadem_csv_load") {
                 print STDERR "Conflict, not deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . " as last altered by " . $repinfo->{last_editor} . "\n";
+                print STDERR "\t$rep_edit_url".$repinfo->{id}."\n";
                 next;
             }
 

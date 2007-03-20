@@ -14,10 +14,14 @@ from urllib2 import urlopen
 from urlparse import urljoin
 from HTMLParser import HTMLParser
 from sys import stderr
+import sys
 import re
 import string
 
-NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership03.htm"
+print "NI scraper doesn't work with the new NIA page for the 2007 assembly"
+sys.exit()
+
+NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership07.htm"
 NICVA_LIST_PAGE = "http://www.nicva.org/index.cfm/section/General/key/190805"
 NIA_OUTPUT_FILE = "nia_out.txt"
 NICVA_OUTPUT_FILE = "nicva_out.txt"
