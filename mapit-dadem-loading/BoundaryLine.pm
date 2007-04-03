@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.5 2007-03-13 20:33:07 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.6 2007-04-03 15:21:26 matthew Exp $
 #
 
 use strict;
@@ -15,6 +15,8 @@ package BoundaryLine;
 use File::stat;
 use Data::Dumper;
 use mySociety::Polygon;
+use Geo::OSBoundaryLine;
+use Area;
 
 use vars qw(@ISA @EXPORT_OK %interesting_areas @interesting_areas %childmap %parentmap);
 @ISA = qw(Exporter);

@@ -1,0 +1,61 @@
+#!/usr/bin/perl -w -I../perllib -I ../../perllib
+#
+# generate-boundary-polyline:
+# Given some area IDs and an NTF file defining those areas, generate GPolylines of them.
+
+my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.1 2007-04-03 15:21:26 matthew Exp $';
+
+use strict;
+
+use mySociety::GeoUtil;
+use Common;
+use BoundaryLine;
+
+my $ntf_file = shift;
+my @area_ids = @ARGV;
+die "First argument is NTF file" unless $ntf_file && -e $ntf_file;
+die "Other arguments are area IDs" unless @area_ids;
+
+my $dbh = Common::connect_to_mapit_database();
+
+my $g = current_generation($dbh);
+my $s = "select id, name from area, area_name
+    where area.id = area_name.area_id and name_type = 'O'
+        and ($g >= generation_low and $g <= generation_high)
+	and area_id in (" . join(',', @area_ids) . ")";
+my $os_name_to_db_info = $dbh->selectall_hashref($s, 'name');
+
+my (@shapes, %onscode_to_shape, %area_type_to_shape, %aaid_to_shape);
+BoundaryLine::load_ntf_file($ntf_file, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+
+# Loop through shapes
+my ($minx, $maxx, $miny, $maxy);
+foreach my $A (@shapes) {
+    my $db_entry = $os_name_to_db_info->{$A->name()}; 
+    next if (!$db_entry);
+
+    (my $name = $A->name()) =~ s/ .*//;
+
+    $minx = $A->minx() if !defined($minx) || $A->minx() < $minx;
+    $maxx = $A->maxx() if !defined($maxx) || $A->maxx() > $maxx;
+    $miny = $A->miny() if !defined($miny) || $A->miny() < $miny;
+    $maxy = $A->maxy() if !defined($maxy) || $A->maxy() > $maxy;
+
+    foreach (@{$A->parts()}) {
+        my ($sense, $vv) = @$_;
+        my @polydata = unpack('d*', $vv);
+	my @out;
+	for (my $i=0; $i<@polydata; $i+=2) {
+	    my ($x, $y) = mySociety::GeoUtil::national_grid_to_wgs84($polydata[$i], $polydata[$i+1], 'G');
+	    push @out, 'new GLatLng(' . $x . ',' . $y . ')';
+	}
+	print "var p$name = new GPolyline([" . join(',',@out) . '], "#ff0000", 2)' . "\n";
+    }
+}
+
+my $centre_x = ($minx + $maxx) / 2;
+my $centre_y = ($miny + $maxy) / 2;
+($centre_x, $centre_y) = mySociety::GeoUtil::national_grid_to_wgs84($centre_x, $centre_y, 'G');
+print "map.setCenter(new GLatLng($centre_x, $centre_y), 13);\n";
+
+$dbh->disconnect();
