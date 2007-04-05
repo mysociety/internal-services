@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.6 2007-03-15 19:05:29 matthew Exp $
+ * $Id: admin-reps.php,v 1.7 2007-04-05 13:37:02 francis Exp $
  * 
  */
 
@@ -226,6 +226,9 @@ class ADMIN_PAGE_REPS {
                 $form->addElement('header', '', 'Edit Representative');
             else
                 $form->addElement('header', '', 'New Representative');
+            if ($repinfo['deleted']) {
+                $form->addElement('static', 'notedeleted', null, "<strong style=\"color: red\">Deleted representative</strong>, click 'Done' to undelete");
+            }
             if ($rep_id and $editable_here) {
                 $form->addElement('static', 'note1', null, "
                 Edit only the values which you need to.  If a representative
@@ -317,18 +320,27 @@ class ADMIN_PAGE_REPS {
             $html = "<table border=1>";
             $html .= "<th>Order</th><th>Date</th><th>Editor</th><th>Note</th>
                 <th>Name</th> <th>Party</th> <th>Method</th> <th>Email</th>
-                <th>Fax</th><th>Deleted</th>";
+                <th>Fax</th><th>Active</th>";
 
             $previous_row = null;
             foreach ($rephistory as $row) {
                 $html .= "<tr>";
                 foreach (array('order_id', 'whenedited', 'editor', 'note', 
                     'name', 'party', 'method', 'email', 'fax', 'deleted') as $field) {
+
+                    If ($row['deleted'] && ($field == 'email' || $field == 'fax' || $field == 'method')) {
+                        $display_value = 'deleted';
+                        $html .= "<td>-</td>\n";
+                        continue;
+                    }
+
                     $value = $row[$field];
                     if ($field == 'note')
                         $display_value = make_ids_links($value);
                     elseif ($field == 'whenedited')
                         $display_value = strftime('%Y-%m-%d %H:%M:%S', $value);
+                    elseif ($field == 'deleted') 
+                        $display_value = $value ? 'deleted' : 'yes';
                     else
                         $display_value = $value;
                     if ($field != "order_id" && $field != "whenedited" &&
