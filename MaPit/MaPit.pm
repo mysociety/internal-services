@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.59 2007-02-01 18:15:46 francis Exp $
+# $Id: MaPit.pm,v 1.60 2007-04-16 16:58:24 francis Exp $
 #
 
 package MaPit;
@@ -656,18 +656,23 @@ sub get_example_postcode ($) {
 
 =item get_voting_area_children ID
 
-Return array of ids of areas whose parent areas are ID.
+Return array of ids of areas whose parent areas are ID. Only returns those which are in generation.
+XXX expand this later with an ALL optional parameter as get_areas_by_type
 
 =cut
 sub get_voting_area_children ($) {
     my ($id) = @_;
+    my $generation = get_generation();
     # This is horrid, because some parent_area_ids are fixed up in MaPit, not
     # the database.
     my $type = get_voting_area_info($id)->{type};
     if ($type eq 'LAS') {
-        return [@{dbh()->selectcol_arrayref("select id from area where type = 'LAC'")}, mySociety::VotingArea::LAS_AREA_ID];
+        return [@{dbh()->selectcol_arrayref("select id from area where type = 'LAC'
+        and generation_low <= ? and ? <= generation_high", {}, $generation, $generation)}, 
+            mySociety::VotingArea::LAS_AREA_ID];
     } else {
-        return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?', {}, $id);
+        return dbh()->selectcol_arrayref('select id from area where parent_area_id = ?
+                and generation_low <= ? and ? <= generation_high', {}, $id, $generation, $generation);
     }
 }
 
