@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.25 2006-07-26 14:39:32 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.26 2007-04-16 12:08:45 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -145,6 +145,7 @@ while (my $line = <STDIN>) {
     $line =~ s/\x14ina/Tina/g; # strangely broken "T"
     $line =~ s/\x00//g; # appears on the last line
     $line =~ s/f\x83ch/fach/g; # ward in Powys
+    $line =~ s/f\xef\xbf\xbdch/fach/g; # same ward in Powys, some other encoding
     next if $line =~ m/^\s*$/;
 
     # Extract good stuff
