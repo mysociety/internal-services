@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.80 2007-04-16 23:11:42 matthew Exp $
+# $Id: DaDem.pm,v 1.81 2007-04-16 23:39:56 matthew Exp $
 #
 
 package DaDem;
@@ -23,6 +23,7 @@ use mySociety::DBHandle qw(dbh);
 use mySociety::VotingArea;
 use mySociety::Config;
 use mySociety::MaPit;
+use mySociety::Parties;
 
 mySociety::DBHandle::configure(
         Name => mySociety::Config::get('DADEM_DB_NAME'),
