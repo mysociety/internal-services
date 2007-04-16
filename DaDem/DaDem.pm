@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.79 2007-02-02 08:00:52 francis Exp $
+# $Id: DaDem.pm,v 1.80 2007-04-16 23:11:42 matthew Exp $
 #
 
 package DaDem;
@@ -574,6 +574,7 @@ sub get_representatives_info ($) {
             # Force these to be undef if blank.
             $email ||= undef;
             $fax ||= undef;
+            $party = $mySociety::Parties::canonical{$party} if exists $mySociety::Parties::canonical{$party};
 
             $ret{$id} = {
                     id => $id,
