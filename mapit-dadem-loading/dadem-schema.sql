@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.37 2006-02-15 08:39:04 francis Exp $
+-- $Id: dadem-schema.sql,v 1.38 2007-05-03 12:59:46 matthew Exp $
 --
 
 -- data about status of an area in relation to its representatives
@@ -14,6 +14,7 @@ create table area_status (
     area_id integer not null,
     status text not null check (status in('none','pending_election','recent_election')) default 'none'
 );
+create unique index area_status_area_id_idx on area_status(area_id);
 
 -- data about each democratic representative
 create table representative (
