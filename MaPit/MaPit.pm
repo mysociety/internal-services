@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.60 2007-04-16 16:58:24 francis Exp $
+# $Id: MaPit.pm,v 1.61 2007-05-03 12:32:10 matthew Exp $
 #
 
 package MaPit;
@@ -298,10 +298,10 @@ sub get_voting_area_info ($) {
         $ret->{'generation'} = $generation;
     } else {
         # Real data
-        my ($type, $name, $os_name, $parent_area_id, $generation_low, $generation_high);
+        my ($type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high);
         throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
-            unless (($type, $name, $os_name, $parent_area_id, $generation_low, $generation_high) = dbh()->selectrow_array("
-            select type, a1.name as name, a2.name as os_name, parent_area_id,
+            unless (($type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high) = dbh()->selectrow_array("
+            select type, a1.name as name, a2.name as os_name, country, parent_area_id,
                    generation_low, generation_high
                 from area
                 left join area_name as a1 on a1.area_id = area.id and a1.name_type = 'F'
@@ -312,6 +312,7 @@ sub get_voting_area_info ($) {
         $ret = {
                 name => $name,
                 os_name => $os_name,
+                country => $country,
                 parent_area_id => $parent_area_id,
                 type => $type,
                 area_id => $id,
