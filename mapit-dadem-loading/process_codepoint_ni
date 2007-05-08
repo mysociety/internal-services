@@ -29,7 +29,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.19 2007-03-14 14:43:32 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_ni,v 1.20 2007-05-08 20:17:26 matthew Exp $';
 
 use strict;
 
@@ -342,6 +342,7 @@ foreach (@postcode) {
     my ($pc, $E, $N, $ward) = @$_;
 
     my $pcid = get_postcode_id($dbh, $pc, $E, $N);
+    $dbh->do('delete from postcode_area where postcode_id = ?', {}, $pcid);
     $check->execute($pcid, $eaid{$ward});
     $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $eaid{$ward})
         if (!$check->fetchrow_array);
@@ -359,6 +360,7 @@ foreach (@postcode) {
         if (!$check->fetchrow_array);
 }
 printf STDERR "\r%d/%d\n", $n, scalar(@postcode);
+$check->finish();
 # print STDERR "committing changes... ";
 # $dbh->commit();
 $dbh->disconnect();
