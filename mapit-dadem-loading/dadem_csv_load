@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.20 2007-03-20 15:36:09 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.21 2007-05-08 13:47:53 dademcron Exp $';
 
 use strict;
 
@@ -176,10 +176,6 @@ my $canon_repnames;
 $count = 0;
 for my $rep_info (values %$reps_info) {
     $count++;
-
-    $_ = $rep_info->{'party'};
-    utf8::encode($_); # more unicode train-wreckage
-    $rep_info->{'party'} = $_;
 
     my $canon_repname = CouncilMatch::canonicalise_person_name($rep_info->{'name'});
     $canon_repnames->{$rep_info->{'voting_area'}}->{$canon_repname} = $rep_info;
