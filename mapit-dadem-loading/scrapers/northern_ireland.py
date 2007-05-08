@@ -275,6 +275,7 @@ def parseNIAssemblySite():
     assembly_members = parser.table
 
     f.write( "First\tLast\tConstituency\tParty\tEmail\tFax\tImage\n" )
+    print "First,Last,Constituency,Party,Email,Fax,Image"
     
     for member in assembly_members:
 
