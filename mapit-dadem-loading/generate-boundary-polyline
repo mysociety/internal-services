@@ -3,7 +3,7 @@
 # generate-boundary-polyline:
 # Given some area IDs and an NTF file defining those areas, generate GPolylines of them.
 
-my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.1 2007-04-03 15:21:26 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.2 2007-05-16 10:55:47 matthew Exp $';
 
 use strict;
 
@@ -22,7 +22,7 @@ my $g = current_generation($dbh);
 my $s = "select id, name from area, area_name
     where area.id = area_name.area_id and name_type = 'O'
         and ($g >= generation_low and $g <= generation_high)
-	and area_id in (" . join(',', @area_ids) . ")";
+        and area_id in (" . join(',', @area_ids) . ")";
 my $os_name_to_db_info = $dbh->selectall_hashref($s, 'name');
 
 my (@shapes, %onscode_to_shape, %area_type_to_shape, %aaid_to_shape);
@@ -44,12 +44,12 @@ foreach my $A (@shapes) {
     foreach (@{$A->parts()}) {
         my ($sense, $vv) = @$_;
         my @polydata = unpack('d*', $vv);
-	my @out;
-	for (my $i=0; $i<@polydata; $i+=2) {
-	    my ($x, $y) = mySociety::GeoUtil::national_grid_to_wgs84($polydata[$i], $polydata[$i+1], 'G');
-	    push @out, 'new GLatLng(' . $x . ',' . $y . ')';
-	}
-	print "var p$name = new GPolyline([" . join(',',@out) . '], "#ff0000", 2)' . "\n";
+        my @out;
+        for (my $i=0; $i<@polydata; $i+=2) {
+            my ($x, $y) = mySociety::GeoUtil::national_grid_to_wgs84($polydata[$i], $polydata[$i+1], 'G');
+            push @out, 'new GLatLng(' . $x . ',' . $y . ')';
+        }
+        print "var p$name = new GPolyline([" . join(',',@out) . '], "#ff0000", 2)' . "\n";
     }
 }
 

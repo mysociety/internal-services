@@ -5,7 +5,7 @@
 -- Copyright (c) 2007 UK Citizens Online Democracy. All rights reserved.
 -- Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dress-schema.sql,v 1.1 2007-03-17 12:42:12 matthew Exp $
+-- $Id: dress-schema.sql,v 1.2 2007-05-16 10:55:47 matthew Exp $
 --
 
 -- lookup table for addresses
@@ -38,9 +38,9 @@ create function address_find_nearest(double precision, double precision)
             as distance
         from address
         where
-	    easting > ($1 - 1000) and easting < ($1 + 1000)
-	    and northing > ($2 - 1000) and northing < ($2 + 1000)
+            easting > ($1 - 1000) and easting < ($1 + 1000)
+            and northing > ($2 - 1000) and northing < ($2 + 1000)
         order by distance
-	limit 1
+        limit 1
 ' language sql; -- should be "stable" rather than volatile per default?
 
