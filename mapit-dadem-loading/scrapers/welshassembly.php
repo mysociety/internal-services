@@ -22,9 +22,9 @@ for ($region=1; $region<=5; $region++) {
     $f = file_get_contents("http://www.assemblywales.org/memhome/member-search-results.htm?region=$region");
     preg_match_all('#<div class="member_card_images">\s*<a[^>]*><img src="(.*?)".*?<p><a[^>]*>(.*?)</a>.*?<p class="party_title">(.*?)</p>\s*<p>(.*?)</p>#s', $f, $m, PREG_SET_ORDER);
     foreach ($m as $r) {
-	$name = $r[2];
+        $name = $r[2];
         $out[$name]['img'] = $r[1];
-        $out[$name]['party'] = $r[3];
+        $out[$name]['party'] = party_lookup($r[3]);
         $out[$name]['const'] = $r[4];
     }
 }
@@ -51,8 +51,17 @@ function by_const($a, $b) {
 uasort($out, 'by_const');
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 foreach ($out as $name => $arr) {
+    # Aberconwy, Arfon, and Dwyfor Meirionnydd are not yet in our database
+    if (in_array($arr['const'], array('Aberconwy', 'Arfon', 'Dwyfor Meirionnydd')))
+        continue;
     preg_match('#^(.*) (.*?)$#', $name, $m);
     list($first, $last) = array($m[1], $m[2]);
     print "$first,$last,$arr[const],$arr[party],$arr[email],,http://www.assemblywales.org/memhome/$arr[img]\n";
 }
 
+function party_lookup($p) {
+    if ($p == 'Labour Party') return 'Labour';
+    elseif ($p == 'Welsh Conservative Party') return 'Conservative';
+    elseif ($p == 'Independant') return 'Independent';
+    else return $p;
+}
