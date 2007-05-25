@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.12 2007-05-24 17:50:21 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.13 2007-05-25 10:45:17 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -702,7 +702,6 @@ sub match_council_wards ($$) {
             # XXX Occasionally, I'm getting duplicate key violation here.
             # Looks like this might happen if two GovEval areas map to
             # the same area ID for some reason??
-            print "Inserting ID $dd->{id}, $g->{name}\n";
             $m_dbh->do(q#insert into area_name (area_id, name_type, name)
                 values (?,?,?)#, {}, $dd->{id}, 'G', $g->{name});
         }
