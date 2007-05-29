@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.14 2007-05-16 10:55:47 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.15 2007-05-29 15:17:21 matthew Exp $';
 
 use strict;
 
@@ -56,18 +56,8 @@ sub friendly_from_os ($) {
     s# GL Assembly Const$##;
 
     # Specific to wards and councils
-    s#\s*\(([A-Z]{2})\)$##; # Pendle (BC) => Pendle
-    s#\s*([A-Z]{2})$##; # Pendle (BC) => Pendle
-    s#^City and County of the#The#;         # City and County of the City of London => the City of London
-    s# City Council$##;    # OS say "District", GovEval say "City Council", we drop both to match
-    s# County Council$##;  # OS say "District", GovEval say "City Council", we drop both to match
-    s# Borough Council$##; # Stafford Borough Council => Stafford
-    s# Council$##;         # Medway Council => Medway
-    s#^City of ##;         # City of Glasgow => Glasgow
+    s#\s*[A-Z]{2}$##; # Eaton Bray ED => Eaton Bray
     s# District$##;
-    s# County$##;
-    s# City$##;
-    s# London Boro$##;
     s# Ward$##;
 
     # General
@@ -76,6 +66,31 @@ sub friendly_from_os ($) {
     return $_;
 }
 
+# friendly_from_mysoc NAME
+# Convert the NAME of a council into a friendly version, including
+# type of council. Input is the mySociety version of a name, from somewhere
+sub friendly_from_mysoc ($) {
+    $_ = shift;
+
+    s/ \(BC\)$/ Borough Council/;
+    s/ \(DC\)$/ District Council/;
+    s/ \(UC\)$/ Council/;
+    s/N\. /North /;
+    s/S\. /South /;
+    s/E\. /East /;
+    s/W\. /West /;
+    s/Gt\. /Great /;
+    s/Corporation of London/City of London Corporation/;
+
+    s/^City of //; # City of Glasgow => Glasgow
+
+    s/sh'r$/shire/; # Fix Renfrewshire
+    s/W\. Isles Council/Comhairle nan Eilean Siar/;
+    s/^Blackburn /Blackburn with Darwen /;
+
+    return $_;
+
+}
 my $s = $dbh->prepare('select id from area order by id');  # XXX generations
 $s->execute();
 
@@ -83,18 +98,15 @@ while (my ($area_id) = $s->fetchrow_array()) {
     my $names = $dbh->selectall_hashref('select name_type, name from area_name where area_id = ?', 'name_type', {}, $area_id);
     my $friendly;
     if (exists($names->{M})) {
-        $friendly = $names->{M}->{name};
+        # Currently EUR(NI), CTY, DIS, LBO, MTD, UTA, LGD, ward edits
         # This fixes up the (originally GovEval) names for display
-        $friendly =~ s/ \(BC\)$/ Borough Council/;
-        $friendly =~ s/ \(DC\)$/ District Council/;
-        $friendly =~ s/ \(UC\)$/ Council/;
-        $friendly =~ s/Corporation of London/City of London Corporation/; # XXX: This the right place?
+        $friendly = friendly_from_mysoc($names->{M}->{name});
         warn "Brackets in name $friendly" if $friendly =~ m/\(|\)/;
-    } elsif (exists($names->{L})) {
+    } elsif (exists($names->{L})) { # LGE, WMC(Scotland)
         $friendly = friendly_from_os($names->{L}->{name});
-    } elsif (exists($names->{O})) {
+    } elsif (exists($names->{O})) { # Most
         $friendly = friendly_from_os($names->{O}->{name});
-    } elsif (exists($names->{S})) {
+    } elsif (exists($names->{S})) { # COP, NIE, WMC(NI)
         $friendly = $names->{S}->{name};
     } else {
         print STDERR "No name to make friendly for $area_id\n";
