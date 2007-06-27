@@ -304,6 +304,13 @@ def parseNIAssemblySite():
             member.forename = split_again[1]+' '+'JNR'
         else:
             member.surname, member.forename = tuple(member.name.rsplit(' ',1))
+
+        # Manual fixes
+        if member.forename == 'PJ':
+            member.forename = 'P J'
+        if member.surname[0] == '#':
+            member.surname = member.surname[1:]
+
         member.email = member.email.strip()
         
         f.write( '%s\t%s\t%s\t%s\t%s\t\t%s\n' % ( member.forename,
