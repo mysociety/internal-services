@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.36 2007-05-03 12:14:34 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.37 2007-07-18 09:26:43 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -478,7 +478,7 @@ sub match_db_areas ($$) {
     my $aa = $dbh->selectall_hashref($s, 'id');
 
     if (scalar(keys(%$aa)) < @$areas) {
-        print STDERR "condition = $condition\ngot " . scalar(keys(%$aa)) . " from db, but have " . scalar(@$areas) . " to match";
+        print STDERR "condition = $condition\ngot " . scalar(keys(%$aa)) . " from db, but have " . scalar(@$areas) . " to match\n";
         print STDERR "read in:\n";
         foreach (sort { $a->name() cmp $b->name() } @$areas) {
             print STDERR "    ", $_->name(), "\n";
@@ -630,5 +630,5 @@ $total_shape_tests = $total_queries = 0;
 }
 
 print STDERR "dbh->commit disabled, rolling back\n";
-# $dbh->commit();
+$dbh->commit();
 

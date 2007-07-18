@@ -3,18 +3,26 @@
 # generate-boundary-polyline:
 # Given some area IDs and an NTF file defining those areas, generate GPolylines of them.
 
-my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.2 2007-05-16 10:55:47 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.3 2007-07-18 09:26:43 matthew Exp $';
 
 use strict;
 
+use Getopt::Long;
 use mySociety::GeoUtil;
 use Common;
 use BoundaryLine;
 
-my $ntf_file = shift;
-my @area_ids = @ARGV;
-die "First argument is NTF file" unless $ntf_file && -e $ntf_file;
-die "Other arguments are area IDs" unless @area_ids;
+my @ntf = @ARGV;
+@ARGV = ();
+my @area_ids;
+while (<>) {
+    chomp;
+    push @area_ids, $_;
+}
+@area_ids = split(',',join(',',@area_ids));
+
+die "Need to supply NTF files" unless @ntf;
+die "Need to supply area IDs" unless @area_ids;
 
 my $dbh = Common::connect_to_mapit_database();
 
@@ -26,7 +34,9 @@ my $s = "select id, name from area, area_name
 my $os_name_to_db_info = $dbh->selectall_hashref($s, 'name');
 
 my (@shapes, %onscode_to_shape, %area_type_to_shape, %aaid_to_shape);
-BoundaryLine::load_ntf_file($ntf_file, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+foreach (@ntf) {
+    BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+}
 
 # Loop through shapes
 my ($minx, $maxx, $miny, $maxy);
@@ -34,13 +44,14 @@ foreach my $A (@shapes) {
     my $db_entry = $os_name_to_db_info->{$A->name()}; 
     next if (!$db_entry);
 
-    (my $name = $A->name()) =~ s/ .*//;
+    (my $name = $A->name()) =~ s/ /_/g;
 
     $minx = $A->minx() if !defined($minx) || $A->minx() < $minx;
     $maxx = $A->maxx() if !defined($maxx) || $A->maxx() > $maxx;
     $miny = $A->miny() if !defined($miny) || $A->miny() < $miny;
     $maxy = $A->maxy() if !defined($maxy) || $A->maxy() > $maxy;
 
+    my $c = 1;
     foreach (@{$A->parts()}) {
         my ($sense, $vv) = @$_;
         my @polydata = unpack('d*', $vv);
@@ -49,7 +60,9 @@ foreach my $A (@shapes) {
             my ($x, $y) = mySociety::GeoUtil::national_grid_to_wgs84($polydata[$i], $polydata[$i+1], 'G');
             push @out, 'new GLatLng(' . $x . ',' . $y . ')';
         }
-        print "var p$name = new GPolyline([" . join(',',@out) . '], "#ff0000", 2)' . "\n";
+        print "var p$name$c = new GPolyline([" . join(",\n",@out) . '], "#ff0000", 2)' . "\n";
+        print "map.addOverlay(p$name$c)\n";
+        $c++;
     }
 }
 

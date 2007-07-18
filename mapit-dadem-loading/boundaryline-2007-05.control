@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+#
+# boundaryline-2007-05.control:
+# Control file for loading May 2007 Boundary-Line (e.g., with new
+# boundaries).
+#
+# Copyright (c) 2007 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: boundaryline-2007-05.control,v 1.1 2007-07-18 09:26:43 matthew Exp $
+#
+
+sub find_best_match ($$) {
+    my ($name, $list) = @_;
+    return (sort { Text::LevenshteinXS::distance($name, $a->name()) <=> Text::LevenshteinXS::distance($name, $b->name()) } @$list)[0];
+}
+
+# control_function SHAPES ONSCODE AREATYPE
+# Function called to fix up BL.
+sub control_function ($$$) {
+    my ($shapes, $onscode_idx, $area_type_idx) = @_;
+
+    # New Boundary Line codes the Isles of Scilly as a county. We don't,
+    # instead treating them as a special case, which is what they are.
+    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
+    # Remove those areas from the type index.
+    $ios->deleted(1);
+    foreach ($ios->children()) {
+        $_->deleted(1);
+    }
+
+    # All Scottish councils have had boundary changes,
+    # but we don't have Boundary-Line for them yet.
+    # foreach (@{$area_type_idx->{UTA}}) {
+    #     $_->alreadyexists(0) if $_->country() eq 'S';
+    # }
+
+    # Some English councils have had boundary changes
+    foreach (@{$area_type_idx->{UTA}}) {
+        if ($_->name() eq 'South Gloucestershire') {
+	    foreach ($_->children()) {
+                $_->alreadyexists(0);
+	    }
+	}
+    }
+    foreach (@{$area_type_idx->{DIS}}) {
+        if ($_->name() =~ /^(Castle Morpeth|Corby|Dacorum|East Northamptonshire|Kettering|Lincoln|Mendip|Newark and Sherwood|North Kesteven|North Hertfordshire|North Wiltshire|South Holland|South Northamptonshire|Taunton Deane|Wansbeck|West Wiltshire) District$/) {
+	    foreach ($_->children()) {
+                $_->alreadyexists(0);
+	    }
+	}
+    }
+
+    # Welsh Assembly has had boundary changes
+    foreach (@{$area_type_idx->{WAC}}) {
+        $_->alreadyexists(0);
+    }
+    foreach (@{$area_type_idx->{WAE}}) {
+        $_->alreadyexists(0);
+    }
+
+}
+
+1;

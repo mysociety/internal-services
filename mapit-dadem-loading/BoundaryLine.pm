@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.6 2007-04-03 15:21:26 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.7 2007-07-18 09:26:43 matthew Exp $
 #
 
 use strict;
@@ -120,6 +120,8 @@ sub load_ntf_file {
         # Detached subparts of administrative areas are named with a
         # suffix "(DET NO n)". Remove it.
         $name =~ s#\(DET( NO \d+|)\)\s*##gi;
+	# Says which districts are boroughs, like we care
+	$name =~ s#\(B\)$##;
         $name =~ s#\s+$##;
 
         # Bounding rectangle of this shape.
@@ -261,13 +263,13 @@ sub load_ntf_file {
 
     # Now use the map of parent collection IDs to fix up the parent/child
     # mapping.
-    print STDERR "\n";
+    #print STDERR "\n";
     foreach my $child (keys %collectid_to_parent_collectid) {
         my $parent = $collectid_to_parent_collectid{$child};
         die "child collection ID #$child does not exist but was referenced by another area" if (!exists($collectid_to_area{$child}));
         $collectid_to_area{$child}->parent($collectid_to_area{$parent});
         $collectid_to_area{$parent}->children($collectid_to_area{$child});
-        printf STDERR "%s lies inside %s\n", $collectid_to_area{$child}->name(), $collectid_to_area{$parent}->name();
+        #printf STDERR "%s lies inside %s\n", $collectid_to_area{$child}->name(), $collectid_to_area{$parent}->name();
     }
 
     undef $ntf;
