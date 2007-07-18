@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.8 2006-07-24 00:42:09 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.9 2007-07-18 13:29:30 dademcron Exp $';
 
 use strict;
 
@@ -89,7 +89,7 @@ while ($m->follow_link(n => $n, url_regex => qr#^.*_.*/index.htm$#)) {
             $mspparty = $2;
             # Cases like 'Elected as Scottish Nationalist, but has no party
             # allegiance while in his post as Presiding Officer'.
-            if ($mspparty =~ m/Presiding Officer/) {
+            if ($mspparty =~ m/Presiding Officer/ || $mspparty eq 'No Party Affiliation') {
                 $mspparty = 'Presiding Officer';
             }
         }
