@@ -51,9 +51,6 @@ function by_const($a, $b) {
 uasort($out, 'by_const');
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 foreach ($out as $name => $arr) {
-    # Aberconwy, Arfon, and Dwyfor Meirionnydd are not yet in our database
-    if (in_array($arr['const'], array('Aberconwy', 'Arfon', 'Dwyfor Meirionnydd')))
-        continue;
     preg_match('#^(.*) (.*?)$#', $name, $m);
     list($first, $last) = array($m[1], $m[2]);
     print "$first,$last,$arr[const],$arr[party],$arr[email],,http://www.assemblywales.org/memhome/$arr[img]\n";
@@ -62,6 +59,7 @@ foreach ($out as $name => $arr) {
 function party_lookup($p) {
     if ($p == 'Labour Party') return 'Labour';
     elseif ($p == 'Welsh Conservative Party') return 'Conservative';
+    elseif ($p == 'Welsh Liberal Democrats') return 'Liberal Democrat';
     elseif ($p == 'Independant') return 'Independent';
     else return $p;
 }
