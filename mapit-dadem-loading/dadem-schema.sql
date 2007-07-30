@@ -5,14 +5,14 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.38 2007-05-03 12:59:46 matthew Exp $
+-- $Id: dadem-schema.sql,v 1.39 2007-07-30 16:51:59 matthew Exp $
 --
 
 -- data about status of an area in relation to its representatives
 -- for example, invalid because of election
 create table area_status (
     area_id integer not null,
-    status text not null check (status in('none','pending_election','recent_election')) default 'none'
+    status text not null check (status in('none','pending_election','recent_election','boundary_changes')) default 'none'
 );
 create unique index area_status_area_id_idx on area_status(area_id);
 
