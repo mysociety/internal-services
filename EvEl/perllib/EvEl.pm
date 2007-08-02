@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.56 2006-08-25 21:34:40 chris Exp $
+# $Id: EvEl.pm,v 1.57 2007-08-02 11:45:04 matthew Exp $
 #
 
 package EvEl::Error;
@@ -33,14 +33,15 @@ use Mail::RFC822::Address;
 use MIME::Entity;
 use MIME::Words;
 use Net::SMTP;
-use Text::Wrap ();
 use Data::Dumper;
 use utf8;
 
 use mySociety::Config;
 use mySociety::DBHandle qw(dbh);
 use mySociety::Email;
-use mySociety::Util qw(random_bytes print_log is_valid_email);
+use mySociety::EmailUtil qw(is_valid_email);
+use mySociety::Random qw(random_bytes);
+use mySociety::SystemMisc qw(print_log);
 
 BEGIN {
     mySociety::DBHandle::configure(

@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.9 2007-03-08 21:46:23 matthew Exp $
+# $Id: NeWs.pm,v 1.10 2007-08-02 11:45:04 matthew Exp $
 #
 
 package NeWs;
@@ -364,9 +364,9 @@ use RABX;
 use Data::Dumper;
 
 use mySociety::MaPit;
-use mySociety::Util;
+use mySociety::Sundries;
 
-mySociety::Util::create_accessor_methods();
+mySociety::Sundries::create_accessor_methods();
 
 #---------------------------------------------
 # new FIELD VALUE ...
@@ -553,7 +553,7 @@ use Data::Dumper;
 use fields qw( name population lat lon coverage );
 
 
-mySociety::Util::create_accessor_methods();
+mySociety::Sundries::create_accessor_methods();
 
 #-------------------------------------------
 # Constructor.
@@ -577,7 +577,7 @@ use Data::Dumper;
 use fields qw( id name interests email telephone fax newspaper_id isdeleted );
 
 
-mySociety::Util::create_accessor_methods();
+mySociety::Sundries::create_accessor_methods();
 
 #-------------------------------------------
 # Constructor.

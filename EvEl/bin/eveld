@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.10 2006-08-25 21:35:35 chris Exp $';
+my $rcsid = ''; $rcsid .= '$Id: eveld,v 1.11 2007-08-02 11:45:04 matthew Exp $';
 
 use strict;
 
@@ -31,7 +31,7 @@ BEGIN {
 }
 use mySociety::DBHandle qw(dbh);
 use mySociety::PIDFile;
-use mySociety::Util qw(print_log);
+use mySociety::SystemMisc qw(print_log);
 
 use EvEl;
 
@@ -89,7 +89,7 @@ if ($help) {
 
 if ($once) {
     if (!$debug) {
-        mySociety::Util::log_to_stderr(0);
+        mySociety::SystemMisc::log_to_stderr(0);
     }
     EvEl::delete_old_messages();
     my $N = EvEl::run_queue();
@@ -97,7 +97,7 @@ if ($once) {
     exit(0);
 }
 
-mySociety::Util::daemon() unless ($debug);
+mySociety::SystemMisc::daemon() unless ($debug);
 
 my $pidfile;
 try {
@@ -114,7 +114,7 @@ print_log('info', "starting up");
 $SIG{TERM} = $SIG{INT} = sub { $foad = POSIX::SIGTERM }; # so children know to exit
     # catch SIGINT so that we can conveniently be run from the terminal with
     # --debug, and still shut down cleanly.
-my $termsig = mySociety::Util::manage_child_processes({
+my $termsig = mySociety::SystemMisc::manage_child_processes({
         queue =>      [1, \&run_queue_process],
         delete =>     [1, \&run_delete_process]
     });
@@ -181,5 +181,5 @@ Copyright (c) 2005 UK Citizens Online Democracy
 
 =head1 VERSION
 
-$Id: eveld,v 1.10 2006-08-25 21:35:35 chris Exp $
+$Id: eveld,v 1.11 2007-08-02 11:45:04 matthew Exp $
 
