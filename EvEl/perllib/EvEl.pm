@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.57 2007-08-02 11:45:04 matthew Exp $
+# $Id: EvEl.pm,v 1.58 2007-08-09 22:46:04 matthew Exp $
 #
 
 package EvEl::Error;
@@ -130,7 +130,6 @@ sub do_smtp ($$$) {
 
 # Consider moving these into config file.
 use constant SEND_MAX_ATTEMPTS => 10;
-use constant SEND_RETRY_INTERVAL => 60;     # seconds
 # Time we hang on to message information in case bounces arrive.
 use constant RETAIN_TIME => 7 * 86400;
 
@@ -147,7 +146,7 @@ sub run_queue () {
                             or whenlastattempt < ? - ? * (2 ^ numattempts - 1))
                     order by random()
                 ');
-    $s->execute(SEND_MAX_ATTEMPTS, time(), SEND_RETRY_INTERVAL);
+    $s->execute(SEND_MAX_ATTEMPTS, time(), mySociety::Config::get('EVEL_SEND_RETRY_INTERVAL', 60));
 
     my $smtp;
     my $nsent = 0; # Number of messages sent on this SMTP transaction
@@ -166,7 +165,7 @@ sub run_queue () {
                         and (whenlastattempt is null
                             or whenlastattempt < ? - ? * (2 ^ numattempts - 1))
                     for update of message_recipient', {},
-                    $msg, $recip, time(), SEND_RETRY_INTERVAL);
+                    $msg, $recip, time(), mySociety::Config::get('EVEL_SEND_RETRY_INTERVAL', 60));
         next unless ($d);
 
         print_log('debug', "considering delivery of message $msg to recipient $recip <$d->{address}>");
@@ -178,8 +177,7 @@ sub run_queue () {
                 $smtp->quit();
             }
             my $smtpserver = mySociety::Config::get('EVEL_MAIL_HOST', 'localhost');
-            $smtp = new Net::SMTP($smtpserver, Timeout => 15) or
-                throw EvEl::Error("unable to connect to $smtpserver: $!");
+            $smtp = new Net::SMTP($smtpserver, Timeout => mySociety::Config::get('EVEL_SMTP_TIMEOUT', 15)) or next;
             $nsent = 0;
             print_log('debug', "connected to SMTP server $smtpserver"); 
         }
@@ -226,9 +224,8 @@ sub run_queue () {
                     where message_id = ? and recipient_id = ?', 
                     {}, time(), $msg, $recip);
             dbh()->commit();
-            $E->throw();
+            next;
         };
-
 
         dbh()->do('
                 update message_recipient
