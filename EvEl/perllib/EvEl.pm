@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.58 2007-08-09 22:46:04 matthew Exp $
+# $Id: EvEl.pm,v 1.59 2007-08-13 17:34:10 matthew Exp $
 #
 
 package EvEl::Error;
@@ -210,13 +210,14 @@ sub run_queue () {
             ++$nsent;
             ++$nsent_total;
             print_log('info', "sent message $msg to recipient $recip <$d->{address}>");
+            return 0;
         } catch EvEl::Error with {
             my $E = shift;
             print_log('err', "error during SMTP dialogue: $E");
             $smtp->quit();
             $smtp = undef;
-            # For the moment just treat all errors the same way: abort the
-            # queue run and hold off for a bit.
+            # For the moment just treat all errors the same way: continue the
+            # queue run, holding off on this message for a bit
             dbh()->do('
                     update message_recipient
                     set numattempts = numattempts + 1,
@@ -224,8 +225,9 @@ sub run_queue () {
                     where message_id = ? and recipient_id = ?', 
                     {}, time(), $msg, $recip);
             dbh()->commit();
-            next;
-        };
+            return 1;
+        }
+            and next; # If we were in the catch block, skip to next message
 
         dbh()->do('
                 update message_recipient
