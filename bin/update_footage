@@ -1,0 +1,87 @@
+#!/usr/bin/perl -w
+use strict;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../perllib";
+
+use mySociety::Config;
+use mySociety::DBHandle qw (dbh);
+use mySociety::Util qw(print_log);
+
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
+      mySociety::DBHandle::configure(
+				     Name => mySociety::Config::get('BBC_DB_NAME'),
+				     User => mySociety::Config::get('BBC_DB_USER'),
+				     Password => mySociety::Config::get('BBC_DB_PASS'),
+				     Host => mySociety::Config::get('BBC_DB_HOST', undef),
+				     Port => mySociety::Config::get('BBC_DB_PORT', undef)
+				     );
+  }
+
+use Getopt::Long;
+
+use BBCParl::Programmes;
+
+# get command line options
+
+my ($start_date, $end_date, $date, $verbose, $nomirror, $nohansard) = ('','','','','');
+
+$verbose = 0;
+$nomirror = 0;
+$nohansard = 0;
+
+GetOptions (
+	    'start-date=s' => \$start_date,
+	    'end-date=s' => \$end_date,
+	    'date=s' => \$date,
+	    'verbose+' => \$verbose,
+	    );
+
+# invoke the actual programmes-processing code
+
+my $object = BBCParl::Programmes->new();
+
+exit(run($object));
+
+sub run {
+    my ($object) = @_;
+
+    # this function checks an Amazon SQS queue for new footage, and
+    # updates the database with this information. it then checks the
+    # database for all unprocessed footage, and works out what
+    # programmes were broadcast during that footage; these programmes
+    # are added to the database, and processing requests for these
+    # programmes are added to an Amazon SQS queue.
+
+    $object->update_raw_footage_table();
+
+    my $num_footage = $object->get_raw_footage_to_process();
+
+    unless (defined($num_footage)) {
+	return -1;
+    }
+
+    unless ($num_footage) {
+	return 0;
+    }
+    
+    unless (defined($object->calculate_date_time_range())) {
+	return -1;
+    }
+
+    unless (defined($object->update_programmes_from_footage())) {
+	return -1;
+    }
+
+    unless (defined($object->enqueue_processing_requests())) {
+	return -1;
+    }
+
+    $object->update_footage_status();
+
+    return 0;
+}

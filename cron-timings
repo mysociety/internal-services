@@ -1,0 +1,26 @@
+Daily:
+
+0000	bitter	update_programmes - checks for unprocessed footage, calculates time window, fetches list of programmes in that window, adds to database marked not-yet-processed, checks whether they can be made available (rights), sends notification to EC2 via SQS, updates status in database for each programme (not-available or waiting-to-be-processed ?)
+
+0159	EC2	download_video - sleeps for 58 seconds, downloads 6.5 hours of video, converts to mpeg, uploads as private, sends notification to bitter via SQS
+
+0759	EC2	download_video - sleeps for 58 seconds, downloads 6.5 hours of video, converts to mpeg, uploads as private, sends notification to bitter via SQS
+
+0800	bitter	sync_captions(?) - fetches new captions files, looks for captions from previous date, fetches speeche data (inc global ids, aka gids) from twfy, merges captions and twfy speeches, produces list of update times for gids; fetched by cake and synchronised with twfy db (hansard table)
+
+0800	bitter	update_programmes - checks for unprocessed footage, calculates time window, fetches list of programmes in that window, adds to database marked not-yet-processed, checks whether they can be made available (rights), sends notification to EC2 via SQS, updates status in database for each programme (not-available or waiting-to-be-processed ?)
+
+0805	bitter	update_footage - fetches list of new footage from SQS, adds to database marked as not-yet-processed
+
+0810	EC2	process_footage_ec2 - fetches list of programmes from SQS, foreach programme converts from mpeg to flv, uploads as public-read, sends notification to bitter via SQS
+
+1359	EC2	download_video - sleeps for 58 seconds, downloads 6.5 hours of video, converts to mpeg, uploads as private, sends notification to bitter via SQS
+
+1400	bitter	update_programmes - checks for unprocessed footage, calculates time window, fetches list of programmes in that window, adds to database marked not-yet-processed, checks whether they can be made available (rights), sends notification to EC2 via SQS, updates status in database for each programme (not-available or waiting-to-be-processed ?)
+
+1959	EC2	download_video - sleeps for 58 seconds, downloads 6.5 hours of video, converts to mpeg, uploads as private, sends notification to bitter via SQS
+
+2000	bitter	update_programmes - checks for unprocessed footage, calculates time window, fetches list of programmes in that window, adds to database marked not-yet-processed, checks whether they can be made available (rights), sends notification to EC2 via SQS, updates status in database for each programme (not-available or waiting-to-be-processed ?)
+
+2010	EC2	process_footage_ec2 - fetches list of programmes from SQS, foreach programme converts from mpeg to flv, uploads as public-read, sends notification to bitter via SQS
+

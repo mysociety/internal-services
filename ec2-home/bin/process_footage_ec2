@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+use strict;
+
+use Getopt::Long;
+
+use BBCParl::Process;
+
+# invoke the actual programmes-processing code
+
+my ($s, $e);
+
+$s = `date`;
+
+my $object = BBCParl::Process->new();
+
+exit $object->run();
+
+$e = `date`;
+
+warn "DEBUG: start = $s, end = $e";

@@ -1,0 +1,87 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use Getopt::Long;
+
+use BBCParl::Captions;
+
+# get command line options
+
+my ($help, $start_date, $end_date, $date, $verbose, $nomirror, $nohansard, $print_stats, $no_output_write) = ('','','','','','','','');
+
+$help = 0;
+$verbose = 0;
+$nomirror = 0;
+$nohansard = 0;
+$print_stats = 0;
+$no_output_write = 0;
+
+GetOptions (
+	    'help+' => \$help,
+	    'start-date=s' => \$start_date,
+	    'end-date=s' => \$end_date,
+	    'date=s' => \$date,
+	    'verbose+' => \$verbose,
+	    'nomirror+' => \$nomirror,
+	    'nohansard+' => \$nohansard,
+	    'dry-run+' => \$no_output_write,
+	    'stats+' => \$print_stats
+	    );
+
+if ($help) {
+    print << "END";
+usage: sync_captions [--date=yyyy-mm-dd] [--start-date=yyyy-mm-dd --end-date=yyy-mm-dd]
+                     [--verbose] [--nomirror] [--nohansard] [--stats] [--dry-run]
+
+1) Creates/updates local mirror of captions logfiles from the BBC for
+   specified dates (or previous day if no dates are specified).
+
+2) For a given date or range of dates, extracts captions data from
+   local files and Hansard data from TheyWorkForYou.com, and
+   synchronises the two lists of speeches.
+
+3) Produces a list of speeches to be updated with new timing data (in
+   the form gid,htime) that is then fetched by TheyWorkForYou.com and
+   applied to the master database.
+
+--help                   Print this information
+
+--verbose                Print all messages to STDOUT
+
+--date=yyyy-mm-dd        Only update speeches on yyyy-mm-dd
+
+--start-date=yyyy-mm-dd  Only update speeches between yyyy-mm-dd
+--end-date=yyyy-mm-dd    and yyyy-mm-dd
+
+--nomirror               Do not fetch updated captions files from the BBC (just use local mirror)
+
+--nohansard              Do not fetch hansard; do not merge hansard and captions; do not write update files
+
+--dry-run                Fetch and combine captions and hansard, but do not write out update files
+
+--stats                  Print summary of this run to STDOUT
+
+END
+
+    exit 0;
+}
+
+# invoke the actual captions-processing code
+
+my $object = BBCParl::Captions->new(
+				    'start-date' => $start_date,
+				    'end-date' => $end_date,
+				    'date' => $date,
+				    'verbose' => $verbose,
+				    'nomirror' => $nomirror,
+				    'nohansard' => $nohansard,
+				    'no-output-write' => $no_output_write,
+				    'print-stats' => $print_stats
+				    );
+
+if ($object->run()) {
+    exit(0);
+} else {
+    exit(-1);
+}

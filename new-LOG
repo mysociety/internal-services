@@ -1,0 +1,118 @@
+Start with a clean instance of an Amazon Public Image (FC4 = Fedora Core version 4 == very old)
+
+2007-06-06
+
+Downloaded aws from http://timkay.com/aws/aws into /downloads/aws/
+
+Ran "perl aws --install" (sets aws as executable; did not symlink from /usr/bin because not logged in as root and not su'ed)
+
+Downloaded access keys and x508 certificate into /downloads/amazon-certs/
+
+Tested aws (list all buckets in our S3 account) - works fine!  Hurrah!  Tim Kay gets a Christmas card from me in 2007!
+
+Created an AWS group:
+
+OLD ./ec2addgrp auto_service -d "Instances that run automated services"
+NEW cd mysociet/bbcparlvid
+NEW bin/aws-1.1beta addgrp bbcparlservers -d "Virtual servers that handle BBC Parliament processing and video serving"
+
+Authorised this group to be accessed via ssh (port 22) and http (port 80) from the public internet 0.0.0.0/0 (was going to be just 82.111.230.0/24 but decided against this):
+
+OLD ./ec2authorize auto_service -P tcp -p 22 -s 82.111.230/24
+OLD ./ec2authorize auto_service -P tcp -p 80 -s 0.0.0.0/0
+NEW bin/aws-1.1beta authorize bbcparlservers -P tcp -p 22 -s 0.0.0.0/0
+NEW bin/aws-1.1beta authorize bbcparlservers -P tcp -p 80 -s 0.0.0.0/0
+
+Created a keypair to control group bbcparlservers (WAS auto_services) and made it read/write only by owner:
+
+OLD ./ec2-add-keypair auto_service_keypair  # cut and pasted the keypair result into ~/conf/auto_service_keypair
+OLD chmod 600 ~/conf/auto_service_keypair
+NEW bin/aws-1.1beta add-keypair bbcparlservers_keypair  # cut and pasted the keypair result into ~/conf/ejhp/bbcparlservers_keypair - the name has to match the keypair name, although the file only contains the private key
+NEW chmod 600 ~/conf/ejhp/bbcparlservers_keypair 
+
+Started a new instance of Fedora Core 4 Base public image (ami-20b65349) using the auto_service group:
+
+OLD ~/downloads/aws/ec2run -k auto_service_keypair -g auto_service ami-20b65349  # working from ~/conf/ at that point
+NEW bin/aws-1.1beta run -k bbcparlservers_keypair -g bbcparlservers ami-20b65349
+
+Find out the hostname of the new instance (takes a few seconds to boot):
+
+~/mysociety/bbcparlvid/bin/aws-1.1beta describe-instances -k bbcparlservers_keypair
+
+Logged into the instance using local private key:
+
+OLD ssh -i ~/conf/auto_service_keypair root@[host]
+NEW ssh -i ~/conf/ejhp/bbcparlservers_keypair root@[host]
+
+Upgrade it from FC4 to FC7 == quite recent
+
+Installing packages using yum:
+
+yum install subversion gcc
+
+yum update
+
+Upgrading from fedora core 4 (FC4) to fedora core 7 (FC7).  This is because most of the FC4 packages are very old (~ 2 years), and we need modern versions of e.g. mplayer, ffmpeg.  Following instructions 
+from http://samuelsidler.com/2007/02/upgrading-ec2-server-to-fedora-core-6.html
+
+Start with a new instance (AMI = ami-20b65349, host = ec2-72-44-45-194.z-2.compute-1.amazonaws.com, group = auto_service, keypair = auto_service_keypair ) and login as root.  Start by cleaning up the yum cache:
+
+yum clean all
+
+Update the kernel to FC5:
+
+rpm -Uhv http://download.fedora.redhat.com/pub/fedora/linux/core/5/i386/os/Fedora/RPMS/fedora-release-5-5.noarch.rpm
+
+yum remove fuse-encfs\* # because that package will fail when upgrading
+
+yum upgrade udev # because that package must be upgraded before the rest for some silly reason
+
+yum install kernel # kernel installation part 1. this takes a long time. :(
+
+reboot # crumbs, really? I shall be most unhappy if this wipes out all the packages I've just installed
+
+yum clean all
+
+# Now upgrade to FC6
+
+rpm -Uhv http://download.fedora.redhat.com/pub/fedora/linux/core/6/i386/os/Fedora/RPMS/fedora-release-6-4.noarch.rpm http://download.fedora.redhat.com/pub/fedora/linux/core/6/i386/os/Fedora/RPMS/fedora-release-notes-6-3.noarch.rpm
+
+yum remove kernel-2.6.17 kernel-2.6.16 # need to remove the other kernels, or the upgrade will fail
+
+yum update # takes a long time
+
+yum install cvs gcc mplayer emacs
+
+wget http://ftp.freshrpms.net/pub/freshrpms/fedora/linux/4/freshrpms-release/freshrpms-release-1.1-1.fc.noarch.rpm
+
+rpm -i freshrpms-release-1.1-1.fc.noarch.rpm
+
+yum update
+
+Install mplayer (we need this to stream RealPlayer to disk):  [[ Actually, now we're using Windows Media, since mplayer and RealPlayer was a pain to get working, but it still uses mplayer. ]]
+
+yum install mplayer  # and about 25 other dependencies...  NOTE: Sometimes yum just fails to work, but re-runnig it a few times seems to work okay.
+
+mplayer can't find /usr/lib/libGL.so.1 # because it's not there - for some reason, the mplayer package doesn't include this as a dependency
+
+Fix this by installing the Mesa-libGL package:
+
+yum install mplayer ffmpeg xorg-x11-Mesa-libGL
+
+Adding new user:
+
+useradd -m services
+
+passwd services
+
+Changing to that user:
+
+su - services
+
+Mplayer core dumps on the .ram file, because it contains a single line pointing to rtsp://rmlive-acl.bbc.co.uk/bbc-rbs/rmlive-acl/farm/live24/news/bb/rm/video/parliament_16x9_bb.rm
+
+Mplayer can't download rtsp://rmlive-acl.bbc.co.uk/bbc-rbs/rmlive-acl/farm/live24/news/bb/rm/video/parliament_16x9_bb.rm - it wants the "live.com streaming media libraries (see http://www.live555.com/mplayer/). I think it needs the "Live 2007" package.
+
+Another option is vlc (the videolan client), which should be able to handle this.  Worryingly, the Windows version can only handle the audio from rtsp://rmlive-acl.bbc.co.uk/bbc-rbs/rmlive-acl/farm/live24/news/bb/rm/video/parliament_16x9_bb.rm - we'll see...
+
+New plan - use the Windows Media stream (mms://wmlive.bbc.net.uk/wms/news/parliament_16x9_bb_s1 or mms://wmlive.bbc.net.uk/wms/news/parliament_16x9_bb_s2).

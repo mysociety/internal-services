@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+
+# version 0.1 - etienne pollard (mysociety@ejhp.net)
+
+# downloads video from online streaming video servers (e.g. BBC
+# Parliament) and stores raw footage in BBC Radio One's S3 account
+
+use strict;
+
+use BBCParl::Fetch;
+
+my $object = BBCParl::Fetch->new();
+
+# since we're invoked at xx:59:00, we should sleep for just under a minute
+
+sleep (57);
+
+$object->run();
+
+exit(0);
