@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.34 2006-11-09 10:58:39 matthew Exp $
+# $Id: match.cgi,v 1.35 2007-08-22 14:06:14 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.34 2006-11-09 10:58:39 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.35 2007-08-22 14:06:14 matthew Exp $';
 
 use strict;
 
@@ -361,6 +361,7 @@ sub do_council_edit ($) {
     my ($q) = @_;
     my $newreptext = "Edit this for new rep";
 
+    my $result;
     if ($q->param('posted')) {
         if ($q->param('Cancel')) {
             print $q->redirect($q->param('r'));
@@ -396,7 +397,7 @@ sub do_council_edit ($) {
         $d_dbh->commit();
 
         # Regenerate stuff
-        my $result = CouncilMatch::process_ge_data($area_id, 0);
+        $result = CouncilMatch::process_ge_data($area_id, 0);
 
         # Redirect if it's Save and Done
         if ($q->param('Save and Done')) {
@@ -423,6 +424,7 @@ sub do_council_edit ($) {
     my $name = $name_data->{'name'};
     print html_head($q, $name . " - Edit");
     print $q->h1($name . " $area_id &mdash; Edit $reps_count Reps");
+    print $q->p($result->{details}) if $result;
     print $q->p($q->b("Note:"), "Data entered here", $q->b("will"), "be
         returned to GovEval (if we ever get round to writing the script).
         Please do not enter information which a councillor wishes to remain
