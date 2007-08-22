@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.8 2007-05-16 10:55:47 matthew Exp $
+ * $Id: admin-reps.php,v 1.9 2007-08-22 14:20:30 matthew Exp $
  * 
  */
 
@@ -261,8 +261,7 @@ class ADMIN_PAGE_REPS {
                         'shame' => "Shame! Doesn't want contacting",
                         'via' => 'Contact via electoral body (e.g. Democratic Services)',
                         'unknown' => "We don't know contact details"
-                    ),
-                    array($readonly => 1));
+                    ));
             $form->addElement('text', 'email', "Email:", array('size' => 60, $readonly => 1));
             $form->addElement('text', 'fax', "Fax:", array('size' => 60, $readonly => 1));
             $form->addElement('textarea', 'note', "Notes for log:", array('rows' => 3, 'cols' => 60, $readonly => 1));
@@ -298,6 +297,9 @@ class ADMIN_PAGE_REPS {
                     . $vainfo['parent_area_id'] . '">To edit Councillors please use the match.cgi interface</a>'.
                     '<br><a href="'.$self_link.'&ds_va_id='
                     . $vainfo['parent_area_id'] . '">... or edit Democratic Services for this council</a>');
+                $finalgroup[] = &HTML_QuickForm::createElement('submit', 'done', 'Done');
+                $finalgroup[] = &HTML_QuickForm::createElement('submit', 'cancel', 'Cancel');
+                $form->addGroup($finalgroup, "finalgroup", "",' ', false);
             }
             if ($rep_id) {
                 $search_links = "Search for: ";
