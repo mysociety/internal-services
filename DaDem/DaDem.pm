@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.83 2007-08-16 16:03:27 matthew Exp $
+# $Id: DaDem.pm,v 1.84 2007-08-22 14:31:49 matthew Exp $
 #
 
 package DaDem;
@@ -741,7 +741,7 @@ sub get_representatives_history ($) {
     return \%ret;
 } 
 
-=item admin_edit_representative ID DETAILS EDITOR NOTE [FAILING]
+=item admin_edit_representative ID DETAILS EDITOR NOTE
 
 Alters data for a representative, updating the override table
 representative_edited. ID contains the representative id, or undefined
@@ -751,12 +751,11 @@ new values, or DETAILS is not defined to delete the representative. Every
 value has to be present - or else values are reset to their initial ones when
 import first happened.  Any modification counts as an undeletion.  EDITOR is
 the name of the person who edited the data.  NOTE is any explanation of why /
-where from. FAILING is so we can mark councillors as failing, when we can't
-currently do other editing. Returns ID, or if ID was undefined the new id.
+where from.  Returns ID, or if ID was undefined the new id.
 
 =cut
-sub admin_edit_representative ($$$$;$) {
-    my ($id, $newdata, $editor, $note, $failing) = @_;
+sub admin_edit_representative ($$$$) {
+    my ($id, $newdata, $editor, $note) = @_;
 
     throw RABX::Error("admin_edit_representative: please specify editor") if !$editor;
 
@@ -784,10 +783,6 @@ sub admin_edit_representative ($$$$;$) {
 
     # Modification
     if (my ($name, $party, $method, $email, $fax, $area_type) = dbh()->selectrow_array('select name, party, method, email, fax, area_type from representative where id = ?', {}, $id)) {
-        # Check they are not editing council types (those are handled by raw_input_edited)
-        if (!$failing && grep { $_ eq $area_type} @{$mySociety::VotingArea::council_child_types} ) {
-            throw RABX::Error("admin_edit_representative: council types such as '$area_type' are not edited here");
-        }
 
         # Make undef (NULL) for any unchanged fields from original
         if ($newdata->{'name'} && $newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
@@ -864,7 +859,7 @@ sub admin_mark_failing_contact ($$$$$) {
             $newmethod = 'email';
         }
         $r->{method} = $newmethod;
-        admin_edit_representative($id, $r, $editor, "Failed delivery with contact '$x': $comment", 1);
+        admin_edit_representative($id, $r, $editor, "Failed delivery with contact '$x': $comment");
     }
 
     dbh()->commit();
