@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.7 2007-07-18 09:26:43 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.8 2007-08-23 22:58:51 matthew Exp $
 #
 
 use strict;
@@ -120,8 +120,8 @@ sub load_ntf_file {
         # Detached subparts of administrative areas are named with a
         # suffix "(DET NO n)". Remove it.
         $name =~ s#\(DET( NO \d+|)\)\s*##gi;
-	# Says which districts are boroughs, like we care
-	$name =~ s#\(B\)$##;
+        # Says which districts are boroughs, like we care
+        $name =~ s#\(B\)$##;
         $name =~ s#\s+$##;
 
         # Bounding rectangle of this shape.
@@ -208,6 +208,7 @@ sub load_ntf_file {
             }
 
             $row = new Area(
+                            filename => $filename,
                             area_type => $area_type,
                             ons_code => $ons_code,
                             devolved => $devolved,

@@ -7,7 +7,7 @@
 # data in area_geometry for each area found in the NTF files is replaced.
 #
 
-my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.7 2006-09-28 10:06:42 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.8 2007-08-23 22:58:51 matthew Exp $';
 
 use strict;
 
@@ -23,7 +23,7 @@ use File::Find;
 
 use Common;
 use Area;
-use BoundaryLine qw(%interesting_areas @interesting_areas %childmap %parentmap doublesize poly_area);
+use BoundaryLine qw(%interesting_areas @interesting_areas %childmap %parentmap doublesize);
 
 my $boundaryline_directory = shift(@ARGV);
 die "argument is directory containing boundaryline NTF files" unless $boundaryline_directory;
@@ -43,7 +43,13 @@ my $dbh = Common::connect_to_mapit_database();
 # Get list of all areas, indexed by OS name
 my $g = current_generation($dbh);
 my $s = "select id, parent_area_id, unit_id, ons_code, type, name from area, area_name where area.id = area_name.area_id and name_type = 'O' and ($g >= generation_low and $g <= generation_high)";
-my $os_name_to_db_info = $dbh->selectall_hashref($s, 'name');
+$s = $dbh->selectall_arrayref($s, { Slice => {} });
+my %os_name_to_db_info;
+foreach (@$s) {
+    push @{$os_name_to_db_info{$_->{name}}{$_->{type}}}, $_->{id};
+    $os_name_to_db_info{$_->{name}}{$_->{ons_code}} = $_->{id} if $_->{ons_code};
+    push @{$os_name_to_db_info{$_->{name}}{id}}, $_->{id};
+}
 
 # Recursively scan for NTF files and load them all in
 find(\&wanted, $boundaryline_directory);
@@ -61,9 +67,32 @@ foreach my $A (@shapes) {
     my $centre_n = ($A->miny() + $A->maxy()) / 2;
     my ($centre_lat, $centre_lon) = mySociety::GeoUtil::national_grid_to_wgs84($centre_e, $centre_n, 'G');
 
-    my $db_entry = $os_name_to_db_info->{$A->name()}; 
-    if (!$db_entry) {
-        warn "couldn't find exact name match ". $A->name() . " in database";
+    my $db_id;
+    $db_id = $os_name_to_db_info{$A->name()}{$A->ons_code()} if $A->ons_code(); 
+    if (!$db_id) {
+        my $db_ids = $os_name_to_db_info{$A->name()}{$A->area_type()};
+	if (@$db_ids == 1) {
+	    $db_id = $db_ids->[0];
+	} elsif (@$db_ids) {
+	    print "Choices for " . $A->name() . ', ' . $A->area_type()
+	        . ', file ' . $A->filename() . ' are ' . join(',',@$db_ids).' ? ';
+	    $db_id = <>;
+	    chomp($db_id);
+	}
+    }
+    if (!$db_id) {
+        my $db_ids = $os_name_to_db_info{$A->name()}{id};
+	if (@$db_ids == 1) {
+	    $db_id = $db_ids->[0];
+	} elsif (@$db_ids) {
+	    print "Choices for " . $A->name() . ', ' . $A->area_type()
+	        . ', file ' . $A->filename() . ' are ' . join(',',@$db_ids).' ? ';
+	    $db_id = <>;
+	    chomp($db_id);
+	}
+    }
+    if (!$db_id) {
+        print "couldn't find exact name match ". $A->name() . " in database\n";
         next;
     }
 
@@ -93,7 +122,7 @@ foreach my $A (@shapes) {
     my $hectares = $A->hectares();
     my $area_discrepency = abs(($calculated_surface_area - ($hectares * 10000)));
 
-    print STDERR "\tDB identifier: " . $db_entry->{id} . "\n";
+    print STDERR "\tDB identifier: " . $db_id . "\n";
     print STDERR "\tBounds: " . $A->minx() . "E " . $A->miny() . "N";
     print STDERR " " . $A->maxx() . "E " . $A->maxy() . "N\n";
     print STDERR "\tBounds lat/lon: $min_lat $min_lon --> $max_lat $max_lon\n";
@@ -105,7 +134,7 @@ foreach my $A (@shapes) {
 
     die "calculated $calculated_surface_area and hectares $hectares areas disagree by lots" if $area_discrepency > 1000;
 
-    $dbh->do("delete from area_geometry where area_id = ?", {}, $db_entry->{id});
+    $dbh->do("delete from area_geometry where area_id = ?", {}, $db_id);
 
     $dbh->do("insert into area_geometry (
             area_id,
@@ -120,7 +149,7 @@ foreach my $A (@shapes) {
             ?, ?,
             ?, ?
         ) ", {}, 
-            $db_entry->{id},
+            $db_id,
             $centre_e, $centre_n,
             $A->minx(), $A->miny(),
             $A->maxx(), $A->maxy(),
@@ -132,7 +161,7 @@ foreach my $A (@shapes) {
     # parameter-binding dance:
     my $s = $dbh->prepare(q#update area_geometry set polygon = ? where area_id = ?#);
     $s->bind_param(1, $binary_poly, { pg_type => DBD::Pg::PG_BYTEA });
-    $s->bind_param(2, $db_entry->{id});
+    $s->bind_param(2, $db_id);
     $s->execute();
 }
 
