@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.62 2007-08-02 11:45:08 matthew Exp $
+# $Id: MaPit.pm,v 1.63 2007-08-23 11:17:29 matthew Exp $
 #
 
 package MaPit;
@@ -340,6 +340,35 @@ As get_voting_area_info, only takes an array of ids, and returns an array of has
 sub get_voting_areas_info ($) {
     my ($ary) = @_;
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
+}
+
+=item get_voting_area_by_name NAME [TYPE]
+
+Given NAME, return the area IDs that begin with that name, or undef if none found.
+If TYPE is specified (scalar or array ref), only return areas of those type(s).
+
+=cut
+sub get_voting_area_by_name ($;$) {
+    my ($name, $type) = @_;
+    
+    my $generation = get_generation();
+
+    my $q = "select area_id from area_name, area
+        where area_id = id and name_type='F'
+        and generation_low <= ? and ? <= generation_high
+        and name like ? || '%'";
+    my @args = ($generation, $generation, $name);
+    if (ref($type) eq 'ARRAY') {
+        my $qs = '?,' x @$type;
+        chop($qs);
+        $q .= " and type in ($qs)";
+        push @args, @$type;
+    } elsif ($type) {
+        $q .= ' and type = ?';
+        push @args, $type;
+    }
+    my $ret = dbh()->selectrow_array($q, {}, @args);
+    return $ret;
 }
 
 =item get_voting_area_geometry AREA [POLYGON_TYPE]

@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.21 2006-08-23 08:23:05 francis Exp $
+-- $Id: mapit-schema.sql,v 1.22 2007-08-23 11:17:29 matthew Exp $
 --
 
 -- generations, for currency of data
@@ -78,6 +78,7 @@ create table area_name (
 );
 
 create index area_name_area_id_idx on area_name(area_id);
+create index area_name_name_idx on area_name(name);
 
 -- full boundaries
 create table area_geometry (

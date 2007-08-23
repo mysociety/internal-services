@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.18 2007-08-07 11:38:13 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.19 2007-08-23 11:17:29 matthew Exp $';
 
 use strict;
 
@@ -83,6 +83,7 @@ sub friendly_from_mysoc ($) {
 
     s/^City of // unless /York/; # City of Glasgow/Edinburgh => Glasgow/Edinburgh
     s/Corporation of London/City of London Corporation/;
+    s/City Borough/City/; # Westminster and Liverpool
 
     s/sh'r/shire/; # Fix Renfrewshire
     s/West Isles Council/Comhairle nan Eilean Siar/;
