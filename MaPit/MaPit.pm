@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.66 2007-08-24 12:40:13 matthew Exp $
+# $Id: MaPit.pm,v 1.67 2007-08-24 12:46:55 matthew Exp $
 #
 
 package MaPit;
@@ -588,7 +588,7 @@ sub get_voting_areas_by_location ($$;$) {
         throw RABX::Error("In more than one minus polygon part") if $in_minus_count > 1;
         if ($in_plus_count && !$in_minus_count) {
             #warn "GOTCHA";
-            $ret{$inbound} = $inbounding->{$inbound};
+            $ret{$inbound} = $inbounding->{$inbound}->{type};
         }
    }
 
