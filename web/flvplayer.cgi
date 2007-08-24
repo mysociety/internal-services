@@ -4,7 +4,7 @@ use strict;
 
 # Horrible boilerplate to set up appropriate library paths.
 use FindBin;
-use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../lib";
 use lib "$FindBin::Bin/../../perllib";
 
 use mySociety::Config;
