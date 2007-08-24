@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.67 2007-08-24 12:46:55 matthew Exp $
+# $Id: MaPit.pm,v 1.68 2007-08-24 14:39:30 matthew Exp $
 #
 
 package MaPit;
@@ -344,8 +344,9 @@ sub get_voting_areas_info ($) {
 
 =item get_voting_area_by_name NAME [TYPE]
 
-Given NAME, return the area IDs that begin with that name, or undef if none found.
-If TYPE is specified (scalar or array ref), only return areas of those type(s).
+Given NAME, return the area IDs (and other info) that begin with that name, or
+undef if none found.  If TYPE is specified (scalar or array ref), only return
+areas of those type(s).
 
 =cut
 sub get_voting_area_by_name ($;$) {
@@ -353,7 +354,7 @@ sub get_voting_area_by_name ($;$) {
     
     my $generation = get_generation();
 
-    my $q = "select area_id, name from area_name, area
+    my $q = "select area_id, name, type, parent_area_id from area_name, area
         where area_id = id and name_type='F'
         and generation_low <= ? and ? <= generation_high
         and name like ? || '%'";
@@ -367,9 +368,7 @@ sub get_voting_area_by_name ($;$) {
         $q .= ' and type = ?';
         push @args, $type;
     }
-    my $ret = {
-        ( map { $_->[0] => $_->[1] } @{dbh()->selectall_arrayref($q, {}, @args)})
-    };
+    my $ret = dbh()->selectall_hashref($q, 'area_id', {}, @args);
     return $ret;
 }
 
