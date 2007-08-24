@@ -208,7 +208,7 @@ sub error {
 	$code = 0;
     }
 
-    if ($self->{'param'}{'output'} eq 'xml') {
+    if ($self->{'param'}{'output'} && $self->{'param'}{'output'} eq 'xml') {
 	$self->error_xml($error,$code);
     } else {
 
