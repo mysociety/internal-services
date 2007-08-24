@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.65 2007-08-24 12:27:31 matthew Exp $
+# $Id: MaPit.pm,v 1.66 2007-08-24 12:40:13 matthew Exp $
 #
 
 package MaPit;
@@ -507,10 +507,10 @@ sub get_voting_areas_by_location ($$;$) {
     throw RABX::Error("MEHOD must be 'box' or 'polygon' at the moment", RABX::Error::INTERFACE) if ($method ne 'box' and $method ne 'polygon');
 
     my ($e, $n);
-    if ($coord{easting} && $coord{northing}) {
-        ($e, $n) = ($coord{easting}, $coord{northing});
-    } elsif ($coord{latitude} && $coord{longitude}) {
-        ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($coord{latitude}, $coord{longitude}, 'G');
+    if ($coord->{easting} && $coord->{northing}) {
+        ($e, $n) = ($coord->{easting}, $coord->{northing});
+    } elsif ($coord->{latitude} && $coord->{longitude}) {
+        ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($coord->{latitude}, $coord->{longitude}, 'G');
     } else {
         throw RABX::Error("COORDINATE must be supplied", RABX::Error::INTERFACE);
     }
@@ -588,7 +588,7 @@ sub get_voting_areas_by_location ($$;$) {
         throw RABX::Error("In more than one minus polygon part") if $in_minus_count > 1;
         if ($in_plus_count && !$in_minus_count) {
             #warn "GOTCHA";
-            $ret{$inbound} = $inbounding{$inbound};
+            $ret{$inbound} = $inbounding->{$inbound};
         }
    }
 
