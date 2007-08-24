@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.68 2007-08-24 14:39:30 matthew Exp $
+# $Id: MaPit.pm,v 1.69 2007-08-24 20:51:45 matthew Exp $
 #
 
 package MaPit;
@@ -606,26 +606,36 @@ sub get_areas_by_type ($;$) {
     my ($type, $all) = @_;
 
     throw RABX::Error("Please specify type") unless $type;
-    throw RABX::Error("Type must be three capital letters") unless $type =~ m/^[A-Z][A-Z][A-Z]$/;
-    throw RABX::Error("Type unknown") unless defined($mySociety::VotingArea::known_types{$type});
 
     if ($type eq 'HOC') {
         return [ mySociety::VotingArea::HOC_AREA_ID ];
     }
 
+    my $clause = '';
+    my @args = ();
+    if (ref($type) eq 'ARRAY') {
+        my $qs = '?,' x @$type;
+        chop($qs);
+        $clause = "type in ($qs)";
+        push @args, @$type;
+    } elsif ($type) {
+        throw RABX::Error("Type must be three capital letters") unless $type =~ m/^[A-Z][A-Z][A-Z]$/;
+        throw RABX::Error("Type unknown") unless defined($mySociety::VotingArea::known_types{$type});
+        $clause = 'type = ?';
+        push @args, $type;
+    }
+
     my $generation = get_generation();
     my $ret;
-    
     if ($all) {
-        $ret = dbh()->selectcol_arrayref('
-            select id from area where type = ?
-            ', {}, $type);
+        $ret = dbh()->selectcol_arrayref("
+            select id from area where $clause
+            ", {}, @args);
     } else {
-        $ret = dbh()->selectcol_arrayref('
+        $ret = dbh()->selectcol_arrayref("
             select id from area 
-                where generation_low <= ? and ? <= generation_high
-                and type = ?
-            ', {}, $generation, $generation, $type);
+                where $clause and generation_low <= ? and ? <= generation_high
+            ", {}, @args, $generation, $generation);
     }
 
     return $ret;
