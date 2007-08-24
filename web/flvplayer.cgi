@@ -7,6 +7,11 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 use lib "$FindBin::Bin/../../perllib";
 
+use Getopt::Long;
+use CGI;
+use BBCParl::Web;
+
+use BBCParl::Page;
 use mySociety::Config;
 use mySociety::DBHandle qw (dbh);
 use mySociety::Util qw(print_log);
@@ -23,15 +28,13 @@ BEGIN {
 				     );
   }
 
-use Getopt::Long;
+sub main {
+    my ($q) = @_;
+    my $object = BBCParl::Web->new($q);
+    $object->process_request();
+}
 
-use CGI;
-use BBCParl::Web;
+# Start FastCGI
+BBCParl::Page::do_fastcgi(\&main);
 
-my $object = BBCParl::Web->new();
-
-$object->process_request();
-
-#use Data::Dumper; warn Dumper $object;
-
-exit 0;
+exit(0);
