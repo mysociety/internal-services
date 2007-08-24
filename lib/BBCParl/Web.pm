@@ -17,7 +17,7 @@ use mySociety::DBHandle qw (dbh);
 use Data::Dumper;
 
 sub new {
-    my ($class) = @_;
+    my ($class, $cgi) = @_;
 
     my $self = {};
     bless $self, $class;
@@ -30,8 +30,6 @@ sub new {
 
     $self->{'video-param'}{'autostart'} = 'false';
 
-    my $cgi = new CGI;
-    
     $self->{'cgi'} = $cgi;
 
     my $cache = new Cache::Memcached { 'servers' => [ 'localhost:11211' ],
@@ -130,7 +128,7 @@ sub process_request {
 
 	} else {
 
-	    print header(-type=>'application/x-javascript',
+	    print header(-type=>'text/html',
 			 -expires=>'+1y'); # send javascript, cache it for 1 year
 
 	    if ($self->{'param'}{'verbose'}) {
