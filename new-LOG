@@ -79,9 +79,7 @@ rpm -Uhv http://download.fedora.redhat.com/pub/fedora/linux/core/6/i386/os/Fedor
 
 yum remove kernel-2.6.17 kernel-2.6.16 # need to remove the other kernels, or the upgrade will fail
 
-yum update # takes a long time
-
-yum install cvs gcc mplayer emacs
+yum update # takes a long time, need to hang around to confirm import of GPG key after download of 335 packages!
 
 wget http://ftp.freshrpms.net/pub/freshrpms/fedora/linux/4/freshrpms-release/freshrpms-release-1.1-1.fc.noarch.rpm
 
@@ -89,15 +87,61 @@ rpm -i freshrpms-release-1.1-1.fc.noarch.rpm
 
 yum update
 
-Install mplayer (we need this to stream RealPlayer to disk):  [[ Actually, now we're using Windows Media, since mplayer and RealPlayer was a pain to get working, but it still uses mplayer. ]]
+yum install cvs gcc ffmpeg xorg-x11-Mesa-libGL mplayer emacs lighttpd perlbal sqlite perl-XML-Parser perl-XML-libXML libxml2-devel # for the headers, otherwise CPAN can't install XMK::LibXML::XPathContext perl-DBI
 
-yum install mplayer  # and about 25 other dependencies...  NOTE: Sometimes yum just fails to work, but re-runnig it a few times seems to work okay.
+Note: mplayer can't find /usr/lib/libGL.so.1 # because it's not there - for some reason, the mplayer package doesn't include this as a dependency
 
-mplayer can't find /usr/lib/libGL.so.1 # because it's not there - for some reason, the mplayer package doesn't include this as a dependency
+Fix this by installing the Mesa-libGL package.
 
-Fix this by installing the Mesa-libGL package:
+Download flvtool2:
 
-yum install mplayer ffmpeg xorg-x11-Mesa-libGL
+wget http://rubyforge.org/frs/download.php/17497/flvtool2-1.0.6.tgz
+
+tar -xzvf flvtool2-1.0.6.tgz
+
+Execute following commands in flvtool2 directory:
+
+ruby setup.rb config
+ruby setup.rb setup
+sudo ruby setup.rb install
+
+Now update/install CPAN modules (including many dependencies):
+
+cpan # for the shell; setup defaults
+
+install Bundle::CPAN
+
+install Encode
+
+install Getopt::Long
+
+install Pod::Man
+
+install Sys::Syslog
+
+install Date::Manip
+
+install Test::Pod
+
+install Test::Pod::Coverage
+
+install IO:Prompt
+
+install Amazon::Net::SimpleQueue
+
+install DBD::SQLite # installs DBI as well
+
+install Digest::HMAC_SHA1
+
+install XML::XPath
+
+install Date::Format
+
+install XML::Simple
+
+[[ DEPRECATED install Net::Amazon::S3 - using aws instead ]]
+
+quit
 
 Adding new user:
 
@@ -107,12 +151,14 @@ passwd services
 
 Changing to that user:
 
-su - services
+su - bbcparlvid
 
-Mplayer core dumps on the .ram file, because it contains a single line pointing to rtsp://rmlive-acl.bbc.co.uk/bbc-rbs/rmlive-acl/farm/live24/news/bb/rm/video/parliament_16x9_bb.rm
+mkdir /home/bbcparlvid/doc_root
 
-Mplayer can't download rtsp://rmlive-acl.bbc.co.uk/bbc-rbs/rmlive-acl/farm/live24/news/bb/rm/video/parliament_16x9_bb.rm - it wants the "live.com streaming media libraries (see http://www.live555.com/mplayer/). I think it needs the "Live 2007" package.
+exit
 
-Another option is vlc (the videolan client), which should be able to handle this.  Worryingly, the Windows version can only handle the audio from rtsp://rmlive-acl.bbc.co.uk/bbc-rbs/rmlive-acl/farm/live24/news/bb/rm/video/parliament_16x9_bb.rm - we'll see...
+Update /etc/lighttpd/lighttpd.conf - add mod_flv_streaming to the module load list, point document-root to /home/bbcparlvid/doc_root, and add a line:
 
-New plan - use the Windows Media stream (mms://wmlive.bbc.net.uk/wms/news/parliament_16x9_bb_s1 or mms://wmlive.bbc.net.uk/wms/news/parliament_16x9_bb_s2).
+flv-streaming.extensions = ( ".flv" )
+
+TODO - create AMI
