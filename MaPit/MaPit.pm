@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.64 2007-08-23 11:24:45 matthew Exp $
+# $Id: MaPit.pm,v 1.65 2007-08-24 12:27:31 matthew Exp $
 #
 
 package MaPit;
@@ -486,11 +486,12 @@ sub get_voting_areas_geometry ($;$) {
     return { (map { $_ => get_voting_area_geometry($_, $polygon_type) } grep { defined($_) } @$ary) };
 }
 
-=item get_voting_area_by_location LAT LON METHOD [TYPE]
+=item get_voting_areas_by_location COORDINATE METHOD [TYPE(S)]
 
-Returns an array of voting areas which the given coordinate is in. This only
-works for areas which have geometry information associated with them. i.e.
-That get_voting_area_geometry will return data for.
+Returns a hash of voting areas and types which the given COORDINATE (either
+easting and northing, or latitude and longitude) is in. This only works for
+areas which have geometry information associated with them. i.e. that
+get_voting_area_geometry will return data for.
 
 METHOD can be 'box' to just use a bounding box test, or 'polygon' to also do an
 exact point in polygon test. 'box' is quicker, but will return too many results.
@@ -500,24 +501,19 @@ If TYPE is present, restricts to areas of that type, such as WMC for Westminster
 Constituencies only.
 
 =cut
-sub get_voting_area_by_location ($$$;$) {
-    my ($lat, $lon, $method, $type) = @_;
-    my ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($lat, $lon, 'G');
-    return get_voting_area_by_location_en($e, $n, $method, $type);
-}
-
-=item get_voting_area_by_location_en EASTING NORTHING METHOD [TYPE_OR_TYPES]
-
-As get_voting_area_by_location only takes coordinates in EASTINGs and NORTHINGs
-rather than latitude and longitude.
-
-=cut
-
-sub get_voting_area_by_location_en ($$$;$) {
-    my ($e, $n, $method, $type) = @_;
-
+sub get_voting_areas_by_location ($$;$) {
+    my ($coord, $method, $type) = @_;
     throw RABX::Error("METHOD must be defined at the moment", RABX::Error::INTERFACE) if (!defined($method));
     throw RABX::Error("MEHOD must be 'box' or 'polygon' at the moment", RABX::Error::INTERFACE) if ($method ne 'box' and $method ne 'polygon');
+
+    my ($e, $n);
+    if ($coord{easting} && $coord{northing}) {
+        ($e, $n) = ($coord{easting}, $coord{northing});
+    } elsif ($coord{latitude} && $coord{longitude}) {
+        ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($coord{latitude}, $coord{longitude}, 'G');
+    } else {
+        throw RABX::Error("COORDINATE must be supplied", RABX::Error::INTERFACE);
+    }
 
     # Search for areas in the bounding box, of the right type
     my $type_clause = "";
@@ -531,13 +527,13 @@ sub get_voting_area_by_location_en ($$$;$) {
         $type_clause = " and type = ?";
         push @params, $type;
     }
-    my $inbounding = dbh()->selectcol_arrayref("
-        select area_id from area_geometry
+    my $inbounding = dbh()->selectall_hashref("
+        select area_id, type from area_geometry
             left join area on area_geometry.area_id = area.id
             where min_e < ? and ? < max_e and
                   min_n < ? and ? < max_n
                   $type_clause
-        ", {}, @params);
+        ", 'area_id', {}, @params);
 
     # If in quicker "box" mode, then we're done
     if ($method eq 'box') {
@@ -550,12 +546,12 @@ sub get_voting_area_by_location_en ($$$;$) {
     my $intsize = length(pack('i', 0));
 
 # commands for testing:
-# ./rabx http://services.owl/mapit MaPit.get_voting_area_by_location 52.1976292079646 0.126289041185342 polygon
+# ./rabx http://services.owl/mapit MaPit.get_voting_areas_by_location 52.1976292079646 0.126289041185342 polygon
 # select area_id, max(name), type from area_name left join area on area.id = area_name.area_id where name like '%Cambridge%' and type = 'DIS' group by area_id, type;
 
-    my @ret;
+    my %ret;
     # For each voting area that passed the bounding box test, get the polygon
-    foreach my $inbound (@$inbounding) {
+    foreach my $inbound (keys %$inbounding) {
         my $polygon;
         throw RABX::Error("Voting area geometry info not found id $inbound", mySociety::MaPit::AREA_NOT_FOUND)
             unless (($polygon) = dbh()->selectrow_array("
@@ -592,11 +588,11 @@ sub get_voting_area_by_location_en ($$$;$) {
         throw RABX::Error("In more than one minus polygon part") if $in_minus_count > 1;
         if ($in_plus_count && !$in_minus_count) {
             #warn "GOTCHA";
-            push @ret, $inbound; 
+            $ret{$inbound} = $inbounding{$inbound};
         }
    }
 
-   return \@ret;
+   return \%ret;
 }
 
 =item get_areas_by_type TYPE [ALL]
