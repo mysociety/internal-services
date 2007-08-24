@@ -210,7 +210,7 @@ sub error {
 	$self->error_xml($error,$code);
     } else {
 
-	print header(-type => 'x-application/javascript');
+	print header(-type => 'text/html');
 
 	if ($self->{'param'}{'verbose'}) {
 	
@@ -607,7 +607,7 @@ sub print_result {
     # if programme id and javascript, print out the full javscript;
 
     if (lc($self->{'param'}{'output'}) eq 'js') {
-	print header(-type => 'x-application/javascript');
+	print header(-type => 'text/html');
 #		     -expires => '+1y');
 
 	print <<END;
