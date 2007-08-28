@@ -25,10 +25,12 @@ sub new {
     $self->{'urls'}{'video-dir'} = 'http://s3.amazonaws.com/bbcparl-flash-video';
     $self->{'urls'}{'video-proxy'} = '';
     $self->{'urls'}{'thumbnail-dir'} = '';
-    $self->{'urls'}{'bbcparl-logo'} = 'http://s3.amazonaws.com/bbcparl-flash-video/bbcparl-logo.png';
+    $self->{'urls'}{'bbcparl-logo'} = 'http://parlvid.mysociety.org/bbcparl-logo.png';
+    $self->{'urls'}{'flash-player'} = 'http://parlvid.mysociety.org/FLVScrubber2.swf';
     $self->{'urls'}{'help'} = '';
 
-    $self->{'video-param'}{'autostart'} = 'false';
+    $self->{'flash-params'}{'width'} = 320;
+    $self->{'flash-params'}{'height'} = 180;
 
     $self->{'cgi'} = $cgi;
 
@@ -80,6 +82,10 @@ sub process_request {
 	$self->{'param'}{'verbose'} = 'true';
     }
 
+    if ($cgi->param('autostart')) {
+	$self->{'param'}{'autostart'} = 'true';
+    }
+
     $self->check_location_channel();
 
     # if input is a gid, lookup the gid using TWFY API and extract the
@@ -128,8 +134,8 @@ sub process_request {
 
 	} else {
 
-	    print header(-type=>'text/html',
-			 -expires=>'+1y'); # send javascript, cache it for 1 year
+	    print header(-type=>'text/html');
+#			 -expires=>'+1y'); # send javascript, cache it for 1 year
 
 	    if ($self->{'param'}{'verbose'}) {
 
@@ -612,7 +618,11 @@ sub print_result {
 
 	print <<END;
 <!--
-document.write('<embed src="http://s3.amazonaws.com/bbcparl-flash-video/mediaplayer.swf" width="320" height="180" allowfullscreen="true" flashvars="&displayheight=180&file=$video_url&height=180&image=$thumbnail_url&width=320&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration" />')
+document.write('<embed src="$self->{'urls'}{'flash-player'}"
+width="$self->{'flash-params'}{'width'}"
+height="$self->{'flash-params'}{'height'}"
+allowfullscreen="true"
+flashvars="&displayheight=$self->{'flash-params'}{'height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration" />')
 -->
 END
 
