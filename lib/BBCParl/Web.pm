@@ -618,11 +618,7 @@ sub print_result {
 
 	print <<END;
 <!--
-document.write('<embed src="$self->{'urls'}{'flash-player'}"
-width="$self->{'flash-params'}{'width'}"
-height="$self->{'flash-params'}{'height'}"
-allowfullscreen="true"
-flashvars="&displayheight=$self->{'flash-params'}{'height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration" />')
+document.write('<embed src="$self->{'urls'}{'flash-player'}" width="$self->{'flash-params'}{'width'}" height="$self->{'flash-params'}{'height'}" allowfullscreen="true" flashvars="&displayheight=$self->{'flash-params'}{'height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration" />')
 -->
 END
 
