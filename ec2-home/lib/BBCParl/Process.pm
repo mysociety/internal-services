@@ -27,12 +27,12 @@ sub new {
     $self->{'path'}{'footage-cache-dir'} = $self->{'path'}{'processing-dir'} .'/raw-footage';
     $self->{'path'}{'output-cache-dir'} = $self->{'path'}{'processing-dir'} .'/output';
 
-    $self->{'constants'}{'footage-bucket'} = 'bbcparl-raw-footage';
-    $self->{'constants'}{'programmes-bucket'} = 'bbcparl-flash-video';
+    $self->{'constants'}{'footage-bucket'} = 'bbcparlvid-raw-footage';
+    $self->{'constants'}{'programmes-bucket'} = 'parliament-flash-video';
 
-    $self->{'constants'}{'processing-requests-queue'} = 'bbcparl-processing-requests';
-    $self->{'constants'}{'new-programmes-queue'} = 'bbcparl-programme-updates';
-    $self->{'constants'}{'available-programmes-queue'} = 'bbcparl-programme-available';
+    $self->{'constants'}{'processing-requests-queue'} = 'bbcparlvid-processing-requests';
+    $self->{'constants'}{'new-programmes-queue'} = 'bbcparlvid-programme-updates';
+    $self->{'constants'}{'available-programmes-queue'} = 'bbcparlvid-programme-available';
 
     return $self;
 }

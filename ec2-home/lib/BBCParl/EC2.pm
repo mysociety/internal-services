@@ -4,7 +4,7 @@ use strict;
 
 sub load_secrets {
 
-    my $secrets_filename = '/home/run_services/conf/.awssecret';
+    my $secrets_filename = '/home/bbcparlvid/conf/.awssecret';
 
     unless (-e $secrets_filename) {
 	warn "FATAL: Cannot find file: $secrets_filename";

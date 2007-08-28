@@ -29,9 +29,9 @@ sub new {
 
     $self->{'constants'}{'download-sleep'} = 23400;  # 23400 secs == 6 hours = 60 secs * 60 mins * 6 hours
 
-    $self->{'constants'}{'raw-footage-bucket'} = 'bbcparl-raw-footage';
+    $self->{'constants'}{'raw-footage-bucket'} = 'bbcparlvid-raw-footage';
 
-    $self->{'constants'}{'raw-footage-queue'} = 'bbcparl-raw-footage';
+    $self->{'constants'}{'raw-footage-queue'} = 'bbcparlvid-raw-footage';
 
     # TODO - remove temporary testing value:
 

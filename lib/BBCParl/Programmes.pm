@@ -29,13 +29,11 @@ sub new {
 	$self->{'args'}{$key} = $args{$key};
     }
 
-    $self->{'buckets'}{'raw-footage'} = 'bbcparl-raw-footage';
-
     $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
 
-    $self->{'constants'}{'raw-footage-queue'} = 'bbcparl-raw-footage';
-    $self->{'constants'}{'new-programmes-queue'} = 'bbcparl-programme-updates';
-    $self->{'constants'}{'available-programmes-queue'} = 'bbcparl-programme-available';
+    $self->{'constants'}{'raw-footage-queue'} = 'bbcparlvid-raw-footage';
+    $self->{'constants'}{'new-programmes-queue'} = 'bbcparlvid-programme-updates';
+    $self->{'constants'}{'available-programmes-queue'} = 'bbcparlvid-programme-available';
 
     $self->{'params'}{'channel_id'} = ',BBCParl';
     $self->{'params'}{'method'} = 'bbc.schedule.getProgrammes';
