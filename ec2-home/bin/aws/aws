@@ -1,0 +1,754 @@
+#!/usr/bin/perl
+
+# originally downloaded from http://timkay.com/aws/ by etienne - 2007-06-06
+
+# edited by etienne - 2007-06-06
+
+@cmd = (
+	["ec2", "add-group addgrp", CreateSecurityGroup, [
+							  ["", GroupName],
+							  ["d", GroupDescription],
+							  ]],
+	["ec2", "add-keypair addkey", CreateKeyPair, [["", KeyName]]],
+	["ec2", "authorize auth", AuthorizeSecurityGroupIngress, [
+								  ["", GroupName],
+								  ["P", IpProtocol],
+								  ["p", FromPort],
+								  ["f", FromPort],
+								  ["p", "ToPort"],
+								  ["t", "ToPort"],
+								  #["t", icmp type code],
+								  ["u", SourceSecurityGroupOwnerId],
+								  ["o", SourceSecurityGroupName],
+								  ["s", CidrIp],
+								  ]],
+	["ec2", "delete-group delgrp", DeleteSecurityGroup, [["", GroupName]]],
+	["ec2", "delete-keypair delkey", DeleteKeyPair, [["", KeyName]]],
+	["ec2", "describe-groups dgrp", DescribeSecurityGroups],#...
+	["ec2", "describe-images dim", DescribeImages, [
+							["", ImageIdN],
+							["o", OwnerN],
+							["x", ExecutableByN],
+							]],
+	["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
+	["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
+	["ec2", "describe-groups dgrp", DescribeSecurityGroups, [["", GroupNameN]]],
+	["ec2", "reboot-instances reboot", RebootInstances, [["", InstanceIdN]]],
+	["ec2", "revoke", RevokeSecurityGroupIngress, [
+						       ["", GroupName],
+						       ["P", IpProtocol],
+						       ["p", FromPort],
+						       ["f", FromPort],
+						       ["p", "ToPort"],
+						       ["t", "ToPort"],
+						       #["t", icmp type code],
+						       ["u", SourceSecurityGroupOwnerId],
+						       ["o", SourceSecurityGroupName],
+						       ["s", CidrIp],
+						       ]],
+	["ec2", "run-instance run", RunInstances, [
+						   ["", ImageId, "ami-23b6534a"],
+						   ["n", MinCount, 1],
+						   ["n", MaxCount, 1],
+						   ["g", SecurityGroupN, "default"],
+						   ["k", KeyName, "default"],
+						   ["d", UserData, undef, sub {encode_base64($_[0], "")}],
+						   ["f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
+						   ]],
+	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
+
+	["s3", "get ls cat", GET],
+	["s3", "put mkdir", PUT],
+	["s3", "delete rmdir rm", DELETE],
+	);
+
+
+# parse meta-parameters, leaving parameters in @argv
+
+for (@ARGV)
+{
+    if (/^--([\w\-]+)(?:=(.*))?$/)
+    {
+	my($key, $val) = ($1, $2);
+	$key =~ s/-/_/g;
+	$ {$key} = defined $val? $val: 1;
+    }
+    elsif (/^-(h|v+)$/)
+    {
+	$ {substr($1, 0, 1)} = length($1);
+    }
+    else
+    {
+	push @argv, $_;
+    }
+}
+$h ||= $help;
+$v ||= $verbose;
+
+
+#use Digest::SHA1 qw(sha1);
+#use Digest::SHA::PurePerl qw(sha1);
+use MIME::Base64;
+
+
+if (exists $ENV{QUERY_STRING} || $sign)
+{
+    sysread STDIN, my $data, $ENV{CONTENT_LENGTH} if $ENV{CONTENT_LENGTH};
+    my($sig, $awskey) = sign($data);
+
+    my $data = "$sig\n$awskey\n";
+
+    if (exists $ENV{QUERY_STRING})
+    {
+	print "Content-Length: @{[length($data)]}\nContent-Type: text/plain\n\n";
+    }
+
+    print $data;
+
+    exit;
+}
+
+
+if ($install)
+{
+    die "Usage: .../aws --install\n" if $install && @argv;
+    
+    my $path = $0;
+
+    chmod 0555, $path;
+
+    if ($0 !~ /^\//)
+    {
+	chomp(my $dir = qx[pwd]);
+	$path = "$dir/$0";
+    }
+
+    if (-w "/usr/bin")
+    {
+	symlink($path, "/usr/bin/aws");
+	chdir "/usr/bin";
+	make_links("aws");
+	exit;
+    }
+
+    make_links($path);
+
+    die "installation failed\n";
+}
+
+
+if ($link)
+{
+    die "Usage: .../aws --link[=short|long] [-bare]\n" if $link && @argv;
+
+    make_links($0);
+}
+
+sub make_links
+{
+    my($target) = @_;
+
+    #
+    # Create symlinks to this program named for all available
+    # commands.  Then the script can be invoked as "s3mkdir foo"
+    # rather than "aws mkdir foo".  (Run this command in /usr/bin
+    # or /usr/local/bin.)
+    #
+    # aws -link
+    #	symlinks all command names (ec2-delete-group, ec2delgrp, ec2-describe-groups, ec2dgrp, etc.)
+    # aws -link=short
+    #	symlinks only the short versions of command names (ec2delgrp, ec2dgrp, etc.)
+    # aws -link=long
+    #	symlinks only the long versions of command names (ec2-delete-group, ec2-describe-groups, etc.)
+    #
+    # The -bare option creates symlinks without the ec2 and s3 prefixes
+    # (delete-group, delgrp, etc.).  Be careful using this option, as
+    # commands named "ls", "mkdir", "rmdir", etc. are created.
+
+    for (@cmd)
+    {
+	my($service, $cmd, $action) = @$_;
+
+	for my $fn (split(' ', $cmd))
+	{
+	    my($dash) = $fn =~ /(-)/;
+
+	    next if $dash && $link eq "short";
+	    next if !$dash && $link eq "long";
+
+	    $fn = "$service$dash$fn" unless $bare;
+
+	    unlink $fn;
+	    symlink($target, $fn) or die "$fn: $!\n";
+	    #print "symlink $fn --> $target\n";
+	}
+    }
+
+    exit;
+}
+
+
+{
+    # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
+    # the command.  This way, you can link aws to the command names (with or without
+    # ec2 or s3 prefix) and not have to type "aws".
+
+    ($cmd = $0) =~ s/^.*\/(?:(?:ec2|s3)-?)?//;
+    $cmd = shift @argv if $cmd =~ /^aws/;
+}
+
+
+for (@cmd)
+{
+    my($service, $cmd) = @$_;
+    my @cmd = split(" ", $cmd);
+    @cmd{@cmd} = ($_) x @cmd;
+}
+
+
+if (!exists $cmd{$cmd})
+{
+    my $output = "$cmd: unknown command\n" if $cmd;
+    $output .= "Usage: aws ACTION [--help]\n\twhere ACTION is one of\n\t";
+    for (@cmd)
+    {
+	my($service, $cmd, $action, $param) = @$_;
+	$output .= " $cmd";
+    }
+    $output .= "\n";
+    die $output;
+}
+
+
+{
+    my($service, $cmd, $action, $param) = @{$cmd{$cmd}};
+
+    if ($h)
+    {
+	my $help = "Usage: aws $cmd";
+	for (@$param)
+	{
+	    my($a, $key, $default) = @$_;
+
+	    my $x = "-$a " if $a;
+
+	    my($name, $N) = $key =~ /^(.*?)(N?)$/;
+	    my $ddd = "..." if $N eq "N";
+	    my $def = " ($default)" if $default;
+
+	    $help .= " [$x$name$ddd$def]";
+	}
+	$help .= "\n";
+	print STDERR $help;
+	exit;
+    }
+
+
+    my $code = $action;
+
+    if (ref $code ne "CODE")
+    {
+	if ($service eq "ec2")
+	{
+	    my(%key);
+
+	    my @list = (Action => $action);
+
+	    for (my $i = 0; $i < @argv; $i++)
+	    {
+		my($b);
+
+		if ($argv[$i] =~ /^-(.*)$/)
+		{
+		    ($b) = ($1);
+		    ++$i;
+		}
+
+		#
+		# find the right param
+		#
+		for (@$param)
+		{
+		    my($a, $key, $default, $cref) = @$_;
+		    next if $b ne $a;
+		    my $count = ++$key{$key};
+		    $key =~ s/N$/\.$count/;
+		    my $data = $argv[$i];
+		    $data = $cref->($data) if $cref;
+		    push @list, $key => $data;
+		}
+	    }
+
+	    for (@$param)
+	    {
+		my($a, $key, $default) = @$_;
+		if ($default && $key{$key} == 0)
+		{
+		    my $count = ++$key{$key};
+		    $key =~ s/N$/\.$count/;
+		    push @list, $key => $default;
+		}
+	    }
+
+	    if (0)
+	    {
+		for (my $i = 0; $i < @list; $i += 2)
+		{
+		    print " $list[$i]=$list[$i + 1]";
+		}
+		print "\n";
+	    }
+
+	    $code = sub { ec2(@list) };
+	}
+	elsif ($service eq "s3")
+	{
+	    $code = sub { s3($action, @argv) };
+	}
+	else
+	{
+	    die;
+	}
+    }
+
+    my $result = $code->();
+
+    if ($xml)
+    {
+	print $result;
+    }
+    else
+    {
+	print xml2tab($result);
+    }
+}
+
+
+sub xml2tab
+{
+    my($xml) = @_;
+    $xml =~ s/^<\?xml.*?>(\r?\n)*//;
+    $xml =~ s/&quot;/\"/g;
+    my @xml = grep !/^\s*$/, split(/(<.*?>)/, $xml);
+    my(@tag, @depth);
+    my $depth = 0;
+    for (my $i = 0; $i < @xml; $i++)
+    {
+	if ($xml[$i] =~ /^<(\w+)\/>$/)
+	{
+	    next;
+	}
+	elsif ($xml[$i] =~ /^<(\w+)/)
+	{
+	    my($tag) = ($1);
+	    $tag[$i] = $tag;
+	    $depth[$i] = ++$depth;
+	}
+	elsif ($xml[$i] =~ /^<\/(\w+)/)
+	{
+	    my($tag) = ($1);
+	    for (my $j = $i - 1; $j >= 0; $j--)
+	    {
+		next if $depth[$j] > $depth;
+		next if $tag[$j] ne $tag;
+		$depth = $depth[$j] - 1;
+		last;
+	    }
+	}
+	else
+	{
+	    $tag[$i] = $xml[$i];
+	    $depth[$i] = 99;
+	}
+    }
+
+    my(@parent, $depth, %head, @head, @table, $col);
+
+    my $skipre = qr/^(?:amiLaunchIndex|ETag|HostId|ipPermissions|Owner)$/;
+
+    for (my $i = 0; $i <= @xml; $i++)
+    {
+	$parent[$depth[$i]] = $tag[$i];
+
+	if (@head && $i == @xml || $depth[$i] && $depth[$i] < $depth)
+	{
+	    ###unshift @head, "";
+
+	    for (@table)
+	    {
+		$_ = [@$_{@head}];
+	    }
+
+	    unshift @table, [@head];
+
+	    my(@width);
+
+	    for (@table)
+	    {
+		for (my $i = 0; $i < @head; $i++)
+		{
+		    my $length = length($_->[$i]);
+		    $width[$i] = $length if $width[$i] < $length;
+		}
+	    }
+
+	    my $sep = "+";
+
+	    for (my $i = 0; $i < @head; $i++)
+	    {
+		next if $head[$i] =~ /$skipre/;
+		$sep .= "-" x (2 + $width[$i]) . "+";
+	    }
+
+	    for (my $j = 0; $j < @table; $j++)
+	    {
+		print "$sep\n" if $j < 2;
+
+		for (my $i = 0; $i < @head; $i++)
+		{
+		    next if $head[$i] =~ /$skipre/;
+		    my $len = length($table[$j]->[$i]);
+		    my $pad = $width[$i] - $len;
+		    my $l = 1 + int($pad / 2);	# center justify
+		    $l = 1 if $j;			# left justify all but first row
+		    my $r = 2 + $pad - $l;
+		    print "|", " " x $l, $table[$j]->[$i], " " x $r;
+		}
+		print "|\n";
+	    }
+
+	    print "$sep\n";
+
+
+	    $depth = 0;
+	    %head = ();
+	    @head = ();
+	    @table = ();
+	}
+
+	my $tag2 = "$parent[$depth[$i] - 1]-$tag[$i]";
+
+	if ($tag[$i] =~ /^(?:Bucket|Contents|AuthorizeSecurityGroupIngressResponse|CreateKeyPairResponse|CreateSecurityGroupResponse|DeleteSecurityGroupResponse|DeleteKeyPairResponse|Error|ListBucketResult|RebootInstancesResponse|RevokeSecurityGroupIngressResponse)$/
+	    || $tag2 =~ /^(?:imagesSet-item|instancesSet-item|ipPermissions-item|securityGroupInfo-item)$/
+	    || $i == @xml)
+	{
+	    $depth = $depth[$i];
+	    ###push @table, {"" => $tag[$i]};
+	    push @table, {};
+	}
+
+	next unless $depth;
+
+	if ($depth[$i] == $depth + 1)
+	{
+	    $col = $tag[$i];
+	    push @head, $col unless exists $head{$col};
+	    $head{$col} = undef;
+	}
+	if ($depth[$i] >= $depth + 2)
+	{
+	    $table[$#table]->{$col} .= " " if $table[$#table]->{$col} && $depth[$i] < 99;
+	    $table[$#table]->{$col} .= $tag[$i];
+	    $table[$#table]->{$col} .= "=" if $depth[$i] < 99;
+	}
+    }
+
+    if (!@table || $dump_xml)
+    {
+	print STDERR "$xml\n";
+
+	for (my $i = 0; $i < @xml; $i++)
+	{
+	    next unless $tag[$i];
+	    print STDERR $depth[$i], "  " x $depth[$i], "$tag[$i]\n";
+	}
+    }
+}
+
+
+sub s3
+{
+    my($verb, $name, $file, $acl) = @_;
+
+    my $expires = time + 30;
+
+    my $verbose = "--verbose" if $v >= 2;
+
+    $file ||= $name if $verb eq PUT && $ENV{S3_DIR};
+    $name = "$ENV{S3_DIR}/$name" if $ENV{S3_DIR};
+    $name .= $file if $verb eq PUT && $name =~ /\/$/;
+
+    my $isobj = $name =~ /\/./;	# bucket/ is not an object
+    my $isGETobj = $verb eq GET && $isobj;
+    my $isPUTobj = $verb eq PUT && $isobj;
+
+    if ($isGETobj)
+    {
+	my $data = "HEAD\n\n\n$expires\n/$name";
+	my($sig, $awskey) = sign($data);
+	my $url = "https://s3.amazonaws.com/$name?AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+	my $head = qx[curl --silent $verbose --header "Expect: " --head @{[cq($url)]}];
+
+	my($code) = $head =~ /^HTTP\/\d+\.\d+\s+(\d+\s+.*?)\r?\n/s;
+
+	if ($v)
+	{
+	    print STDERR $head;
+	}
+
+	if ($code !~ /^200\s/)
+	{
+	    print STDERR "$code\n" unless $v;
+	    return;
+	}
+    }
+
+    my $data = "$verb\n\n\n$expires\n/$name";
+    my $acl_header;
+
+    if ($acl && isPUTobj) {
+	$data = "$verb\n\n\n$expires\n$acl\n/$name";
+	$acl_header = "--header '$acl'";
+    }
+
+    warn $data if $v;
+    warn $acl_header if $v && $acl_header;
+
+    my($sig, $awskey) = sign($data);
+    my $url = "https://s3.amazonaws.com/$name?AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+
+    my($content);
+    $content = "--upload-file @{[cq($file)]}" if $isPUTobj;
+    $content = "--output @{[cq($file)]}" if $verb eq GET && $file;
+
+    my $content_length = "--header 'Content-Length: $length'" if $length;
+
+    if ($isGETobj)
+    {
+	my $cmd = "curl --silent $verbose --header 'Expect: ' --request $verb $content @{[cq($url)]}";
+	print STDERR "$cmd\n" if $v;
+	exec $cmd;
+	return;
+    }
+
+    my $cmd = "curl --silent $verbose $acl_header --header 'Expect: ' --request $verb --dump-header - $content @{[cq($url)]}";
+    print STDERR "$cmd\n" if $v;
+    my $item = qx[$cmd];
+    my($head, $body) = $item =~ /^(.*?\r?\n)\r?\n(.*)$/s;
+
+    print STDERR $head if $v;
+    $body;
+}
+
+
+sub ec2
+{
+    my($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = gmtime;
+    my $timestamp = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
+
+    my %data = (AWSAccessKeyId => _, SignatureVersion => 1, Timestamp => $timestamp, Version => "2007-01-03", @_);
+
+    my($url);
+
+    my($data);
+
+    for (sort {lc $a cmp lc $b} keys %data)
+    {
+	$data .= $_ . $data{$_};
+	$url .= "&$_=@{[encode_url($data{$_})]}";
+    }
+
+    my($sig, $awskey) = sign($data);
+    $url =~ s/AWSAccessKeyId=_/AWSAccessKeyId=$awskey/;
+    $url = "https://ec2.amazonaws.com/?Signature=@{[encode_url($sig)]}" . $url;
+    local($/);
+    qx[curl --silent @{[cq($url)]}];
+}
+
+
+sub encode_url
+{
+    my($s) = @_;
+    $s =~ s/([\x00-\x20\#\%\&\'\+\/\=\?\:\/\x80-\xff])/"%".uc unpack(H2,$1)/ge;
+    $s =~ s/ /+/g;
+    $s;
+}
+
+
+sub load_file
+{
+    my $fn = shift;
+    use IO::File;
+    my $io = new IO::File($fn)
+	or die "$fn: $!\n";
+    local($/);
+    <$io>;
+}
+
+
+sub sign
+{
+    my($data) = @_;
+
+# edited by etienne - 2007-06-06
+
+#    my($awskey, $secret, $signurl) = split(' ', load_file("$home/.awssecret"));
+    
+    my $home = (getpwuid($<))[7];
+    my $config_dir = "$home/conf";
+    my($awskey, $secret, $signurl) = split(' ', load_file("$config_dir/.awssecret"));
+    die if $sigurl =~ /\'/;
+
+    $data =~ s/AWSAccessKeyId_/AWSAccessKeyId$awskey/;
+
+    if (!exists $ENV{QUERY_STRING} && $signurl)
+    {
+	(my $pretty = $data) =~ s/\n/\\n/g;
+	(my $url = $signurl) =~ s/\/\/.*?\@/\/\/\*\*\*\*\*\*\:\*\*\*\*\*\*\@/;
+	print STDERR "signing [$pretty] via $url\n" if $v;
+	my $s = qx[curl --silent --data @{[cq($data)]} @{[cq($signurl)]}];
+	#S9pr7y07SGtgt7OKjMxMYBy+LCk=
+	#1B5JPHYQCXW13GWKHAG2
+	die "bad signature from remote signing service (perhaps the password is bad?)\n$s\n" unless $s =~ /^[A-Z0-9\+\/\=\n]+$/i;
+	return (split(/\n/, $s));
+    }
+
+    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+}
+
+
+sub cq
+{
+    # quote for sending to curl
+    my($s) = @_;
+    $s =~ s/\'/\'\\\'\'/g;
+    "'$s'";
+}
+
+
+#
+# hmac() was taken from the Digest::HMAC CPAN module
+# Copyright 1998-2001 Gisle Aas.
+# Copyright 1998 Graham Barr.
+# This library is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
+#
+
+sub hmac
+{
+    my($data, $key, $hash_func, $block_size) = @_;
+    $block_size ||= 64;
+    $key = &$hash_func($key) if length($key) > $block_size;
+
+    my $k_ipad = $key ^ (chr(0x36) x $block_size);
+    my $k_opad = $key ^ (chr(0x5c) x $block_size);
+
+    &$hash_func($k_opad, &$hash_func($k_ipad, $data));
+}
+
+#
+# end of hmac()
+#
+
+
+#
+# sha1() was taken from http://www.movable-type.co.uk/scripts/SHA-1.html
+# Copyright 2002-2005 Chris Veness
+# You are welcome to re-use these scripts [without any warranty express or implied]
+# provided you retain my copyright notice and when possible a link to my website.
+#
+# Conversion from Javascript
+# Copyright 2007 Timothy Kay
+#
+# This code has not been tested on 64-bit processors and may fail.
+#
+
+sub sha1_sha1
+{
+    # integer arithment should be mod 32
+    use integer;
+
+    my $msg = join("", @_);
+
+    #constants [4.2.1]
+    my @K = (0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6);
+
+    # PREPROCESSING 
+ 
+    $msg .= pack(C, 0x80); # add trailing '1' bit to string [5.1.1]
+
+    # convert string msg into 512-bit/16-integer blocks arrays of ints [5.2.1]
+    my @M = unpack("N*", $msg . pack C3);
+    # how many integers are needed (to make complete 512-bit blocks), including two words with length
+    my $N = 16 * int((@M + 2 + 15) / 16);
+    # add length (in bits) into final pair of 32-bit integers (big-endian) [5.1.1]
+    @M[$N - 2, $N - 1] = (sha1_lsr(8 * length($msg), 29), 8 * (length($msg) - 1));
+
+    # set initial hash value [5.3.1]
+    my @H = (0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0);
+
+    # HASH COMPUTATION [6.1.2]
+
+    for (my $i = 0; $i < $N; $i += 16)
+    {
+        # 1 - prepare message schedule 'W'
+	my @W = @M[$i..$i + 15];
+
+        # 2 - initialise five working variables a, b, c, d, e with previous hash value
+	my($a, $b, $c, $d, $e) = @H;
+
+        # 3 - main loop
+	for ($t = 0; $t < 80; $t++)
+	{
+	    $W[$t] = sha1_rotl($W[$t - 3] ^ $W[$t - 8] ^ $W[$t - 14] ^ $W[$t - 16], 1) if $t >= 16;
+	    my $s = int($t / 20); # seq for blocks of 'f' functions and 'K' constants
+	    my $T = sha1_rotl($a, 5) + sha1_f($s, $b, $c, $d) + $e + $K[$s] + $W[$t];
+	    ($e, $d, $c, $b, $a) = ($d, $c, sha1_rotl($b, 30), $a, $T);
+	}
+
+        # 4 - compute the new intermediate hash value
+	$H[0] += $a;
+	$H[1] += $b;
+	$H[2] += $c;
+	$H[3] += $d;
+	$H[4] += $e;
+    }
+
+    pack("N*", @H);
+}
+
+#
+# function 'f' [4.1.1]
+#
+sub sha1_f
+{
+    my($s, $x, $y, $z) = @_;
+
+    return ($x & $y) ^ (~$x & $z) if $s == 0;
+    return $x ^ $y ^ $z if $s == 1 || $s == 3;
+    return ($x & $y) ^ ($x & $z) ^ ($y & $z) if $s == 2;
+}
+
+#
+# rotate left (circular left shift) value x by n positions [3.2.5]
+#
+sub sha1_rotl
+{
+    my($x, $n) = @_;
+    ($x << $n) | ($x >> (32 - $n));
+}
+
+#
+# logical shift right value x by n positions
+# done using floating point, so that it works for more than 32 bits
+#
+sub sha1_lsr
+{
+    no integer;
+    my($x, $n) = @_;
+    $x / 2 ** $n;
+}
+
+#
+# end of sha1()
+#
