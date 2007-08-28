@@ -1,0 +1,4 @@
+# crontab entry to process footage every morning at 0800 GMT
+10     4       *       *       *       perl /home/bbcparlvid/bin/process_footage_ec2
+# crontab entry to invoke the download-video script every 6 hours (0000/0800/1400/2000 GMT)
+59     3,9,15,21       *       *       *       perl /home/bbcparlvid/bin/download_video
