@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.69 2007-08-24 20:51:45 matthew Exp $
+# $Id: MaPit.pm,v 1.70 2007-08-30 21:53:25 matthew Exp $
 #
 
 package MaPit;
@@ -497,7 +497,7 @@ exact point in polygon test. 'box' is quicker, but will return too many results.
 'polygon' should return at most one result for a type.
 
 If TYPE is present, restricts to areas of that type, such as WMC for Westminster
-Constituencies only.
+Constituencies only. Currently only returns areas in current generation.
 
 =cut
 sub get_voting_areas_by_location ($$;$) {
@@ -515,8 +515,9 @@ sub get_voting_areas_by_location ($$;$) {
     }
 
     # Search for areas in the bounding box, of the right type
+    my $generation = get_generation();
     my $type_clause = "";
-    my @params = ($e, $e, $n, $n);
+    my @params = ($e, $e, $n, $n, $generation, $generation);
     if (ref($type) eq 'ARRAY') {
         my $qs = '?,' x @$type;
         chop($qs);
@@ -531,6 +532,7 @@ sub get_voting_areas_by_location ($$;$) {
             left join area on area_geometry.area_id = area.id
             where min_e < ? and ? < max_e and
                   min_n < ? and ? < max_n
+                  and generation_low <= ? and ? <= generation_high
                   $type_clause
         ", 'area_id', {}, @params);
 
@@ -625,13 +627,13 @@ sub get_areas_by_type ($;$) {
         push @args, $type;
     }
 
-    my $generation = get_generation();
     my $ret;
     if ($all) {
         $ret = dbh()->selectcol_arrayref("
             select id from area where $clause
             ", {}, @args);
     } else {
+        my $generation = get_generation();
         $ret = dbh()->selectcol_arrayref("
             select id from area 
                 where $clause and generation_low <= ? and ? <= generation_high
