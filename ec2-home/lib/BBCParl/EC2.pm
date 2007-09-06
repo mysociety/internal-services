@@ -16,10 +16,10 @@ sub load_secrets {
 
       $access_id = mySociety::Config::get('AMAZON_ACCESS_ID');
       $secret_key = mySociety::Config::get('AMAZON_SECRET_KEY');
+      
+      return ($access_id, $secret_key);
 
-    return ($access_id, $secret_key);
-
-}
+  }
 
 sub extract_start_end {
     my ($filename) = @_;

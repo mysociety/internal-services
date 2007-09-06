@@ -7,6 +7,8 @@ use BBCParl::EC2;
 use BBCParl::S3;
 use BBCParl::SQS;
 
+use mySociety::Config;
+
 sub new {
     my ($class, $test) = @_;
     my $self = {};
@@ -29,9 +31,9 @@ sub new {
 
     $self->{'constants'}{'download-sleep'} = 23400;  # 23400 secs == 6 hours = 60 secs * 60 mins * 6 hours
 
-    $self->{'constants'}{'raw-footage-bucket'} = 'bbcparlvid-raw-footage';
-
-    $self->{'constants'}{'raw-footage-queue'} = 'bbcparlvid-raw-footage';
+    $self->{'constants'}{'raw-footage-bucket'} = mySociety::Config::get('BBC_BUCKET_RAW_FOOTAGE');
+    # raw-footage is ec2->bitter
+    $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
 
     # TODO - remove temporary testing value:
 
@@ -269,11 +271,14 @@ sub process_raw_files {
 
 	    # convert to MPEG video, 320x180
 
-	    my $ffmpeg_output = `$ffmpeg -v quiet -async 2 -i $input_filename -s 320x180 $output_filename 2>&1 > /dev/null`;
+	    my $convert_command = "$ffmpeg -v quiet -async 2 -i $input_filename -s 320x180 $output_filename 2>&1";
+	    my $ffmpeg_output = `$convert_command`;
 
 	    unless (-e $output_filename) {
 		warn "ERROR: Output file from mpeg conversion not found ($output_filename)";
 		warn "ERROR: Not deleting input file ($input_filename)";
+		warn "DEBUG: Conversion command was: $convert_command";
+		warn "ERROR: Output from ffmpeg was: $ffmpeg_output";
 	    } else {
 		$self->{'files-to-upload'}{$output_filename} = 1;
 		unlink ($input_filename);
@@ -325,7 +330,9 @@ sub upload_processed_files {
 	    my $token = $remote_filename;
 	    my $queue_name = $self->{'constants'}{'raw-footage-queue'};
 
-	    $q->send($queue_name, $token);
+	    unless ($q->send($queue_name, $token)) {
+		warn "ERROR: Could not send message to raw-footage-queue $queue_name";
+	    }
 
 	    # don't delete files as soon as they have been uploaded -
 	    # they get automatically deleted in Process.pm once they

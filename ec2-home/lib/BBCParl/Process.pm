@@ -9,12 +9,14 @@ use BBCParl::SQS;
 use BBCParl::EC2;
 use BBCParl::S3;
 
+use mySociety::Config;
+
 sub new {
     my ($class) = @_;
     my $self = {};
     bless $self, $class;
 
-#    ($self->{'aws'}{'access-id'}, $self->{'aws'}{'secret-key'}) = BBCParl::EC2::load_secrets();
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
 #    $self->{'path'}{'aws'} = $self->{'path'}{'home-dir'} . "/bin/aws/aws";
@@ -27,12 +29,15 @@ sub new {
     $self->{'path'}{'footage-cache-dir'} = $self->{'path'}{'processing-dir'} .'/raw-footage';
     $self->{'path'}{'output-cache-dir'} = $self->{'path'}{'processing-dir'} .'/output';
 
-    $self->{'constants'}{'footage-bucket'} = 'bbcparlvid-raw-footage';
-    $self->{'constants'}{'programmes-bucket'} = 'parliament-flash-video';
+    $self->{'constants'}{'raw-footage-bucket'} = mySociety::Config::get('BBC_BUCKET_RAW_FOOTAGE');
+    $self->{'constants'}{'programmes-bucket'} = mySociety::Config::get('BBC_BUCKET_PROGRAMMES');
 
-    $self->{'constants'}{'processing-requests-queue'} = 'bbcparlvid-processing-requests';
-    $self->{'constants'}{'new-programmes-queue'} = 'bbcparlvid-programme-updates';
-    $self->{'constants'}{'available-programmes-queue'} = 'bbcparlvid-programme-available';
+    # raw-footage is ec2->bitter
+    $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
+    # processing-requests is bitter->ec2
+    $self->{'constants'}{'processing-requests-queue'} = mySociety::Config::get('BBC_QUEUE_PROCESSING_REQUESTS');
+    # available-programmes is ec2->bitter
+    $self->{'constants'}{'available-programmes-queue'} = mySociety::Config::get('BBC_QUEUE_AVAILABLE_PROGRAMMES');
 
     return $self;
 }
@@ -498,7 +503,7 @@ sub mirror_footage_locally {
     warn "DEBUG: All mpeg files should already be available locally";
 
     my $store = BBCParl::S3->new();
-    my $bucket = $self->{'constants'}{'footage-bucket'};
+    my $bucket = $self->{'constants'}{'raw-footage-bucket'};
     my $dir = $self->{'path'}{'footage-cache-dir'};
 
     foreach my $request_id (sort keys %{$self->{'requests'}}) {
