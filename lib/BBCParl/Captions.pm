@@ -19,6 +19,14 @@ use Data::Dumper;
 # TODO - note start time, and write out run-time to updates
 # TODO - return zero from sync_captions on exit, or error code
 
+sub debug {
+    my ($self, $message) = @_;
+    if ($self->{'debug'}) {
+	warn "DEBUG: $message";
+    }
+    return undef;
+}
+
 sub new {
     my ($class, %args) = @_;
 
@@ -27,6 +35,10 @@ sub new {
     bless $self,$class;
     foreach my $key (keys %args) {
 	$self->{'args'}{$key} = $args{$key};
+    }
+
+    if ($self->{'args'} && $self->{'args'}{'debug'}) {
+	$self->{'debug'} = 'true';
     }
 
 #    $self->{'constants'}{'captions-location'} = 'http://www.leitchy.com/parliament-logs/';
@@ -58,7 +70,7 @@ sub run {
     }
 
     if ($self->{'args'}{'nomirror'}) {
-	warn "DEBUG: skipping mirror operation on caption files";
+	$self->debug("skipping mirror operation on caption files");
     } else {
 	unless ($self->mirror_log_files()) {
 	    warn "ERROR: Mirror did not work okay (try --nomirror for offline use).";
@@ -180,7 +192,7 @@ sub set_processing_dates {
     while ($next_date lt $end_date) {
 	$next_date = modify_date ($next_date, "+1 days");
 	$self->{'dates-to-process'}{$next_date} = 1;
-	warn "DEBUG: processing captions from $next_date";
+	$self->debug("processing captions from $next_date");
     }
 
     return 1;
@@ -213,7 +225,7 @@ sub mirror_log_files {
 	    my $response = $ua->mirror($url, $filename);
 	    unless ($response->is_success()) {
 		if ($response->status_line() =~ /304/) {
-		    warn "DEBUG: Could not fetch $url (error was " . $response->status_line() . ").";
+		    $self->debug("Could not fetch $url (error was " . $response->status_line() . ").");
 		} else {
 		    warn "ERROR: Could not fetch $url (error was " . $response->status_line() . ").";
 		}
@@ -240,7 +252,7 @@ sub load_log_files {
 
 	foreach my $filename (glob($filename_pattern)) {
 	    if ($filename =~ /done$/) {
-		warn "DEBUG: Skipping $filename";
+		$self->debug("Skipping $filename");
 		next;
 	    }
 
@@ -346,13 +358,13 @@ sub process_captions_files {
 	# parliament-westminster, ignore it (for now)
 
 	unless ($filename =~ /commons/) { ## || $filename =~ /westminster/) {
-#	    warn "DEBUG: Skipping $filename (neither commons nor westminster hall)";
+	    $self->debug("Skipping $filename (not commons)");
 	    next;
 	}
 
 	if (-e "$filename.processed") {
-#	    warn "DEBUG: $filename has already been processed";
-#	    warn "DEBUG: skipping $filename (to process this file, please delete $filename.processed)";
+	    $self->debug("$filename has already been processed");
+	    $self->debug("skipping $filename (to process this file, please delete $filename.processed)");
 	    next;
 	}
 	    
@@ -411,7 +423,7 @@ sub process_captions_files {
 		next;
 	    }
 
-	    warn "DEBUG: Looking for $date in data from $filename";
+	    $self->debug("Looking for $date in data from $filename");
 
 	    # TODO - we need to have more than one type of location
 	    # covered, but for now it's just commons
