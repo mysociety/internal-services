@@ -1,6 +1,10 @@
 #!/usr/bin/perl -w
 use strict;
 
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
 use Getopt::Long;
 
 use BBCParl::Process;
