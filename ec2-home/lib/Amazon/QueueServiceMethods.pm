@@ -8,6 +8,10 @@
 
 package Amazon::QueueServiceMethods;
 
+# need to use EC2 package to load secrets for SQS
+
+use BBCParl::EC2;
+
 # Functional interface
 require Exporter;
 our @ISA = qw(Exporter);
