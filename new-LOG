@@ -87,7 +87,7 @@ rpm -i freshrpms-release-1.1-1.fc.noarch.rpm
 
 yum update
 
-yum install cvs gcc ffmpeg xorg-x11-Mesa-libGL mplayer emacs lighttpd perlbal sqlite perl-XML-Parser perl-XML-libXML libxml2-devel # for the headers, otherwise CPAN can't install XMK::LibXML::XPathContext perl-DBI
+yum install cvs gcc php ffmpeg xorg-x11-Mesa-libGL mplayer emacs lighttpd perlbal sqlite perl-XML-Parser perl-XML-libXML libxml2-devel # for the headers, otherwise CPAN can't install XMK::LibXML::XPathContext perl-DBI
 
 Note: mplayer can't find /usr/lib/libGL.so.1 # because it's not there - for some reason, the mplayer package doesn't include this as a dependency
 
