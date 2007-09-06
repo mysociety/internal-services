@@ -74,7 +74,7 @@ sub receive {
     }
 
     if (!$queue_url_nodeset->size()) {
-	warn "ERROR: No queue URL found";
+	warn "ERROR: No results";
 	return undef;
     }
 
