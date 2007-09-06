@@ -163,4 +163,61 @@ Update /etc/lighttpd/lighttpd.conf - add mod_flv_streaming to the module load li
 
 flv-streaming.extensions = ( ".flv" )
 
-TODO - create AMI
+Logwatch started complaining:
+
+crond[7218]: pam_loginuid(crond:session): set_loginuid failed opening loginuid: 1 Time(s)
+
+So I modified /etc/ssh/sshd_config as follows:
+
+# changed the PAM line because logwatch kept on complaining about PAM failures
+UsePAM no
+UseLogin yes
+#UsePAM yes
+
+And made the following (identical) change to both /etc/pam.d/sshd and /etc/pam.d/crond :
+
+# edited by etienne@mysociety.org
+#session    required   pam_loginuid.so
+
+Making an Amazon Machine Image (AMI):
+
+Copied code and config data across from the EC2 machine to bitter.ukcod.org.uk - deleted everything under /home/bbcparlvid/
+
+Copied these files from bitter to EC2 machine, putting them in /mnt/amazon-certs/  (xxx in place of actual filenames and user ids below):
+
+access-key-id  cert-xxxx.pem  pk-xxxx.pem  secret-access-key
+
+Created an AMI:
+
+ec2-bundle-vol -d /mnt/image/ -k /mnt/amazon-certs/pk-xxxx.pem -c /mnt/amazon-certs/cert-xxxx.pem -u xxxxxxxxxxxx
+
+Realised that I'm going to have to recreate the filesystem under /mnt/processing/ when the instance boots up, because we excluded /mnt/ from the image. For future reference, it looks like this:
+
+processing/
+processing/downloads/bbcparliament
+processing/downloads
+processing/output
+processing/raw-footage/bbcparliament
+processing/raw-footage
+
+Uploaded the AMI to S3 bucket bbcparlvid-instances:
+
+ec2-upload-bundle -b bbcparlvid-instances -m /mnt/image/image.manifest.xml -a 0AR3610J0M492SZND4R2 -s k1KzShfJfocUzoegjX1ukukcCrwtNAUCamDlxxTu
+
+Found a machine that has java >= 1.5 (seagrass.goatchurch.org.uk) and copied across ec2-api-tools.zip (downloaded from http://s3.amazonaws.com/ec2-downloads/ec2-api-tools.zip)
+
+Copied across the access_key_id file to seagrass.
+
+Set environment variables EC2_HOME and JAVA_HOME:
+
+EC2_HOME=/home/etienne/ec2-api-tools-1.2-9739/; export EC2_HOME
+JAVA_HOME=/usr/local; export JAVA_HOME
+
+Register the bundle to get an AMI id in return (printed to the command line - make a note of this!
+
+./bin/ec2-register bbcparlvid-instances/image.manifest.xml -K pk-xxxx.pem -C cert-xxxx.pem
+
+The AMI id is ami-07f4116e - hurrah!
+
+
+ 
