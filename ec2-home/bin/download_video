@@ -7,13 +7,25 @@
 
 use strict;
 
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use Getopt::Long;
+
+my ($skip_pause) = (0);
+
+GetOptions ('skip-pause+' => \$skip_pause);
+
 use BBCParl::Fetch;
 
 my $object = BBCParl::Fetch->new();
 
 # since we're invoked at xx:59:00, we should sleep for just under a minute
 
-sleep (57);
+unless ($skip_pause) {
+    sleep (57);
+}
 
 $object->run();
 
