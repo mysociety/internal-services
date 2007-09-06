@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+use strict;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use BBCParl::SQS;
+
+my $q = BBCParl::SQS->new();
+my ($message, $queue, $id);
+
+my $queue_name = 'bbcparlvid-processing-requests';
+
+print "Checking messages in $queue_name\n";
+
+do {
+
+    ($message, $queue, $id) = $q->receive($queue_name);
+
+    exit unless $queue;
+
+    print "$queue: $message\n";
+
+    sleep (2);
+
+#    $q->delete($queue, $id);
+
+} while ($message);
