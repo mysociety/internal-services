@@ -74,7 +74,7 @@ sub receive {
     }
 
     if (!$queue_url_nodeset->size()) {
-	#warn "DEBUG: No message found";
+	warn "ERROR: No results";
 	return undef;
     }
 
@@ -102,6 +102,8 @@ sub receive {
     my $message_id = $receive_message_response->findvalue($Amazon::QueueServiceMethods::receive_message_id_xpath);
     my $message_body = $receive_message_response->findvalue($Amazon::QueueServiceMethods::receive_message_body_xpath);
 
+#    use Data::Dumper; warn Dumper $receive_message_response;
+
     if ($message_id) {
 
 	return ($message_body->value(), $queue_url, $message_id->value());
@@ -117,8 +119,6 @@ sub receive {
 sub delete {
     my ($self, $queue_url, $message_id) = @_;
 
-#    warn ($queue_url, $message_id);
-
     unless ($message_id && $queue_url) {
 	warn "ERROR: Not enough parameters for BBCParl::SQS::delete";
 	return undef;
@@ -133,6 +133,8 @@ sub delete {
 	warn "ERROR Could not delete message id " . $message_id . " from queue " . $queue_url;
 	return undef;
     }
+
+    return 1;
 
 }
 

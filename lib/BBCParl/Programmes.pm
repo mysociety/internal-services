@@ -27,13 +27,15 @@ sub new {
 
     bless $self, $class;
 
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
     foreach my $key (keys %args) {
 	$self->{'args'}{$key} = $args{$key};
     }
 
     # raw-footage is ec2->bitter
     $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
-    # processing-reqeusts is bitter->ec2
+    # processing-requests is bitter->ec2
     $self->{'constants'}{'processing-requests-queue'} = mySociety::Config::get('BBC_QUEUE_PROCESSING_REQUESTS');
     # available-programmes is ec2->bitter
     $self->{'constants'}{'available-programmes-queue'} = mySociety::Config::get('BBC_QUEUE_AVAILABLE_PROGRAMMES');
