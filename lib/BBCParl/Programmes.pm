@@ -18,6 +18,8 @@ use DateTime::TimeZone;
 use mySociety::DBHandle qw (dbh);
 use BBCParl::SQS;
 
+use mySociety::Config;
+
 sub new {
     my ($class, %args) = @_;
 
@@ -29,11 +31,14 @@ sub new {
 	$self->{'args'}{$key} = $args{$key};
     }
 
-    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
+    # raw-footage is ec2->bitter
+    $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
+    # processing-reqeusts is bitter->ec2
+    $self->{'constants'}{'processing-requests-queue'} = mySociety::Config::get('BBC_QUEUE_PROCESSING_REQUESTS');
+    # available-programmes is ec2->bitter
+    $self->{'constants'}{'available-programmes-queue'} = mySociety::Config::get('BBC_QUEUE_AVAILABLE_PROGRAMMES');
 
-    $self->{'constants'}{'raw-footage-queue'} = 'bbcparlvid-raw-footage';
-    $self->{'constants'}{'new-programmes-queue'} = 'bbcparlvid-programme-updates';
-    $self->{'constants'}{'available-programmes-queue'} = 'bbcparlvid-programme-available';
+    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
 
     $self->{'params'}{'channel_id'} = ',BBCParl';
     $self->{'params'}{'method'} = 'bbc.schedule.getProgrammes';
@@ -404,7 +409,7 @@ sub enqueue_processing_requests {
     my ($self) = @_;
 
     my $queue = BBCParl::SQS->new();
-    my $queue_name = 'bbcparl-processing-requests';
+    my $queue_name = $self->{'constants'}{'processing-requests-queue'};
     my $message_count = 0;
 
     my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' AND rights != 'none' ORDER BY id");
@@ -481,9 +486,9 @@ sub enqueue_processing_requests {
 	# http://gallery.menalto.com/node/40548)
 
 	# foreach token, add to the Amazon SQS queue
-	# 'bbcparl-processing-requests'
+	# 'bbcparlvid-processing-requests'
 
-	warn "DEBUG: Adding programme $data{'id'} to the processing queue";
+	warn "DEBUG: Adding programme $data{'id'} to the processing queue $queue_name";
 
 	warn Dumper $token;
 
@@ -502,7 +507,7 @@ sub enqueue_processing_requests {
 
     }
 
-    dbh()->commit();
+#    dbh()->commit();
 
     warn "DEBUG: Sent $message_count processing requests to EC2";
 

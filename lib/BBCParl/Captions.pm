@@ -77,7 +77,6 @@ sub run {
     }
 
     unless ($self->{'arg'}{'no-output-write'} || $self->{'args'}{'nohansard'}) {
-	warn "DEBUG: Writing out update file(s)";
 	unless ($self->write_update_files()) {
 	    return undef;
 	}
@@ -176,7 +175,6 @@ sub set_processing_dates {
     }
 
     $self->{'dates-to-process'}{$start_date} = 1;
-    warn "DEBUG: processing captions from $start_date";
 
     my $next_date = $start_date;
     while ($next_date lt $end_date) {
