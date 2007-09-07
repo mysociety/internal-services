@@ -33,12 +33,15 @@ sub new {
     my $self = {};
 
     bless $self,$class;
-    foreach my $key (keys %args) {
-	$self->{'args'}{$key} = $args{$key};
-    }
 
-    if ($self->{'args'} && $self->{'args'}{'debug'}) {
-	$self->{'debug'} = 'true';
+    if (%args) {
+	foreach my $key (keys %args) {
+	    $self->{'args'}{$key} = $args{$key};
+	}
+	
+	if ($self->{'args'} && $self->{'args'}{'debug'}) {
+	    $self->{'debug'} = 'true';
+	}
     }
 
 #    $self->{'constants'}{'captions-location'} = 'http://www.leitchy.com/parliament-logs/';
