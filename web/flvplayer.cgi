@@ -31,6 +31,8 @@ BEGIN {
 sub main {
     my ($q) = @_;
     my $object = BBCParl::Web->new($q);
+    $object->{'debug'} = undef;
+    $object->{'disable-cache'} = undef;
     $object->process_request();
 }
 

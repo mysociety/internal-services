@@ -16,17 +16,35 @@ use mySociety::DBHandle qw (dbh);
 
 use Data::Dumper;
 
+sub debug {
+    my ($self, $message) = @_;
+    if ($self->{'debug'}) {
+	warn "DEBUG: $message";
+    }
+    return undef;
+}
+
 sub new {
-    my ($class, $cgi) = @_;
+    my ($class, $cgi, %args) = @_;
 
     my $self = {};
     bless $self, $class;
 
-    $self->{'urls'}{'video-dir'} = 'http://s3.amazonaws.com/bbcparl-flash-video';
+    if (%args) {
+	foreach my $key (keys %args) {
+	    $self->{'args'}{$key} = $args{$key};
+	}
+	
+	if ($self->{'args'} && $self->{'args'}{'debug'}) {
+	    $self->{'debug'} = 'true';
+	}
+    }
+
+    $self->{'urls'}{'video-dir'} = mySociety::Config::get('BBC_URL_FLASH_VIDEO');
     $self->{'urls'}{'video-proxy'} = '';
     $self->{'urls'}{'thumbnail-dir'} = '';
-    $self->{'urls'}{'bbcparl-logo'} = 'http://parlvid.mysociety.org/bbcparl-logo.png';
-    $self->{'urls'}{'flash-player'} = 'http://parlvid.mysociety.org/FLVScrubber2.swf';
+    $self->{'urls'}{'bbcparl-logo'} = mySociety::Config::get('BBC_URL_BBCPARL_LOGO');
+    $self->{'urls'}{'flash-player'} = mySociety::Config::get('BBC_URL_FLASH_PLAYER');
     $self->{'urls'}{'help'} = '';
 
     $self->{'flash-params'}{'width'} = 320;
@@ -40,9 +58,6 @@ sub new {
 				   };
 
     #warn Dumper $cache->stats('misc');
-
-    $cache->set('foo','bar');
-    #warn $cache->get('foo');
 
     $self->{'cache'} = $cache;
 
@@ -91,7 +106,7 @@ sub process_request {
 
     # if input is a gid, lookup the gid using TWFY API and extract the
     # start datetime and location (channel is bbcparl); if both gid
-    # and daettime, ignore datetime
+    # and datetime, ignore datetime
 
     if ($self->{'cgi'}->param('gid')) {
 	unless ($self->get_gid_details()) {
@@ -113,8 +128,6 @@ sub process_request {
 	# work out the offset so we can seek straight to our datetime
 
 	$self->calculate_seconds_offset();
-
-	$self->calculate_byte_offset();
 
 	# if we have been given an end datetime, use that to specify
 	# the duration (not of immediate use, but we'll need it
@@ -156,10 +169,16 @@ sub process_request {
 
     # add new gids to the cache
     
-    my $cache = $self->{'cache'};
-    foreach my $gid (keys %{$self->{'to-be-cached'}}) {
-	#warn "cache update: $gid, $self->{'to-be-cached'}{$gid}";
-	$cache->set($gid, $self->{'to-be-cached'}{$gid});
+    if ($self->{'disable-cache'}) {
+	$self->debug("Skipping cache update for new gids");
+    } else {
+	if ($self->{'cache'}) {
+	    my $cache = $self->{'cache'};
+	    foreach my $gid (keys %{$self->{'to-be-cached'}}) {
+		#warn "cache update: $gid, $self->{'to-be-cached'}{$gid}";
+		$cache->set($gid, $self->{'to-be-cached'}{$gid});
+	    }
+	}
     }
     
 }    
@@ -265,16 +284,18 @@ sub get_gid_details {
 
     # check whether the gid is cached in memcached
 
-    my $cache = $self->{'cache'};
-
-    my $cache_value = $cache->get($gid);
-    #warn $cache_value;
-    if ($cache_value) {
-#	warn "DEBUG: gid cache hit: $gid, $cache_value";
-	if ($cache_value =~ /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/i) {
-#	    warn "DEBUG: gid matches regexp: $gid, $cache_value";
-	    $self->{'param'}{'start'} = $cache_value;
-	    return $gid;
+    unless ($self->{'disable-cache'}) {
+	my $cache = $self->{'cache'};
+	
+	my $cache_value = $cache->get($gid);
+	#warn $cache_value;
+	if ($cache_value) {
+	    $self->debug("gid cache hit: $gid, $cache_value");
+	    if ($cache_value =~ /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/i) {
+		$self->debug("gid matches regexp: $gid, $cache_value");
+		$self->{'param'}{'start'} = $cache_value;
+		return $gid;
+	    }
 	}
     }
 
@@ -297,14 +318,22 @@ sub get_gid_details {
 	$self->error("Sorry, there was an error fetching the necessary data from an external source (empty results from API).  Please try again later.",2);
 	return undef;
     }
+
+    $self->debug(Dumper $speech_results);
     
     my $speech_results_ref = XMLin($speech_results,
 				   'ForceArray' => ['match']);
     
     foreach my $match_ref (@{$speech_results_ref->{'match'}}) {
 
+	# It seems that we have to cycle through parent gids, and
+	# hence use the last gid datetime (since the parents may not
+	# be using the correct date time)
+
 	my $gid_date_time = "$$match_ref{'hdate'}T$$match_ref{'htime'}";
+	$self->debug("gid: $gid; date-time from hansard: $gid_date_time");
 	unless ($gid_date_time = $self->convert_to_UTC($gid_date_time)) {
+	    warn "ERROR: convert_to_UTC returned undef result, aborting.";
 	    return undef;
 	}
 
@@ -319,6 +348,7 @@ sub get_gid_details {
     }
 
     if (my $start = $self->{'param'}{'start'}) {
+	$self->debug("Created start param for this gid: $start");
 	return $start;
     } else {
 
@@ -438,6 +468,8 @@ sub get_prog_id {
 
 sub calculate_seconds_offset {
     my ($self) = @_;
+
+    $self->debug("Comparing $self->{'programme'}{'record-start'} and $self->{'param'}{'start'}");
 
     if ($self->{'param'}{'start'}) {
 	my $o = $self->calculate_seconds_diff($self->{'programme'}{'record-start'},
@@ -587,12 +619,12 @@ sub print_result {
 	$duration = $d;
     }
 
-#    warn $secs_offset, $bytes_offset;
+    $self->debug("Offset for this start position is $secs_offset seconds from the beginning of the file");
 
     $secs_offset = sprintf('%.0f',$secs_offset);
     $bytes_offset = sprintf('%.0f',$bytes_offset);
 
-#    warn $secs_offset, $bytes_offset;
+    $self->debug("Offset for this start position is $secs_offset rounded seconds from the beginning of the file");
 
     my $logo_url = $self->{'urls'}{'bbcparl-logo'};
     my $thumbnail_url = "$self->{'urls'}{'thumbnail-dir'}/$prog_id.$secs_offset.png";
@@ -619,7 +651,7 @@ sub print_result {
 
 	print <<END;
 <!--
-document.write('<embed src="$self->{'urls'}{'flash-player'}" width="$self->{'flash-params'}{'width'}" height="$self->{'flash-params'}{'height'}" allowfullscreen="true" flashvars="&displayheight=$self->{'flash-params'}{'display-height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration" />')
+document.write('<embed src="$self->{'urls'}{'flash-player'}" width="$self->{'flash-params'}{'width'}" height="$self->{'flash-params'}{'height'}" allowfullscreen="true" flashvars="&displayheight=$self->{'flash-params'}{'display-height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration&startAt=$secs_offset" />')
 -->
 END
 
