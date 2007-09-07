@@ -191,15 +191,6 @@ Created an AMI:
 
 ec2-bundle-vol -d /mnt/image/ -k /mnt/amazon-certs/pk-xxxx.pem -c /mnt/amazon-certs/cert-xxxx.pem -u xxxxxxxxxxxx
 
-Realised that I'm going to have to recreate the filesystem under /mnt/processing/ when the instance boots up, because we excluded /mnt/ from the image. For future reference, it looks like this:
-
-processing/
-processing/downloads/bbcparliament
-processing/downloads
-processing/output
-processing/raw-footage/bbcparliament
-processing/raw-footage
-
 Uploaded the AMI to S3 bucket bbcparlvid-instances:
 
 ec2-upload-bundle -b bbcparlvid-instances -m /mnt/image/image.manifest.xml -a 0AR3610J0M492SZND4R2 -s k1KzShfJfocUzoegjX1ukukcCrwtNAUCamDlxxTu
@@ -219,5 +210,32 @@ Register the bundle to get an AMI id in return (printed to the command line - ma
 
 The AMI id is ami-07f4116e - hurrah!
 
+Change directory to ~/conf/ejhp (to use bbcparlservers_keypair)
 
- 
+../../mysociety/bbcparlvid/bin/aws-1.1beta run-instance -k bbcparlservers_keypair -g bbcparlservers ami-07f4116e
+
+bin/aws-1.1beta describe-instances
+
+Sometimes it doesn't work, and you get this:
+
++------------+--------------+-------------------------+--------------+------------------------+
+| instanceId |   imageId    |      instanceState      |    reason    |        keyName         |
++------------+--------------+-------------------------+--------------+------------------------+
+| i-5ba74832 | ami-07f4116e | code=48 name=terminated | CLIENT-ERROR | bbcparlservers_keypair |
++------------+--------------+-------------------------+--------------+------------------------+
+
+But eventually you get a runnig instance.  Yay!
+
+ssh -i ~/conf/ejhp/bbcparlservers_keypair root@ec2-xx-xx-xx-xx.z-1.compute-1.amazonaws.com
+
+Recreate the filesystem under /mnt/processing/ when the instance boots up, because we excluded /mnt/ from the image. For future reference, it looks like this:
+
+processing/
+processing/downloads/bbcparliament
+processing/downloads
+processing/output
+processing/raw-footage/bbcparliament
+processing/raw-footage
+
+All of the above should be owned by user and group bbcparlvid.
+
