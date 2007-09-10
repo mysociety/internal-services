@@ -1,0 +1,56 @@
+#!/usr/bin/perl -w
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../perllib";
+
+use mySociety::Config;
+use mySociety::DBHandle qw (dbh);
+use mySociety::Util qw(print_log);
+
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
+      mySociety::DBHandle::configure(
+				     Name => mySociety::Config::get('BBC_DB_NAME'),
+				     User => mySociety::Config::get('BBC_DB_USER'),
+				     Password => mySociety::Config::get('BBC_DB_PASS'),
+				     Host => mySociety::Config::get('BBC_DB_HOST', undef),
+				     Port => mySociety::Config::get('BBC_DB_PORT', undef)
+				     );
+  }
+
+# get a list of all programs that have been encoded into FLV format
+# (from the bbcparlvid db)
+
+my $sql = "select id from programmes where status = 'available' order by id;";
+
+my $st = dbh()->prepare($sql);
+$st->execute();
+
+use LWP::UserAgent;
+my $ua = LWP::UserAgent->new();
+
+# for each program, mirror it locally, upload using aws-1.1beta to
+# ejhp's new S3 account, and then delete local copy
+
+while (my @row = $st->fetchrow_array()) {
+    my $id = $row[0];
+    print "$id\n";
+    next;
+    next if ($id eq '149');
+    warn "mirror $id.flv";
+    my $response = $ua->mirror("http://s3.amazonaws.com/bbcparl-flash-video/$id.flv","/home/etienne/temp-flv/$id.flv");
+    unless ($response->status_line =~ /40/) {
+	warn "uploading $id.flv";
+	my $cmd = "/home/etienne/mysociety/bbcparlvid/bin/aws-1.1beta put \"x-amz-acl: public-read\" parliament-flash-video/$id.flv /home/etienne/temp-flv/$id.flv 2>&1";
+	`$cmd`;
+	`rm /home/etienne/temp-flv/$id.flv`;
+	warn "deleted $id.flv";
+    } else {
+	warn "ERROR: " . $response->status_line;
+    }
+}
+
+
