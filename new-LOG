@@ -239,3 +239,4 @@ processing/raw-footage
 
 All of the above should be owned by user and group bbcparlvid.
 
+Make all files in /mnt/processing/output world-readable + the directories and symlinks
