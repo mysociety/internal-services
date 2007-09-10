@@ -41,8 +41,8 @@ sub new {
     }
 
     $self->{'urls'}{'video-dir'} = mySociety::Config::get('BBC_URL_FLASH_VIDEO');
-    $self->{'urls'}{'video-proxy'} = '';
-    $self->{'urls'}{'thumbnail-dir'} = '';
+    $self->{'urls'}{'video-proxy'} = mySociety::Config::get('BBC_URL_FLASH_PROXY');
+    $self->{'urls'}{'thumbnail-dir'} = mySociety::Config::get('BBC_URL_THUMBNAILS');
     $self->{'urls'}{'bbcparl-logo'} = mySociety::Config::get('BBC_URL_BBCPARL_LOGO');
     $self->{'urls'}{'flash-player'} = mySociety::Config::get('BBC_URL_FLASH_PLAYER');
     $self->{'urls'}{'help'} = '';
@@ -610,10 +610,6 @@ sub print_result {
     if (defined(my $o = $self->{'output'}{'offset'})) {
 	$secs_offset = $o;
     }
-    my $bytes_offset = 0;
-    if (defined(my $o = $self->{'output'}{'bytes-offset'})) {
-	$bytes_offset = $o;
-    }
     my $duration = '';
     if (my $d = $self->{'output'}{'duration'}) {
 	$duration = $d;
@@ -622,16 +618,18 @@ sub print_result {
     $self->debug("Offset for this start position is $secs_offset seconds from the beginning of the file");
 
     $secs_offset = sprintf('%.0f',$secs_offset);
-    $bytes_offset = sprintf('%.0f',$bytes_offset);
 
     $self->debug("Offset for this start position is $secs_offset rounded seconds from the beginning of the file");
 
     my $logo_url = $self->{'urls'}{'bbcparl-logo'};
     my $thumbnail_url = "$self->{'urls'}{'thumbnail-dir'}/$prog_id.$secs_offset.png";
 
+#   TODO - remove this next line
+    my $thumbnail_url = '';
+
     my $video_url;
-    if ($bytes_offset) {
-	$video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv/offset/$bytes_offset";
+    if ($secs_offset) {
+	$video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv/offset/$secs_offset";
     } else {
 	$video_url = "$self->{'urls'}{'video-dir'}/$prog_id.flv";
     }
