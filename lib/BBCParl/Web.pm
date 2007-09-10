@@ -88,7 +88,7 @@ sub process_request {
     # web-page, 2) the URL of the flash video. default is 1). if both
     # XML and JS, ignore JS.
 
-    if (lc($cgi->param('output')) eq 'xml') {
+    if ($cgi->param('output') && lc($cgi->param('output')) eq 'xml') {
 	$self->{'param'}{'output'} = 'xml';
     } else {
 	$self->{'param'}{'output'} = 'js';
@@ -625,7 +625,7 @@ sub print_result {
     my $thumbnail_url = "$self->{'urls'}{'thumbnail-dir'}/$prog_id.$secs_offset.png";
 
 #   TODO - remove this next line
-    my $thumbnail_url = '';
+    $thumbnail_url = '';
 
     my $video_url;
     if ($secs_offset) {
