@@ -627,7 +627,7 @@ sub print_result {
 #   TODO - remove this next line
     $thumbnail_url = '';
 
-    my $video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv'
+    my $video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv';
     my $auto_start = $self->{'param'}{'autostart'};
     if ($auto_start && $auto_start =~ /^(yes|true|y|1)/i) {
 	$auto_start = 'true';
