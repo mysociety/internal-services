@@ -8,7 +8,7 @@ use lib "$FindBin::Bin/../lib";
 use lib "$FindBin::Bin/../../perllib";
 
 use Getopt::Long;
-use CGI;
+#use CGI;
 use BBCParl::Web;
 
 use BBCParl::Page;

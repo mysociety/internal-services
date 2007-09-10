@@ -8,7 +8,7 @@ use strict;
 use Cache::Memcached;
 use DateTime;
 use XML::Simple;
-use CGI qw/:standard/;
+use CGI::Fast qw/:standard/;
 use LWP::UserAgent;
 use WebService::TWFY::API;
 
