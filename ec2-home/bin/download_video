@@ -11,15 +11,18 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
+mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
 use Getopt::Long;
 
-my ($skip_pause) = (0);
+my ($skip_pause, $debug) = (0, 0);
 
-GetOptions ('skip-pause+' => \$skip_pause);
+GetOptions ('skip-pause+' => \$skip_pause,
+	    'debug+' => \$debug);
 
 use BBCParl::Fetch;
 
-my $object = BBCParl::Fetch->new();
+my $object = BBCParl::Fetch->new('debug' => $debug);
 
 # since we're invoked at xx:59:00, we should sleep for just under a minute
 
