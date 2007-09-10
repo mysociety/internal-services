@@ -17,7 +17,7 @@ mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 my $script_name = undef;
 my $send_to_email = mySociety::Config::get('ERRORS_TO_EMAIL');
 my $send_from_email = mySociety::Config::get('ERRORS_FROM_EMAIL');
-my $error = undef;
+my $script_output = undef;
 
 GetOptions ('target=s' => \$script_name);
 
@@ -30,32 +30,38 @@ if ($script_name) {
     $script_name = "$FindBin::Bin/$script_name";
     if (-e $script_name) {
 	my $script_command = "perl $script_name 2>&1";
-	$error = `$script_command`;	
+	$script_output = `$script_command`;	
     } else {
-	$error = "ERROR: non-existent file $script_name";
+	$script_output = "ERROR: non-existent file $script_name";
     }
 } else {
-    $error = "ERROR: No target script specified to this wrapper script";
+    $script_output = "ERROR: No target script specified to this wrapper script";
     $script_name = 'no target script specified to cron-wrapper';
 }
 
-if ($error) {
+if ($script_output) {
+
+    my $output_label = 'output';
+
+    if ($script_output =~ /error/i) {
+	$output_label = 'error';
+    }
 
     unless (is_valid_email($send_to_email)) {
 	warn "ERROR: invalid send_to_email address $send_to_email";
-	warn "ERROR: $script_name had errors:\n$error";
+	warn "ERROR: $script_name had errors:\n$script_output";
 	die;
     }
     unless (is_valid_email($send_from_email)) {
 	warn "ERROR: invalid send_from_email address $send_from_email";
-	warn "ERROR: $script_name had errors:\n$error";
+	warn "ERROR: $script_name had errors:\n$script_output";
 	die;
     }
-    my $email = "To: $send_to_email\nFrom: $send_from_email\nSubject: [bbcparlvid] error: $script_name\n\n$error";
+    my $email = "To: $send_to_email\nFrom: $send_from_email\nSubject: [bbcparlvid] error: $script_name\n\n$script_output";
     my $send_email_return = send_email($email, $send_from_email, $send_to_email);
     if ($send_email_return) {
 	warn "ERROR: could not send email using mySociety::EmailUtil::send_email (error code: $send_email_return)";
-	warn "ERROR: $script_name had errors:\n$error";
+	warn "ERROR: $script_name had output:\n$script_output";
 	die;
     }
 
