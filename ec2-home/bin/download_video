@@ -11,10 +11,6 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
-use mySociety::Config;
-
-mySociety::Config::set_file("$FindBin::Bin/../conf/general");
-
 use Getopt::Long;
 
 my ($skip_pause, $debug) = (0, 0);
@@ -22,7 +18,10 @@ my ($skip_pause, $debug) = (0, 0);
 GetOptions ('skip-pause+' => \$skip_pause,
 	    'debug+' => \$debug);
 
+use mySociety::Config;
 use BBCParl::Fetch;
+
+mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
 my $object = BBCParl::Fetch->new('debug' => $debug);
 
