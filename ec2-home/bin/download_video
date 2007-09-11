@@ -11,6 +11,8 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
+use mySociety::Config;
+
 mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
 use Getopt::Long;
