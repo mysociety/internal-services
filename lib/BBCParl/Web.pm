@@ -499,8 +499,25 @@ sub calculate_seconds_offset {
     $self->debug("Comparing $self->{'programme'}{'record-start'} and $self->{'param'}{'start'}");
 
     if ($self->{'param'}{'start'}) {
-	my $o = $self->calculate_seconds_diff($self->{'programme'}{'record-start'},
+	my $offset = $self->calculate_seconds_diff($self->{'programme'}{'record-start'},
 								    $self->{'param'}{'start'});
+
+	# to make sure that we don't start in the middle of the second
+	# sentence of a speech, start five seconds early
+
+	my $reduction = mySociety::Config::get('BBC_REDUCE_OFFSET_SECS');
+
+	# check whether $reduction is an integer!!
+
+	unless ($reduction =~ /^\d+$/) {
+	    $reduction = 0;
+	}
+
+	$offset -= $reduction;
+	if ($offset < 0) {
+	    $offset = 0;
+	}
+
 	$self->{'output'}{'offset'} = $o;
 	return $self->{'output'}{'offset'};
     } else {
