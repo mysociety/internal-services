@@ -683,7 +683,7 @@ sub print_result {
 	    print <<JS;
 <!--
     document.write('$embed');
--->
+//-->
 JS
 1;
 	}
@@ -692,7 +692,9 @@ JS
 	    # we need to escape all "" marks in order to place the embed string in a text box
 	    $embed =~ s!\"!\\\"!g;
 	    print <<EMBED;
-<input type="text" name="embed" value="$embed" />
+<!--
+    document.write('<input type=\"text\" name=\"embed\" value=\"$embed\" />');
+//-->
 EMBED
 1;
 	}
