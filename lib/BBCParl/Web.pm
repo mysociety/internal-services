@@ -690,10 +690,12 @@ JS
 
 	if ($output eq 'js') {
 	    # we need to escape all "" marks in order to place the embed string in a text box
-	    $embed =~ s!\"!\\\"!g;
+	    #$embed =~ s!\"!\\\"!g;
 	    print <<EMBED;
 <!--
-    document.write('<input type=\"text\" name=\"embed\" value=\"$embed\" />');
+    document.write("<form name='embedForm'>");
+    document.write("<input type='text' name='embed' value='$embed' onClick='javascript:document.embedForm.embed.focus();document.embedForm.embed.select();' />");
+    document.write("</form>");
 //-->
 EMBED
 1;
