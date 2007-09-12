@@ -711,9 +711,11 @@ EMBED
 
 	# there is no available programme covering that time span
 
+	my $error_message = 'Sorry, video footage was not captured for this debate.';
+
 	if (lc($self->{'param'}{'output'}) eq 'xml') {
 
-	    $self->error_xml("No programme found matching those parameters", 1);
+	    $self->error_xml("$error_message", 1);
 	    return undef;
 
 	} else {
@@ -721,13 +723,11 @@ EMBED
 	    print header(-type=>'text/html');
 #			 -expires=>'+1y'); # send javascript, cache it for 1 year
 
-	    if ($self->{'param'}{'verbose'}) {
-
-		print "<!--\ndocument.write('<p>Error: no programme to display for this date/time.</p>')\n-->\n";
-
-	    } else {
-
-		print "<!--\n//There is no programme to display for the specified gid or datetime.\n-->\n";
+	    if ($self->{'output'} eq 'js') {
+		print "<!--\ndocument.write('<p>$error_message</p>')\n-->\n";
+	    }
+	    if  ($self->{'output'} eq 'minimal-js') {
+		print "<!--\n//$error_message.\n-->\n";
 
 	    }
 
