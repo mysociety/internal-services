@@ -682,7 +682,7 @@ sub print_result {
 	if ($output eq 'js' || $output eq 'minimal-js') {
 	    print header(-type => 'text/html');
 #		     -expires => '+1y');
-	    print "<--\n";
+	    print "<!--\n";
 
 	    if ($output eq 'js') {
 		print "document.write(\"<form name='embedForm'>'\")\n";
