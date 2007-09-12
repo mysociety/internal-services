@@ -45,7 +45,7 @@ sub new {
     $self->{'urls'}{'thumbnail-dir'} = mySociety::Config::get('BBC_URL_THUMBNAILS');
     $self->{'urls'}{'bbcparl-logo'} = mySociety::Config::get('BBC_URL_BBCPARL_LOGO');
     $self->{'urls'}{'flash-player'} = mySociety::Config::get('BBC_URL_FLASH_PLAYER');
-    $self->{'urls'}{'help'} = '';
+    $self->{'urls'}{'help'} = 'TODO';
 
     $self->{'flash-params'}{'width'} = 320;
     $self->{'flash-params'}{'height'} = 180;
@@ -65,14 +65,54 @@ sub new {
 
 }
 
-sub process_request {
+sub handle_request {
     my ($self) = @_;
 
-    # inputs can be: 1) a single gid, 2) a channel/location/datetime
-    # combination; autoplay and output an optional parameters for all
-    # options
+    if ($self->process_params()) {
+	if ($self->print_result()) {
+	    return $self->update_cache();
+	}
+    }
+
+    return undef;
+
+}
+
+sub update_cache {
+    my ($self) = @_;
+
+    # add new gid:datetime pairs to the cache
+    
+    if ($self->{'disable-cache'}) {
+	$self->debug("Skipping cache update for new gids");
+    } else {
+	if ($self->{'cache'}) {
+	    my $cache = $self->{'cache'};
+	    foreach my $gid (keys %{$self->{'to-be-cached'}}) {
+		#warn "cache update: $gid, $self->{'to-be-cached'}{$gid}";
+		$cache->set($gid, $self->{'to-be-cached'}{$gid});
+	    }
+	}
+    }
+
+    return 1;
+
+}
+
+sub process_params {
+    my ($self) = @_;
+
+    # valid parameters are: 1) gid, 2) datetime combination; location,
+    # channel, autoplay and output are optional parameters.  default
+    # values are location=commons, channel=BBCParl, autoplay=false and
+    # output=js
 
     my $cgi = $self->{'cgi'};
+
+    unless ($cgi) {
+	$self->error("Could not find CGI object",4);
+	return undef;
+    }
 
     unless ($cgi->param()) {
 	$self->error("No parameters were passed to this script.",1);
@@ -90,6 +130,8 @@ sub process_request {
 
     if ($cgi->param('output') && lc($cgi->param('output')) eq 'xml') {
 	$self->{'param'}{'output'} = 'xml';
+    } elsif (lc($cgi->param('output')) eq 'minimal-js') {
+	$self->{'param'}{'output'} = 'minimal-js';
     } else {
 	$self->{'param'}{'output'} = 'js';
     }
@@ -102,7 +144,9 @@ sub process_request {
 	$self->{'param'}{'autostart'} = 'true';
     }
 
-    $self->check_location_channel();
+    unless ($self->check_location_channel()) {
+	$self->error("Could not determine location and/or channel",1);
+    }
 
     # if input is a gid, lookup the gid using TWFY API and extract the
     # start datetime and location (channel is bbcparl); if both gid
@@ -122,7 +166,7 @@ sub process_request {
     # in all cases, fetch the programme id and start time of any
     # footage at recording datetime (using local database)
 
-    if ($self->get_prog_id()) {	
+    if ($self->get_prog_id_from_start_param()) {	
 
 	# there is a programme covering this start datetime; let's
 	# work out the offset so we can seek straight to our datetime
@@ -135,53 +179,17 @@ sub process_request {
 
 	$self->calculate_duration();
 
-	$self->print_result();
+	$self->{'output'}{'result'} = 1;
 
     } else {
 
-	# there is no available programme covering that time span
-
-	if (lc($self->{'param'}{'output'}) eq 'xml') {
-
-	    $self->error_xml("No programme found matching those parameters", 1);
-	    return undef;
-
-	} else {
-
-	    print header(-type=>'text/html');
-#			 -expires=>'+1y'); # send javascript, cache it for 1 year
-
-	    if ($self->{'param'}{'verbose'}) {
-
-		print "<!--\ndocument.write('<p>Error: no programme to display for this date/time.</p>')\n-->\n";
-
-	    } else {
-
-		print "<!--\n//There is no programme to display for the specified gid or datetime.\n-->\n";
-
-	    }
-
-	}
+	$self->{'output'}{'result'} = 0;
 
     }
 
-    close STDOUT;
-
-    # add new gids to the cache
-    
-    if ($self->{'disable-cache'}) {
-	$self->debug("Skipping cache update for new gids");
-    } else {
-	if ($self->{'cache'}) {
-	    my $cache = $self->{'cache'};
-	    foreach my $gid (keys %{$self->{'to-be-cached'}}) {
-		#warn "cache update: $gid, $self->{'to-be-cached'}{$gid}";
-		$cache->set($gid, $self->{'to-be-cached'}{$gid});
-	    }
-	}
-    }
-    
-}    
+    return 1;
+   
+}
 
 sub check_location_channel {
     my ($self) = @_;
@@ -210,6 +218,8 @@ sub check_location_channel {
     }
     $self->{'param'}{'channel'} = $channel;
 
+    return 1;
+
 }
 
 sub error_xml {
@@ -232,13 +242,13 @@ sub error {
 	$code = 0;
     }
 
-    if ($self->{'param'}{'output'} && $self->{'param'}{'output'} eq 'xml') {
+    if ($self->{'param'} && $self->{'param'}{'output'} && $self->{'param'}{'output'} eq 'xml') {
 	$self->error_xml($error,$code);
     } else {
 
 	print header(-type => 'text/html');
 
-	if ($self->{'param'}{'verbose'}) {
+	if ($self->{'param'} && $self->{'param'}{'verbose'}) {
 	
 	    print <<END;
 <!--
@@ -251,7 +261,6 @@ END
 	} else {
 
 	    print <<END;
-
 <!--
 // Error: code $code
 //
@@ -308,14 +317,14 @@ sub get_gid_details {
 					 } );
     
     unless ($speech_response->is_success()) {
-	$self->error("Sorry, there was an error fetching the necessary data from an external source (API error).  Please try again later.",2);
+	$self->error("Sorry, there was an error fetching the necessary data from an external source (API error).  Please check your parameter values or try again later.",2);
 	return undef;
     }
 
     my $speech_results = $speech_response->{results};
     
     unless ($speech_results) {
-	$self->error("Sorry, there was an error fetching the necessary data from an external source (empty results from API).  Please try again later.",2);
+	$self->error("Sorry, there was an error fetching the necessary data from an external source (empty results from API).  Please check your parameter values or try again later.",2);
 	return undef;
     }
 
@@ -431,18 +440,36 @@ sub get_datetime {
 
 }
 
-sub get_prog_id {
+sub get_prog_id_from_start_param {
     my ($self) = @_;
 
     # find a programme with recording start < start < recording end,
-    # on the correct channel and location
+    # on the correct channel and location.  currently the only channel
+    # is BBCParl, but this option is included in case we later expand
+    # our coverage to other sources (e.c. C-SPAN).  since commons
+    # coverage is always carried live, this currently means that a
+    # given datetime will return commons coverage if the commons is
+    # sitting at that time, and the location parameter has not been
+    # set to something other than commons.
 
     my $select_statement = "SELECT id, record_start, record_end FROM programmes " .
 			    "WHERE record_start <= ? AND record_end > ? " .
 			    "AND status = 'available' AND rights = 'internet' " .
 			    "AND channel_id = ? AND location = ?";
 
-    my @bind_variables = map { $self->{'param'}{$_} } ('start', 'start', 'channel', 'location');
+    # 'start' appears twice in this list, because it is used twice as
+    # a bind parameter in the SELECT statement
+
+    my @var_names = ('start', 'start', 'channel', 'location');
+
+    foreach my $name (@var_names) {
+	unless ($self->{'param'} && $self->{'param'}{$name}) {
+	    $self->error("Did not find any value for parameter $name, cannot proceed with SQL query",1);
+	    return undef;
+	}
+    }
+
+    my @bind_variables = map { $self->{'param'}{$_} } @var_names;
 
     my $st = dbh()->prepare($select_statement);
     $st->execute(@bind_variables);
@@ -523,7 +550,7 @@ sub calculate_byte_offset {
 						     $end);
 
 	unless ($duration > 0) {
-	    $self->error("Programme apparently lasts for negative or zero seconds");
+	    $self->error("Programme apparently lasts for negative or zero seconds",1);
 	    return undef;
 	}
 
@@ -604,62 +631,108 @@ sub extract_datetime_array {
 sub print_result {
     my ($self) = @_;
 
-    my $prog_id = $self->{'programme'}{'id'};
-
-    my $secs_offset = 0;
-    if (defined(my $o = $self->{'output'}{'offset'})) {
-	$secs_offset = $o;
-    }
-    my $duration = '';
-    if (my $d = $self->{'output'}{'duration'}) {
-	$duration = $d;
+    unless ($self->{'param'}) {
+	$self->error("Could not find internal param attribute.",6);
+	return undef;
     }
 
-    $self->debug("Offset for this start position is $secs_offset seconds from the beginning of the file");
+    # work out what sort of output is needed - full javascript,
+    # minimal javascript, or XML?
 
-    $secs_offset = sprintf('%.0f',$secs_offset);
+    my $output = $self->{'param'}{'output'} || 'js';
 
-    $self->debug("Offset for this start position is $secs_offset rounded seconds from the beginning of the file");
+    if ($self->{'output'}{'result'}) {
 
-    my $logo_url = $self->{'urls'}{'bbcparl-logo'};
-    my $thumbnail_url = "$self->{'urls'}{'thumbnail-dir'}/$prog_id.$secs_offset.png";
+	# first, set up all the necessary variables (setting them to
+	# empty strings if necessary)
 
-#   TODO - remove this next line
-    $thumbnail_url = '';
+	my $prog_id = $self->{'programme'}{'id'};
 
-    my $video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv";
-    my $auto_start = $self->{'param'}{'autostart'};
-    if ($auto_start && $auto_start =~ /^(yes|true|y|1)/i) {
-	$auto_start = 'true';
-    } else {
-	$auto_start = 'false';
-    }
+	my $secs_offset = 0;
+	if (defined(my $o = $self->{'output'}{'offset'})) {
+	    $secs_offset = $o;
+	}
+	$self->debug("Offset for this start position is $secs_offset seconds from the beginning of the file");
+	$secs_offset = sprintf('%.0f',$secs_offset);
+	$self->debug("Offset for this start position is $secs_offset rounded seconds from the beginning of the file");
 
-    # if programme id and javascript, print out the full javscript;
+	my $duration = '';
+	if (my $d = $self->{'output'}{'duration'}) {
+	    $duration = $d;
+	}
 
-    if (lc($self->{'param'}{'output'}) eq 'js') {
-	print header(-type => 'text/html');
+	my $logo_url = $self->{'urls'}{'bbcparl-logo'};
+	my $thumbnail_url = "$self->{'urls'}{'thumbnail-dir'}/$prog_id.$secs_offset.png";
+	
+	#   TODO - remove this next line
+	$thumbnail_url = '';
+	
+	my $video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv";
+	my $auto_start = $self->{'param'}{'autostart'};
+	if ($auto_start && $auto_start =~ /^(yes|true|y|1)/i) {
+	    $auto_start = 'true';
+	} else {
+	    $auto_start = 'false';
+	}
+
+	my $embed = "<embed src=\"$self->{'urls'}{'flash-player'}\" width=\"$self->{'flash-params'}{'width'}\" height=\"$self->{'flash-params'}{'height'}\" allowfullscreen=\"true\" flashvars=\"&displayheight=$self->{'flash-params'}{'display-height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration&startAt=$secs_offset\" />";
+
+	if ($output eq 'js' || $output eq 'minimal-js') {
+	    print header(-type => 'text/html');
 #		     -expires => '+1y');
-
-	print <<END;
+	    print <<JS;
 <!--
-document.write('<embed src="$self->{'urls'}{'flash-player'}" width="$self->{'flash-params'}{'width'}" height="$self->{'flash-params'}{'height'}" allowfullscreen="true" flashvars="&displayheight=$self->{'flash-params'}{'display-height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration&startAt=$secs_offset" />')
+    document.write('$embed');
 -->
-END
-
-# otherwise, just print out the direct S3 URL in xml
-
+JS
 1;
+	}
+
+	if ($output eq 'js') {
+	    # we need to escape all "" marks in order to place the embed string in a text box
+	    $embed =~ s!\"!\\\"!g;
+	    print <<EMBED;
+<input type="text" name="embed" value="$embed" />
+EMBED
+1;
+	}
+
+	if ($output eq 'xml') {
+	    print header(-type => 'application/xml');
+#		     -expires => '+1y');	    
+	    print "<result><url>$video_url</url></result>\n";
+	}
 
     } else {
-	
-	print header(-type => 'application/xml');
-#		     -expires => '+1y');
 
-	print "<result><url>$video_url</url></result>\n";
-	
+	# there is no available programme covering that time span
+
+	if (lc($self->{'param'}{'output'}) eq 'xml') {
+
+	    $self->error_xml("No programme found matching those parameters", 1);
+	    return undef;
+
+	} else {
+
+	    print header(-type=>'text/html');
+#			 -expires=>'+1y'); # send javascript, cache it for 1 year
+
+	    if ($self->{'param'}{'verbose'}) {
+
+		print "<!--\ndocument.write('<p>Error: no programme to display for this date/time.</p>')\n-->\n";
+
+	    } else {
+
+		print "<!--\n//There is no programme to display for the specified gid or datetime.\n-->\n";
+
+	    }
+
+	}
+
     }
 
+    close STDOUT;
+ 
     return 1;
 
 }
