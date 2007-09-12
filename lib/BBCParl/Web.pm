@@ -682,23 +682,23 @@ sub print_result {
 	if ($output eq 'js' || $output eq 'minimal-js') {
 	    print header(-type => 'text/html');
 #		     -expires => '+1y');
-	    print <<JS;
-<!--
-    document.write("$embed");
-//-->
-JS
-1;
-	}
+	    print "<--\n";
 
-	if ($output eq 'js') {
-	    print <<EMBED;
-<!--
-    document.write("<form name='embedForm'>");
-    document.write("<input type='text' name='embed' value='$embed' onClick='javascript:document.embedForm.embed.focus();document.embedForm.embed.select();' />");
+	    if ($output eq 'js') {
+		print "document.write(\"<form name='embedForm'>'\")\n";
+	    }
+
+	    print "document.write(\"$embed\")\n";
+
+	    if ($output eq 'js') {
+		print <<EMBED;
+    document.write("<b>Embed:</b> <input type='text' name='embed' value='$embed' onClick='javascript:document.embedForm.embed.focus();document.embedForm.embed.select();' />");
     document.write("</form>");
-//-->
 EMBED
-1;
+    1;
+	    }
+
+	    print '-->';
 	}
 
 	if ($output eq 'xml') {
