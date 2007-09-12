@@ -33,7 +33,7 @@ sub main {
     my $object = BBCParl::Web->new($q);
     $object->{'debug'} = undef;
     $object->{'disable-cache'} = 'true';
-    $object->process_request();
+    $object->handle_request();
 }
 
 # Start FastCGI
