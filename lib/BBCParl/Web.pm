@@ -518,7 +518,7 @@ sub calculate_seconds_offset {
 	    $offset = 0;
 	}
 
-	$self->{'output'}{'offset'} = $o;
+	$self->{'output'}{'offset'} = $offset;
 	return $self->{'output'}{'offset'};
     } else {
 	return undef;
