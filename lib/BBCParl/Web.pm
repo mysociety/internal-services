@@ -676,21 +676,21 @@ sub print_result {
 	}
 
 	my $embed = "<embed src=\"$self->{'urls'}{'flash-player'}\" width=\"$self->{'flash-params'}{'width'}\" height=\"$self->{'flash-params'}{'height'}\" allowfullscreen=\"true\" flashvars=\"&displayheight=$self->{'flash-params'}{'display-height'}&file=$video_url&height=$self->{'flash-params'}{'height'}&image=$thumbnail_url&width=$self->{'flash-params'}{'width'}&largecontrols=true&logo=$logo_url&overstretch=none&autostart=$auto_start&duration=$duration&startAt=$secs_offset\" />";
+	# we need to escape all "" marks in order to place the embed string in a text box
+	$embed =~ s!\"!\\\"!g;
 
 	if ($output eq 'js' || $output eq 'minimal-js') {
 	    print header(-type => 'text/html');
 #		     -expires => '+1y');
 	    print <<JS;
 <!--
-    document.write('$embed');
+    document.write("$embed");
 //-->
 JS
 1;
 	}
 
 	if ($output eq 'js') {
-	    # we need to escape all "" marks in order to place the embed string in a text box
-	    #$embed =~ s!\"!\\\"!g;
 	    print <<EMBED;
 <!--
     document.write("<form name='embedForm'>");
