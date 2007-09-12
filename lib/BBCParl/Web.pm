@@ -119,11 +119,6 @@ sub process_params {
 	return undef;
     }
     
-    unless ($cgi->param('gid') || $cgi->param('start')) {
-	$self->error("Required parameters (<i>gid</i> or <i>start</i>) were not passed to this script.",1);
-	return undef;
-    }
-    
     # outputs can be: 1) javascript that embeds a flash video into a #
     # web-page, 2) the URL of the flash video. default is 1). if both
     # XML and JS, ignore JS.
@@ -140,6 +135,11 @@ sub process_params {
 	$self->{'param'}{'verbose'} = 'true';
     }
 
+    unless ($cgi->param('gid') || $cgi->param('start')) {
+	$self->error("Required parameters (<i>gid</i> or <i>start</i>) were not passed to this script.",1);
+	return undef;
+    }
+    
     if ($cgi->param('autostart')) {
 	$self->{'param'}{'autostart'} = 'true';
     }
