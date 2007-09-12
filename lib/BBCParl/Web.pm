@@ -713,7 +713,7 @@ EMBED
 
 	my $error_message = 'Sorry, video footage was not captured for this debate.';
 
-	if (lc($self->{'param'}{'output'}) eq 'xml') {
+	if ($self->{'param'}{'output'} eq 'xml') {
 
 	    $self->error_xml("$error_message", 1);
 	    return undef;
@@ -723,10 +723,10 @@ EMBED
 	    print header(-type=>'text/html');
 #			 -expires=>'+1y'); # send javascript, cache it for 1 year
 
-	    if ($self->{'output'} eq 'js') {
+	    if ($self->{'param'}{'output'} eq 'js') {
 		print "<!--\ndocument.write('<p>$error_message</p>')\n-->\n";
 	    }
-	    if  ($self->{'output'} eq 'minimal-js') {
+	    if  ($self->{'param'}{'output'} eq 'minimal-js') {
 		print "<!--\n//$error_message.\n-->\n";
 
 	    }
