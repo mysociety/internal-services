@@ -54,7 +54,7 @@ usage: sync_captions [--date=yyyy-mm-dd] [--start-date=yyyy-mm-dd --end-date=yyy
 
 --help                   Print this information
 
---verbose                Print all messages to STDOUT
+--verbose                Print all messages to STDOUT (off by default)
 
 --date=yyyy-mm-dd        Only update speeches on yyyy-mm-dd (default is previous day's date)
 
@@ -86,7 +86,8 @@ my $object = BBCParl::Captions->new(
 				    'nomirror' => $nomirror,
 				    'nohansard' => $nohansard,
 				    'no-output-write' => $no_output_write,
-				    'print-stats' => $print_stats
+				    'print-stats' => $print_stats,
+                                    'debug' => $debug
 				    );
 
 if ($object->run()) {
