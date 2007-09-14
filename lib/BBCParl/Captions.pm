@@ -223,7 +223,7 @@ sub mirror_log_files {
 	# convert the date from yyyy-mm-dd to yyyymmdd format
 	$date =~ s/-//g;
 	map {
-	    my $url = "$dir_url/$_.$date.log";
+	    my $url = "$dir_url$_.$date.log";
 	    my $filename = "$dir_local/$_.$date.log";
 	    my $response = $ua->mirror($url, $filename);
 	    unless ($response->is_success()) {
@@ -304,9 +304,14 @@ sub load_log_files {
 		if ($line =~ /STRAPS INFO\s*:\s*House of Commons/i) {
 		    $location = 'commons';
 		}
-		if ($line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
-		    $current_name = $1;
-		    $current_position = $2;
+		if ($line =~ /STRAPS INFO\s*:\s*\d+/ || $line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
+		    if ($1 && $2) {
+			$current_name = $1;
+			$current_position = $2;
+		    } else {
+			$current_name = 'unknown';
+			$current_position = 'unknown';
+		    }
 		    if ($current_name eq $previous_name) {
 			$self->{'stats'}{'duplicated'} += 1;
 			next;
@@ -320,203 +325,12 @@ sub load_log_files {
 		}
 	    }
 
-	    # TODO - rename the file to $filename.done
-
 	}
 
     }
     
     return 1;
 
-}
-
-sub process_captions_files {
-    my ($self) = @_;
-
-    # there is an upstream bug (in the script that generates the
-    # captions-logfile inside the BBC) - the datestamps in filenames
-    # are often incorrect (the month value is incorrectly
-    # incremented). instead of trying to cope with this, we will just
-    # mirror all files from their website, and then process all new
-    # files regardless of the datestamp in their filenames.
-
-    my $filename_pattern = "parliament-*.xml.*";
-    my $dir_filename_pattern = $self->{'path'}{'captions-files-dir'} . "/$filename_pattern";
-
-    foreach my $filename (glob($dir_filename_pattern)) {
-
-	if ($filename =~ /processed$/) {
-	    next;
-	}
-
-	# TODO - right now, we only consider HoC captions.  we should
-	# probably alter this behaviour to also cover HOL, WH,
-	# committees, etc.  foreach filename, we should process the
-	# captions before proceeding to foreach date, and determine
-	# which caption events refer to each house.  then, we can have
-	# a different set of arrays containing events from each house,
-	# and process them within foreach @dates.
-
-	# if file doesn't start parliament-commons or
-	# parliament-westminster, ignore it (for now)
-
-	unless ($filename =~ /commons/) { ## || $filename =~ /westminster/) {
-	    $self->debug("Skipping $filename (not commons)");
-	    next;
-	}
-
-	if (-e "$filename.processed") {
-	    $self->debug("$filename has already been processed");
-	    $self->debug("skipping $filename (to process this file, please delete $filename.processed)");
-	    next;
-	}
-	    
-	unless (-e $filename) {
-	    warn "ERROR: Cannot find file $filename; error was $!";
-	    next;
-	}
-	
-#	warn "INFO: Attempting to parse $filename";
-
-	unless (open(CAPTIONS, $filename)) {
-	    warn "ERROR: Cannot open file $filename; error was $!";
-	    next;
-	}
-	
-	my $raw_captions_data;
-	
-	while (<CAPTIONS>) {
-	    $raw_captions_data .= $_;
-	}
-	close CAPTIONS;
-	
-	# read in the file to memory; if it doesn't start/end with
-	# <logs>/</logs> then top/tail it.
-
-	unless ($raw_captions_data) {
-	    warn "ERROR: No data found in file $filename";
-	    next;
-	}
-
-	unless ($raw_captions_data =~ /^<logs>/) {
-	    $raw_captions_data = "<logs>\n$raw_captions_data";
-	}
-	
-	unless ($raw_captions_data =~ /<\/logs>$/) {
-	    $raw_captions_data = "$raw_captions_data\n</logs>";
-	}
-	
-	my $captions_ref = XMLin($raw_captions_data);
-
-	# process the captions file, adding captions information for
-	# dates in our processing range to the 
-
-	$self->{'stats'}{'captions-duplicated'} = 0;
-	$self->{'stats'}{'captions-skipped'} = 0;
-
-	my $caption_id = 0;
-	
-	foreach my $date (sort keys %{$self->{'dates-to-process'}}) {
-
-	    my $date_pattern = 'xx/xx/xxxx';
-	    if ($date =~ /(\d{4})-(\d{2})-(\d{2})/) {
-		$date_pattern = "$3/$2/$1";
-	    } else {
-		warn "ERROR: $date is not of the format yyyy-mm-dd - skipping $filename";
-		next;
-	    }
-
-	    $self->debug("Looking for $date in data from $filename");
-
-	    # TODO - we need to have more than one type of location
-	    # covered, but for now it's just commons
-
-	    my $last_non_speech_event = undef;
-	    my $location = 'commons';
-	    my $previous_name = '';
-
-	    foreach my $event_ref (@{$captions_ref->{'log'}}) {
-
-		# TODO - have code here that checks the content of
-		# captions to determine whether we're in the commons,
-		# lords, etc
-
-		unless ($$event_ref{'timestamp'} =~ /^$date_pattern/) {
-		    next;
-		}
-
-		if (defined($$event_ref{'name'})) {
-
-		    my $caption_name = $$event_ref{'name'};
-		    my $caption_position = $$event_ref{'position'};
-
-		    #warn "$caption_id $caption_name = $caption_position";
-		    #warn Dumper $caption_position;
-
-		    # check value of 'name' - if it has two lines,
-		    # split value of 'name' by "\n" and assign second
-		    # line to 'position'
-
-		    if (ref($caption_position) eq 'HASH') {
-			if ($caption_name =~ /^(.+)\n(.+)$/) {
-			    $caption_name = $1;
-			    $caption_position = $2;
-			    $$event_ref{'name'} = $caption_name;
-			    $$event_ref{'position'} = $caption_position;
-			}
-		    }
-
-		    #warn Dumper $event_ref;
-
-		    # it's a speech caption
-		    if ($caption_name eq $previous_name) {
-			# skip this caption if current.name eq last.name
-			$self->{'stats'}{'captions-duplicated'} += 1;
-			next;
-		    }
-
-		    if ($location eq 'commons') {
-			#warn "adding caption event ($date, $location, $caption_id)";
-			$self->{'captions'}{$date}{$location}{$caption_id} = $event_ref;
-		    } else {
-			warn "ERROR: Invalid location ($location)";
-			# we should never be here!
-			# but it might happen if I insert a bug by mistake
-		    }
-
-#		    if ($caption_name && is_mp($caption_name)) {
-#			warn "DEBUG: $caption_name changed location ($location -> lords)";
-#			$location = 'lords';
-#		    } elsif ($caption_name && is_lord($caption_name)) {
-#			warn "DEBUG: $caption_name changed location ($location -> lords)";
-#			$location = 'lords';
-#		    }
-
-		    $previous_name = $$event_ref{'name'};
-
-		    #warn "$caption_id $previous_name";
-
-		    $caption_id++;
-#		    warn $caption_id;
-#		    $self->{'stats'}{'captions-total'} += 1;
-
-		} else {
-
-		    # it's a non-speech caption
-
-		    my $raw = $$event_ref{'raw'};
-
-		    $last_non_speech_event = $event_ref;
-
-		}
-	    }
-
-	}
-
-    }
-
-#    warn Dumper $self->{'captions'};
-    
 }
 
 sub sort_gids {
@@ -587,7 +401,7 @@ sub merge_captions_with_hansard {
 
 		my $caption_name = $self->{'captions'}{$date}{$location}{$caption_id}{'name'};
 		my $caption_timestamp = $self->{'captions'}{$date}{$location}{$caption_id}{'timestamp'};
-		#warn "DEBUG: processing caption $caption_id $caption_name";
+		$self->debug("processing caption $caption_id $caption_name");
 
 		while (($num_speech_gids < $window_size) && (($gid_index + $gid_offset) < $num_gids)) {
 		    
@@ -609,11 +423,16 @@ sub merge_captions_with_hansard {
 
 			my $hansard_name = $self->{'hansard'}{$date}{$location}{$gid}{'name'};
 			
-			#warn "DEBUG: comparing $caption_id: $caption_timestamp $caption_name <-> $hansard_name $gid";
-			my $cmp_result = compare_names($caption_name, $hansard_name);
-			
+			$self->debug("comparing $caption_id: $caption_timestamp $caption_name <-> $hansard_name $gid");
+			my $cmp_result = undef;
+			if ($caption_name eq 'unknown') {
+			    $cmp_result = 1;
+			} else {
+			    $cmp_result = compare_names($caption_name, $hansard_name);
+			}
+
 			if (defined($cmp_result) && $cmp_result == 1) {
-			    #warn "DEBUG: match found ($caption_name, $hansard_name)";
+			    $self->debug("match found ($caption_name, $hansard_name)");
 			    $self->{'stats'}{'hansard-captions-matched'} += 1;
 			    $match_found = 1;
 			    #if ($caption_timestamp =~ /(\d{2}\/\d{2}\/\d{4}) (\d{2}:\d{2}:\d{2})/) 
@@ -665,9 +484,10 @@ sub merge_captions_with_hansard {
 			# only update htime if $time is actually later
 			# than the current htime value
 			
-			#warn Dumper $self->{'hansard'}{$date}{$location}{$gid}{'htime'};
+			$self->debug("Comparing hansard time $self->{'hansard'}{$date}{$location}{$gid}{'htime'} with captions time " . $dt->hms(':'));
+
 			if ($self->{'hansard'}{$date}{$location}{$gid}{'htime'} lt $dt->hms(':')) {
-			    #warn "DEBUG: Updating htime for $gid - now " . $dt->hms(':');
+			    $self->debug("Updating htime for $gid - now " . $dt->hms(':'));
 			    $self->{'updates'}{$date}{$location}{$gid}{'htime'} = $dt->hms(':');
 			    #$self->{'stats'}{'hansard-gids-updated'} += 1;
 			}
@@ -1019,6 +839,8 @@ sub write_update_files {
 	warn "ERROR: No updates found, skipping write_update_files";
 	return undef;
     }
+
+    $self->debug(Dumper $self->{'updates'});
     
     my $date_time_format = '%FT%TZ';
     my $date_time = strftime($date_time_format,gmtime());
@@ -1084,155 +906,5 @@ sub is_lord {
     return undef;
 
 }
-
-#----- OLD ---#
-
-sub merge_captions_hansard_old {
-    my ($self) = @_;
-
-    my $caption_id = 0;
-    my $last_name = '';
-    my $time = '';
-
-#    warn Dumper $self->{'captions'};
-
-    foreach my $date (sort keys %{$self->{'hansard'}}) {
-
-	#warn $date;
-
-	foreach my $location (sort keys %{$self->{'hansard'}{$date}}) {
-
-	    #warn $location;
-
-	    # TODO - for major gids that have one or more
-	    # children, there is no speaker information. however,
-	    # we will have to update the htime of the major gid
-	    # with the new htime of its first speech gid (child).
-
-	    # if speech.speaker eq captions.next.speaker: then
-	    # $start_time = captions.next.start_time (adjusted to
-	    # local time from GMT); discard captions.next; set
-	    # $confident = true
-
-	    foreach my $gid (sort keys %{$self->{'hansard'}{$date}{$location}}) {
-
-		# either way: speech.start_time = $start_time
-
-		unless (defined($self->{'hansard'}{$date}{$location}{$gid}{'name'})) {
-		    # it's a heading, not a speech - skip it
-		    next;
-		}
-
-		#warn "$gid: " . $self->{'hansard'}{$date}{$location}{$gid}{'name'};
-		#warn "$caption_id: " . $self->{'captions'}{$date}{$location}{$caption_id}{'name'};
-
-		my $caption_current = $self->{'captions'}{$date}{$location}{$caption_id}{'name'};
-		my $hansard_current = $self->{'hansard'}{$date}{$location}{$gid}{'name'};
-		my $caption_next = $self->{'captions'}{$date}{$location}{$caption_id + 1}{'name'};
-
-		my $cmp_result = compare_names($caption_current, $hansard_current, $caption_next);
-
-		if ($cmp_result) {
-		    my $timestamp = $self->{'captions'}{$date}{$location}{$caption_id}{'timestamp'};
-		    if ($timestamp =~ /(\d{4}\/\d{2}\/\d{2}) (\d{2}:\d{2}:\d{2})/) {
-			$time = $2;
-		    }
-		    $caption_id += $cmp_result;
-		}
-		if ($time) {
-		    $self->{'updates'}{$date}{$location}{$gid}{'htime'} = $time;
-		}
-
-	    }
-
-	}
-
-    }
-
-}
-
-sub write_update_files_OLD {
-    my ($self) = @_;
-
-    foreach my $date (sort keys %{$self->{'updates'}}) {
-	foreach my $location (sort keys %{$self->{'updates'}{$date}}) {
-	    foreach my $gid (sort keys %{$self->{'updates'}{$date}{$location}}) {
-#		warn "$gid $date " . $self->{'updates'}{$date}{$location}{$gid}{'htime'};
-	    }
-	}
-    }
-
-#    warn Dumper $self->{'updates'};
-
-    # TODO write out the updated hansard data to file, and hand it
-    # over to matthew for him to integrate into TWFY!
-	    
-}
-
-sub get_captions_data{
-    my ($self) = @_;
-
-    $self->get_captions_files();
-    $self->process_captions_files();
-
-}
-
-sub get_captions_files {
-    my ($self) = @_;
-
-    my $dir_url = $self->{'constants'}{'captions-location'};
-
-    if (defined($self->{'offline'}) && $self->{'offline'} eq 'true') {
-#	warn "INFO: Skipping mirror of $dir_url";
-	return 1;
-    }
-
-#    warn "INFO: Getting directory listing from $dir_url";
-    
-    my $ua;
-    unless ($ua = LWP::UserAgent->new()) {
-	warn "FATAL: Cannot create new LWP::UserAgent object; error was $!";
-	die;
-    }
-
-    my $response = $ua->get($dir_url);
-
-    unless ($response->is_success) {
-	warn "FATAL: Could not fetch $dir_url; error was " . $response->status_line();
-	die;
-    }
-
-    my $root;
-    unless ($root = HTML::TreeBuilder->new_from_content($response->content())) {
-	warn "FATAL: Cannot create new HTML::TreeBuilder object; error was $!";
-	die;
-    }
-
-    $root->elementify();
-
-    my @filenames = ();
-
-    for (@{  $root->extract_links('a')  }) {
-	my($link, $element, $attr, $tag) = @$_;
-	unless ($link =~ /^parliament/) {
-	    next;
-	}
-	push @filenames, $link;
-    }
-
-    foreach my $filename (@filenames) {
-	my $dir_filename = $self->{'path'}{'captions-files-dir'} . "/$filename";
-	unless (-e $dir_filename) {
-	    my $dir_url_filename = "$dir_url/$filename";
-#	    warn "INFO: getting a copy of $filename";
-	    my $mirror_response = $ua->mirror($dir_url_filename,$dir_filename);
-	    unless ($mirror_response->is_success()) {
-		warn "ERROR: Could not fetch $dir_url_filename; error was " . $response->status_line();
-	    }
-	}
-    }
-
-}
-
 
 1;
