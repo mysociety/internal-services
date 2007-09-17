@@ -153,11 +153,11 @@ sub check_date {
 sub set_processing_dates {
     my ($self) = @_;
 
-    my $start_date = $self->{'args'}{'start-date'};
-    my $end_date  = $self->{'args'}{'end-date'};
+    my $start_date = $self->{'args'}{'from'};
+    my $end_date  = $self->{'args'}{'to'};
     my $single_date = $self->{'args'}{'date'};
 
-    # if there's a --date param, ignore --start-date and --end-date
+    # if there's a --date param, ignore --from and --to
 
     if ($single_date) {
 	$start_date = $single_date;
@@ -304,7 +304,11 @@ sub load_log_files {
 		if ($line =~ /STRAPS INFO\s*:\s*House of Commons/i) {
 		    $location = 'commons';
 		}
-		if ($line =~ /STRAPS INFO\s*:\s*\d+/ || $line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
+		if ($line =~ /STRAPS INFO\s*:\s*\d+/ ||
+		    $line =~ /LSHAPE ADD .+ Statement/i ||
+		    $line =~ /LSHAPE ADD .+ Bill/i ||
+		    $line =~ /LSHAPE ADD .+ MPs are debating/i ||
+		    $line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
 		    if ($1 && $2) {
 			$current_name = $1;
 			$current_position = $2;

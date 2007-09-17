@@ -13,7 +13,7 @@ use BBCParl::Captions;
 
 # get command line options
 
-my ($help, $start_date, $end_date, $date, $verbose, $nomirror, $nohansard, $print_stats, $no_output_write, $debug) = ('','','','','','','','','');
+my ($help, $from, $to, $date, $verbose, $nomirror, $nohansard, $print_stats, $no_output_write, $debug) = ('','','','','','','','','');
 
 $help = 0;
 $verbose = 0;
@@ -25,8 +25,8 @@ $debug = 0;
 
 GetOptions (
 	    'help+' => \$help,
-	    'start-date=s' => \$start_date,
-	    'end-date=s' => \$end_date,
+	    'from=s' => \$from,
+	    'to=s' => \$to,
 	    'date=s' => \$date,
 	    'verbose+' => \$verbose,
 	    'nomirror+' => \$nomirror,
@@ -38,7 +38,7 @@ GetOptions (
 
 if ($help) {
     print << "END";
-usage: sync_captions [--date=yyyy-mm-dd] [--start-date=yyyy-mm-dd --end-date=yyy-mm-dd]
+usage: sync_captions [--date=yyyy-mm-dd] [--from=yyyy-mm-dd --to=yyy-mm-dd]
                      [--verbose] [--nomirror] [--nohansard] [--stats] [--dry-run] [--debug]
 
 1) Creates/updates local mirror of captions logfiles from the BBC for
@@ -58,8 +58,8 @@ usage: sync_captions [--date=yyyy-mm-dd] [--start-date=yyyy-mm-dd --end-date=yyy
 
 --date=yyyy-mm-dd        Only update speeches on yyyy-mm-dd (default is previous day's date)
 
---start-date=yyyy-mm-dd  Only update speeches between yyyy-mm-dd
---end-date=yyyy-mm-dd    and yyyy-mm-dd
+--from=yyyy-mm-dd        Only update speeches between yyyy-mm-dd
+--to=yyyy-mm-dd          and yyyy-mm-dd
 
 --nomirror               Do not fetch updated captions files from the BBC (just use local mirror)
 
@@ -79,8 +79,8 @@ END
 # invoke the actual captions-processing code
 
 my $object = BBCParl::Captions->new(
-				    'start-date' => $start_date,
-				    'end-date' => $end_date,
+				    'from' => $from,
+				    'to' => $to,
 				    'date' => $date,
 				    'verbose' => $verbose,
 				    'nomirror' => $nomirror,
