@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.10 2007-08-02 11:45:04 matthew Exp $
+# $Id: NeWs.pm,v 1.11 2007-09-21 13:14:08 matthew Exp $
 #
 
 package NeWs;
@@ -149,7 +149,7 @@ sub get_newspaper_history($){
 	my ($change_id, $lastchange, $source, $data, $isdel) = @$_;
       
        
-	my $data = RABX::wire_rd(new IO::String($data)); 
+	$data = RABX::wire_rd(new IO::String($data)); 
 	push( @ret, {'lastchange' => $lastchange, 
                      'source' => $source,
 		     'isdel' => $isdel,
@@ -340,7 +340,7 @@ sub get_journalist_history($){
     foreach (@$rows){
         my ($change_id, $lastchange, $source, $data, $isdel) = @$_;
 
-        my $data = RABX::wire_rd(new IO::String($data));
+        $data = RABX::wire_rd(new IO::String($data));
         push( @ret, {'lastchange' => $lastchange,
                      'source' => $source,
                      'isdel' => $isdel,
