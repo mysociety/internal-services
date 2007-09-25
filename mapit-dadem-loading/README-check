@@ -4,7 +4,7 @@
 
 for X in `
     find . | 
-        egrep -v "(CVS|_Inline|.cvsignore|nicknames|.swp)" | 
+        egrep -v "(CVS|_Inline|.cvsignore|nicknames|.swp|patches)" | 
         sed "s#./##"
     `
 do 

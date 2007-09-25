@@ -1,4 +1,4 @@
-$Id: README,v 1.11 2006-08-23 00:34:56 francis Exp $
+$Id: README,v 1.12 2007-09-25 13:30:22 matthew Exp $
 
 General
 -------
@@ -7,20 +7,22 @@ README - This file contains descriptions of every other file
 README-check - Use this one-liner to test for files that need adding to this README
 
 NAMETYPES - Types of voting area names in MaPit.
-dadem-schema.sql, mapit-schema.sql - Database schemas.
+dadem-schema.sql, mapit-schema.sql, dress-schema.sql - Database schemas.
 Common.pm - some shared functions
 BoundaryLine.pm - functions shared by Boundary Line scripts
 Area.pm - a simple polygon area class
 
-Postcode / Boundary Loading
----------------------------
+Postcode / Boundary / Address Loading
+-------------------------------------
 
 create_new_generation - Create new generation in MaPit, if there isn't one already.
+make_new_generation_active - Activates new generation.
 process_boundary_line - Create postcode to voting area mappings for GB.
 boundaryline-2005-05.control - Control file for import of 2005-05 version of Boundary Line.
 boundaryline-2005-05-missing-CEDs.csv - For county councils with new boundaries
 boundaryline-2005-10.control - Control file for import of 2005-10 version of Boundary Line
 boundaryline-2005-10-2.control
+boundaryline-2007-05.control - Control file for import of 2007-05 version of Boundary Line (England and Wales).
 
 new_scottish_constituencies new_scottish_constituencies2
 new-scottish-constituencies-council-wards.csv
@@ -29,10 +31,14 @@ effect in Scotland for 2005 General Election.
 
 process_codepoint_ni - Create postcode to voting area mappings for NI.
 process_codepoint_scilly - Create postcode to voting area mappings for Isles of Scilly.
+process_addresspoint - Create database of UK postal addresses
 
 ni-electoral-areas.csv - Maps ONS ward codes to NI local authority electoral areas
+snac-2003-cons2ward.csv - Maps constituencies and wards to their ONS codes
 
 add_boundaryline_geodata - Fill in the area_geometry table in MaPit
+
+generate-boundary-polyline - Creates a Google Maps polyline of a particular area or areas
 
 Voting Area Name Matching
 -------------------------
@@ -71,9 +77,17 @@ parse_ced_si - Screen scraper for Statutory Instruments creating new County Elec
 scrapers/msp - Screen scrape representatives from Scottish Parliament website
 scrapers/london - Screen scrape representatives from London Assembly website
 scrapers/welshassembly.php - Screen scrape representatives from Welsh Assembly website
+scrapers/europarl.php - Old MEP screen scraper
+scrapers/europarlUK.php - Current MEP screen scraper
+scrapers/mp - Takes MPs from parlparse XML, converts to CSV
+scrapers/northern_ireland.py - MLA screen scraper
+scrapers/lord - Takes Lords from parlparse XML, converts to CSV
+scrapers/manchester_scraper.pl - Fetch Manchester councillor email addresses
+    (fyr/bin/find-councillor-emails for more generic)
 
 oneoffs/council-elections-2005.sql - Mark invalid councils as "recent_election"
+oneoffs/council-elections-2006.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.11 2006-08-23 00:34:56 francis Exp $
+# $Id: README,v 1.12 2007-09-25 13:30:22 matthew Exp $
