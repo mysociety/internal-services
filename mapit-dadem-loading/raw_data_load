@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.26 2007-04-16 12:08:45 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.27 2007-09-26 14:14:21 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -144,8 +144,7 @@ while (my $line = <STDIN>) {
     $line =~ s/\x0B//g; # appears after some email addresse
     $line =~ s/\x14ina/Tina/g; # strangely broken "T"
     $line =~ s/\x00//g; # appears on the last line
-    $line =~ s/f\x83ch/fach/g; # ward in Powys
-    $line =~ s/f\xef\xbf\xbdch/fach/g; # same ward in Powys, some other encoding
+    $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|)ch/fach/g; # ward in Powys
     next if $line =~ m/^\s*$/;
 
     # Extract good stuff
@@ -433,12 +432,13 @@ foreach my $council_id (keys %$councils) {
                                 " MS: " . $mysociety_mod->{$field} . 
                                 " GE: " . $new_import->{$field};
                     } elsif ($mysociety_mod->{$field} ne $prev_import->{$field}) {
-                        $reps_merged->{$key}->{$field} = "CONFLICT" . 
-                                " MS: " .  $prev_import->{$field} . " ->" . $mysociety_mod->{$field} . 
-                                " GE: no change";
+                        #$reps_merged->{$key}->{$field} = "CONFLICT" . 
+                        #        " MS: " .  $prev_import->{$field} . " ->" . $mysociety_mod->{$field} . 
+                        #        " GE: no change";
+                        $reps_merged->{$key}->{$field} = $mysociety_mod->{$field};
                     } elsif ($new_import->{$field} ne $prev_import->{$field}) {
-                        $reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
-                            " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
+                        #$reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
+                        #    " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
                     }
                 }
                 $out .= "PROPER CLASH both changed\n";

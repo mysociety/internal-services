@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: jonathan@onegoodidea.com; WWW: http://www.mysociety.org/
 #
-# $Id: london,v 1.5 2006-02-07 20:33:20 francis Exp $
+# $Id: london,v 1.6 2007-09-26 14:14:21 dademcron Exp $
 
 import os
 from sys import stderr
@@ -105,7 +105,7 @@ parser = HeadedTableParser()
 parser.feed( page.read() )
 
 constituency_members = parser.tables['CONSTITUENCY MEMBERS']
-list_members = parser.tables['LONDON LIST MEMBERS']
+list_members = parser.tables['LONDONWIDE MEMBERS']
 
 if len(constituency_members) != 14:
     raise StandardError, "Expected 14 constituency MEPs, got %d" % len(constituency_members)    
