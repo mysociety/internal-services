@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.70 2007-08-30 21:53:25 matthew Exp $
+# $Id: MaPit.pm,v 1.71 2007-10-06 09:26:17 matthew Exp $
 #
 
 package MaPit;
@@ -485,7 +485,7 @@ sub get_voting_areas_geometry ($;$) {
     return { (map { $_ => get_voting_area_geometry($_, $polygon_type) } grep { defined($_) } @$ary) };
 }
 
-=item get_voting_areas_by_location COORDINATE METHOD [TYPE(S)]
+=item get_voting_areas_by_location COORDINATE METHOD [TYPE(S)] [GENERATION]
 
 Returns a hash of voting areas and types which the given COORDINATE (either
 easting and northing, or latitude and longitude) is in. This only works for
@@ -497,11 +497,11 @@ exact point in polygon test. 'box' is quicker, but will return too many results.
 'polygon' should return at most one result for a type.
 
 If TYPE is present, restricts to areas of that type, such as WMC for Westminster
-Constituencies only. Currently only returns areas in current generation.
+Constituencies only.
 
 =cut
-sub get_voting_areas_by_location ($$;$) {
-    my ($coord, $method, $type) = @_;
+sub get_voting_areas_by_location ($$;$$) {
+    my ($coord, $method, $type, $generation) = @_;
     throw RABX::Error("METHOD must be defined at the moment", RABX::Error::INTERFACE) if (!defined($method));
     throw RABX::Error("MEHOD must be 'box' or 'polygon' at the moment", RABX::Error::INTERFACE) if ($method ne 'box' and $method ne 'polygon');
 
@@ -515,7 +515,7 @@ sub get_voting_areas_by_location ($$;$) {
     }
 
     # Search for areas in the bounding box, of the right type
-    my $generation = get_generation();
+    $generation = get_generation() unless $generation;
     my $type_clause = "";
     my @params = ($e, $e, $n, $n, $generation, $generation);
     if (ref($type) eq 'ARRAY') {
