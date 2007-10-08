@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.71 2007-10-06 09:26:17 matthew Exp $
+# $Id: MaPit.pm,v 1.72 2007-10-08 14:15:28 francis Exp $
 #
 
 package MaPit;
@@ -308,6 +308,8 @@ sub get_voting_area_info ($) {
                 left join area_name as a2 on a2.area_id = area.id and a2.name_type = 'O'
                 where id = ?
             ", {}, $id));
+
+        throw RABX::Error("No 'F' name found for area $id", mySociety::MaPit::AREA_NOT_FOUND) unless $name;
      
         $ret = {
                 name => $name,
