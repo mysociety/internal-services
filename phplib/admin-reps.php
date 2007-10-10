@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.10 2007-10-10 08:30:13 matthew Exp $
+ * $Id: admin-reps.php,v 1.11 2007-10-10 08:55:01 matthew Exp $
  * 
  */
 
@@ -351,7 +351,7 @@ class ADMIN_PAGE_REPS {
                         $display_value = "<strong>$display_value</strong>";
 
                     # Try and spot stupidity
-                    if (preg_match('#parli?a?ment#', $display_value)) {
+                    if (preg_match('#parl(i|a)ment#', $display_value)) {
                         $display_value = "<span style='color:#00ff00'>$display_value</span>";
                     }
 
