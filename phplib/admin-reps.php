@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.9 2007-08-22 14:20:30 matthew Exp $
+ * $Id: admin-reps.php,v 1.10 2007-10-10 08:30:13 matthew Exp $
  * 
  */
 
@@ -349,6 +349,12 @@ class ADMIN_PAGE_REPS {
                         $field != "editor" && $field != "note" &&
                         $previous_row && $previous_row[$field] != $value) 
                         $display_value = "<strong>$display_value</strong>";
+
+                    # Try and spot stupidity
+                    if (preg_match('#parli?a?ment#', $display_value)) {
+                        $display_value = "<span style='color:#00ff00'>$display_value</span>";
+                    }
+
                     $html .= "<td>" . $display_value. "</td>\n";
                 }
                 $html .= "</tr>";
