@@ -9,7 +9,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.6 2007-08-02 11:45:03 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.7 2007-10-22 15:19:09 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -92,6 +92,7 @@ sub process_one_type {
         my $name = $repinfo{$repid}->{name};
         next if $name =~ m/Election Pending/;
         next if $name =~ m/^Moogle$/;
+        next if $name =~ /^Sn Simon/;
         my $cons = $areainfo{$reptoarea->{$repid}}->{name};
         my $editdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whenlastedited}));
         my $createdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whencreated}));
