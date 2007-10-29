@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.27 2007-09-26 14:14:21 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.28 2007-10-29 12:27:13 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -151,7 +151,6 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my @line = map { trim_spaces($_) } $C->fields();
     my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
-    $party = CouncilMatch::council_canon_party($party);
 
     die "council not defined\nline $line_number: $line\n" unless (defined($council));
     # Check valid GovEval ids.
@@ -162,6 +161,8 @@ while (my $line = <STDIN>) {
 
     next if (!$first && !$last && $vdiv);  # GovEval sometimes use this to mark pending byelection, so no member ...
     next if (!$first && ($last eq "Resigned")); # GovEval now mark resigned occasionally TODO: encode this explicitly in DaDem, and show on WTT
+
+    next if $council eq 'House of Keys'; # We don't cover Isle of Man yet!
 
     # ... we still check we don't have individual empty strings
     warn "first name is empty geid $geid" if !$first;

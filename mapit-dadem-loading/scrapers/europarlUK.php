@@ -56,19 +56,15 @@ $regions_data=preg_replace("/\s+/",' ',$regions_data);
 $regions_data=preg_replace('/.*<map /s','',$regions_data);
 $regions_data=preg_replace('/<\/map>.*/s','',$regions_data);
 
-#print($regions_data);
 	preg_match_all('/<area[^>]+href\s*=\s*["\']([^"]+)["\'][^>]+alt\s*=\s*["\']([^"]+)["\']/',$regions_data,$matches,PREG_SET_ORDER);
 # 2: URL, 3: DISTRICT
 
-#print_r($matches);
 foreach($matches as $match) {
 	$region=preg_replace('/&amp;/','and',$match[2]);
 	$region=preg_replace('/\bThe/','the',$region);
 	// Remove jsessionid to keep URLs constant (avoid flooding cache dir)
 	$regionurls[$region]=relativeUrlToAbsolute($regions_url,$match[1]);
 }
-#print_r($regionurls);
-#exit();
 
 foreach($regionurls as $region => $regionurl) {
 	$meplist_data=cached_file_get_contents($regionurl);
@@ -77,29 +73,23 @@ foreach($regionurls as $region => $regionurl) {
 	preg_match_all('#\d+. <a href="\#([^>]+)"><font[^>]+>([^>]+)</font></a><br>#',$meplist_data,$matches,PREG_SET_ORDER);
     $mepsfound[$region] = 0;
 
-	foreach($matches as $match) {
-		$mep=$match[2];	
-		$ismep[$mep]=true;
-		$tgt=$target[$mep]=$match[1];
+	foreach ($matches as $match) {
+		$mep = $match[2];	
+		$ismep[$mep] = true;
+		$target[$mep] = $match[1];
 	}
 
 	$sections=preg_split('/<a name/',$meplist_data,-1,PREG_SPLIT_NO_EMPTY);
 
 	foreach ($sections as $section) {
-		$matched=0;
-		if(
-			preg_match('#^="([^"]*)".*<img src="([^"]*)".*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*)?Fax: ([^<]*).*?mailto:([^"]+)#',$section,$matches)) {
-		#	print("MATCH 1\n");
-			$matched=1;
-		} else if (preg_match('#^="([^"]*)"().*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*Fax: ([^<]*))?.*?mailto:([^"]+)#',$section,$matches)) {
-			$matched=1;
-		#	print("MATCH 2\n");
+		$matched = 0;
+		if(preg_match('#^="([^"]*)".*<img src="([^"]*)".*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*)?Fax: ([^<]*).*?mailto:([^"]+)#',$section,$matches)) {
+			$matched = 1;
+		} elseif (preg_match('#^="([^"]*)"().*?<b>([^>]*)</b>.*?<font [^>]*>([^>]*)<br>([^>]*)</font>.*?(Tel: ([^<]*).*?Fax: ([^<]*))?.*?mailto:([^"]+)#',$section,$matches)) {
+			$matched = 1;
+        }
+		if ($matched) {
 
-		}
-		if($matched) {
-
-		#	print_r($matches);
-		
 			$name=trim($matches[3]);
 			
 			foreach($honorifics as $honorific) {
@@ -124,11 +114,6 @@ foreach($regionurls as $region => $regionurl) {
 		}
 	}
 }
-#print_r($members);
-#exit();
-
-#print_r($mepcount);
-
 
 #foreach($members as $mep=>$data) {
 #	$mep_data=cached_file_get_contents($data['url']);
@@ -179,8 +164,6 @@ foreach($expectmembers as $region => $expect) {
         }
 	}
 }
-
-#print_r($members);
 
 function cached_file_get_contents($url) {
 	if(MEP_CACHE) {
