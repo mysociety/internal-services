@@ -27,6 +27,12 @@ sub debug {
     return undef;
 }
 
+sub error {
+    my ($self, $message) = @_;
+    warn "ERROR: $message";
+    return undef;
+}
+
 sub new {
     my ($class, %args) = @_;
 
@@ -87,8 +93,28 @@ sub run {
     }
     
     unless ($self->{'args'}{'nohansard'}) {
-	$self->get_hansard_data();
-	$self->merge_captions_with_hansard();
+
+	my $retries = 5;
+
+	while ($retries > 0) {
+
+	    $self->get_hansard_data();
+	    $self->merge_captions_with_hansard();
+
+	    if (defined($self->{'updates'})) {
+		last;
+	    } else {
+		$retries -= 1;
+		$self->debug("Problem with captions, trying again in 1 hour");
+		sleep (60*60);
+	    }
+
+	}
+
+	if ($retries == 0) {
+	    $self->error("Could not synchronise captions - retried 5 times.");
+	}
+
     }
 
     unless ($self->{'arg'}{'no-output-write'} || $self->{'args'}{'nohansard'}) {
@@ -304,11 +330,16 @@ sub load_log_files {
 		if ($line =~ /STRAPS INFO\s*:\s*House of Commons/i) {
 		    $location = 'commons';
 		}
+		if ($line =~ /LSHAPE ADD .+ \\Today/i) {
+		    $self->debug("Skipping $line");
+                    next;
+		}
 		if ($line =~ /STRAPS INFO\s*:\s*\d+/ ||
 		    $line =~ /LSHAPE ADD .+ Statement/i ||
 		    $line =~ /LSHAPE ADD .+ Bill/i ||
 		    $line =~ /LSHAPE ADD .+ MPs are debating/i ||
 		    $line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
+		    $self->debug("Using $line");
 		    if ($1 && $2) {
 			$current_name = $1;
 			$current_position = $2;
@@ -644,7 +675,11 @@ sub normalise_name {
 sub get_hansard_data {
     my ($self) = @_;
 
+    $self->debug("get_hansard_data");
+
     foreach my $date (sort keys %{$self->{'dates-to-process'}}) {
+
+	$self->debug("processing $date");
     
 	# TODO - search for lords and westminster hall as well!
 	#my @locations = qw (commons lords westminsterhall);
@@ -677,7 +712,14 @@ sub get_hansard_data {
 	    my $results_ref = XMLin($results,
 				    'ForceArray' => ['match']);
 
-#		warn Dumper $results_ref;
+	    if (defined($$results_ref{'error'})) {
+		if ($$results_ref{'error'} =~ /no data to display/i) {
+		    $self->debug("No data available from API for $location on $date");
+		    next;
+		}
+	    }
+
+	    #warn Dumper $results_ref;
 
 	    # the date=xxx response contains an ordered list of
 	    # "match" elements, each of which has one "entry"
@@ -843,6 +885,8 @@ sub write_update_files {
 	warn "ERROR: No updates found, skipping write_update_files";
 	return undef;
     }
+
+    $self->debug("Updates are");
 
     $self->debug(Dumper $self->{'updates'});
     
