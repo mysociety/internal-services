@@ -339,7 +339,7 @@ sub load_log_files {
 		    $line =~ /LSHAPE ADD .+ Bill/i ||
 		    $line =~ /LSHAPE ADD .+ MPs are debating/i ||
 		    $line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
-		    $self->debug("Using $line");
+		    #$self->debug("Using $line");
 		    if ($1 && $2) {
 			$current_name = $1;
 			$current_position = $2;
@@ -692,6 +692,8 @@ sub get_hansard_data {
 	    # now get the data from TWFY API
 	    
 	    # first, get the debate ids
+
+	    $self->debug("Querying TWFY API: $location, $date, xml output");
 	    
 	    my $response = $api->query( 'getDebates',
 					{ 'type' => $location,
@@ -883,6 +885,7 @@ sub write_update_files {
 
     unless (defined($self->{'updates'})) {
 	warn "ERROR: No updates found, skipping write_update_files";
+	warn Dumper $self;
 	return undef;
     }
 
