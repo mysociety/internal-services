@@ -179,7 +179,7 @@ sub calculate_date_time_range {
     my $start = '';
     my $end = '';
 
-    foreach my $filename (keys %{$self->{'raw-footage-to-process'}}) {
+    foreach my $filename (sort keys %{$self->{'raw-footage-to-process'}}) {
 	warn "DEBUG: Calculating date-range with $filename";
 	if ($filename =~ /.+?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z/) {
 	    if ($start eq '' || $start gt $1) {
@@ -440,23 +440,23 @@ sub enqueue_processing_requests {
 	foreach my $key (keys %data) {
 	    $token .= "$key=" . $data{$key} . "\n";
 	}
-
-	warn Dumper %data;
+	
+	# warn Dumper %data;
 	
 	my @filenames = ();
 	foreach my $filename (sort keys %{$self->{'raw-footage-to-process'}}) {
 	    my ($start, $end) = extract_start_end($filename);
 	    warn "DEBUG: check between $start and $end ($filename)";
-	    if ($start le $data{'broadcast_start'} && $data{'broadcast_start'} le $end) {
+	    
+	    if ($data{'broadcast_start'} gt $end && $data{'broadcast_end'} gt $end) {
+		$self->debug("Skipping $filename");
+	    } elsif ($data{'broadcast_start'} lt $end && $data{'broadcast_end'} gt $end) {
 		warn "DEBUG: hit on $filename";
 		push @filenames, $filename;
-		if ($start le $data{'broadcast_end'} && $data{'broadcast_end'} le $end) {
-		    warn "DEBUG: found the last file we need";
-		    last;
-		}
-	    } elsif ($start le $data{'broadcast_end'} && $data{'broadcast_end'} le $end) {
-		warn "DEBUG: hit on $filename";
+	    } elsif ($data{'broadcast_start'} lt $end && $data{'broadcast_end'} lt $end) {
+		warn "DEBUG: final hit on $filename";
 		push @filenames, $filename;
+		last;
 	    }
 	}
 
