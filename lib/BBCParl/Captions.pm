@@ -58,7 +58,7 @@ sub new {
     $self->{'constants'}{'captions-directory-local'} = $self->{'path'}{'home-dir'} . "/downloads/parliament-logs";
     $self->{'constants'}{'hansard-updates-directory'} = $self->{'path'}{'home-dir'} . "/hansard-updates";
 
-    $self->{'constants'}{'gid-window-size'} = 15;
+    $self->{'constants'}{'gid-window-size'} = 5;
 
     $self->{'timezones'}{'commons'} = 'Europe/London';
 #    $self->{'timezones'}{'lords'} = 'Europe/London';
@@ -74,7 +74,7 @@ sub run {
     my ($self) = @_;
 
     unless ($self->set_processing_dates()) {
-	warn "ERROR: Did not set captions processing dates, exiting now.";
+	$self->error("Did not set captions processing dates, exiting now.");
 	return undef;
     }
 
@@ -82,13 +82,13 @@ sub run {
 	$self->debug("skipping mirror operation on caption files");
     } else {
 	unless ($self->mirror_log_files()) {
-	    warn "ERROR: Mirror did not work okay (try --nomirror for offline use).";
+	    $self->error("Mirror did not work okay (try --nomirror for offline use).");
 	    return undef;
 	}
     }
 
     unless ($self->load_log_files()) {
-	warn "ERROR: Could not load data from log files, exiting now.";
+	$self->error( "Could not load data from log files, exiting now.");
 	return undef;
     }
     
@@ -99,14 +99,16 @@ sub run {
 	while ($retries > 0) {
 
 	    $self->get_hansard_data();
+
 	    $self->merge_captions_with_hansard();
 
-	    if (defined($self->{'updates'})) {
+	    if (defined($self->{'updates'}) || defined($self->{'args'}{'no-retries'})) {
 		last;
 	    } else {
 		$retries -= 1;
 		$self->debug("Problem with captions, trying again in 1 hour");
 		sleep (60*60);
+		$self->debug("Trying again");
 	    }
 
 	}
@@ -118,13 +120,14 @@ sub run {
     }
 
     unless ($self->{'arg'}{'no-output-write'} || $self->{'args'}{'nohansard'}) {
-	unless ($self->write_update_files()) {
-	    return undef;
-	}
+	$self->write_update_files();
     }
 
-    if ($self->{'stats'}{'print-stats'}) {
+    if ($self->{'debug'} || $self->{'stats'}{'print-stats'}) {
+	my $temp_debug = $self->{'debug'};
+	$self->{'debug'} = 1;
 	$self->print_stats();
+	$self->{'debug'} = $temp_debug;
     }
 
     return 1;
@@ -133,18 +136,20 @@ sub run {
 
 sub print_stats {
     my ($self) = @_;
+    
+    $self->{'stats'}{'hansard-not-matched'} = $self->{'stats'}{'hansard-total-gids'} - $self->{'stats'}{'hansard-captions-matched'};
 
-    #warn "STATS: Attempted to merge captions and hansard data from the following dates:";
+    $self->debug("STATS: Attempted to merge captions and hansard data from the following dates:");
 
     foreach my $date (sort keys %{$self->{'dates-to-process'}}) {
-	#warn "STATS: $date";
+	$self->debug("STATS: $date");
     }
 
     foreach my $stat (sort keys %{$self->{'stats'}}) {
 	if (defined($self->{'stats'}{$stat})) {
-	    #warn "STATS: $stat = " . $self->{'stats'}{$stat};
+	    $self->debug("STATS: $stat = " . $self->{'stats'}{$stat});
 	} else {
-	    #warn "STATS: $stat = undefined";
+	    $self->debug("STATS: $stat = undefined");
 	}
     }
 
@@ -152,11 +157,11 @@ sub print_stats {
 
 
 sub modify_date {
-    my ($date, $delta) = @_;
+    my ($self,$date, $delta) = @_;
     unless (defined ($delta)) {
 	$delta = '+1 days';
     }
-    if (check_date($date)) {
+    if ($self->check_date($date)) {
 #	warn "INFO: modifying $date by $delta";
 	$date = DateCalc ( ParseDate($date) , ParseDateDelta($delta) );
 	$date =~ /^(\d{4})(\d{2})(\d{2})/;
@@ -167,11 +172,11 @@ sub modify_date {
 }
 
 sub check_date {
-    my ($date) = @_;
+    my ($self,$date) = @_;
     if ($date =~ /^\d{4}-\d{2}-\d{2}$/) {
 	return $date;
     } else {
-	warn "ERROR: $date is not of the form yyyy-mm-dd";
+	$self->error( "$date is not of the form yyyy-mm-dd");
 	return undef;
     }
 }
@@ -196,7 +201,7 @@ sub set_processing_dates {
 	# use yesterday's date in yyyy-mm-dd format
 	my $date_time_format = '%F';
 	$start_date = strftime($date_time_format,gmtime());
-	$start_date = modify_date($start_date, '-1 days');
+	$start_date = $self->modify_date($start_date, '-1 days');
     }
 
     unless ($end_date) {
@@ -204,14 +209,14 @@ sub set_processing_dates {
     }
 
     map {
-	unless (check_date($_)) {
-	    warn "FATAL: date parameter is not valid: $_";
+	unless ($self->check_date($_)) {
+	    $self->error( "FATAL: date parameter is not valid: $_");
 	    die;
 	}
     } ($start_date, $end_date);
 
     unless ($start_date le $end_date) {
-	warn "ERROR: start_date ($start_date) is after end_date ($end_date)";
+	$self->error( "start_date ($start_date) is after end_date ($end_date)");
 	return undef;
     }
 
@@ -219,7 +224,7 @@ sub set_processing_dates {
 
     my $next_date = $start_date;
     while ($next_date lt $end_date) {
-	$next_date = modify_date ($next_date, "+1 days");
+	$next_date = $self->modify_date ($next_date, "+1 days");
 	$self->{'dates-to-process'}{$next_date} = 1;
 	$self->debug("processing captions from $next_date");
     }
@@ -241,7 +246,7 @@ sub mirror_log_files {
 
     my $ua;
     unless ($ua = LWP::UserAgent->new()) {
-	warn "ERROR: Cannot create new LWP::UserAgent object; error was $!";
+	$self->error( "Cannot create new LWP::UserAgent object; error was $!");
 	return undef;
     }
 
@@ -256,7 +261,7 @@ sub mirror_log_files {
 		if ($response->status_line() =~ /304/) {
 		    $self->debug("Could not fetch $url (error was " . $response->status_line() . ").");
 		} else {
-		    warn "ERROR: Could not fetch $url (error was " . $response->status_line() . ").";
+		    $self->error( "Could not fetch $url (error was " . $response->status_line() . ").");
 		}
 	    }
 	} @file_prefixes;
@@ -288,15 +293,16 @@ sub load_log_files {
 	    my $location = 'unknown';
 
 	    # TODO - add support for non-commons logfiles
-	    if ($filename =~ /commons/) {
+	    #if ($filename =~ /(commons|bigted)/) {
+	    if ($filename =~ /(commons)/) {
 		$location = 'commons';
 	    } else {
+		$self->debug("Skipping logfile $filename");
 		next;
-		# TODO - rename file to $filename.done
 	    }
     
 	    unless (open(CAPTIONS, $filename)) {
-		warn "ERROR: Cannot open file $filename; error was $!";
+		$self->error("Cannot open file $filename; error was $!");
 		next;
 	    }
 	    
@@ -306,7 +312,7 @@ sub load_log_files {
 	    }
 	    close CAPTIONS;
 	    unless ($raw_captions_data) {
-		warn "ERROR: No data found in file $filename";
+		$self->error("No data found in file $filename");
 		next;
 	    }
 	    
@@ -351,9 +357,9 @@ sub load_log_files {
 			$self->{'stats'}{'duplicated'} += 1;
 			next;
 		    }
-		    $self->{'captions'}{$date}{$location}{$caption_id}{'name'} = $current_name;
-		    $self->{'captions'}{$date}{$location}{$caption_id}{'position'} = $current_position;
-		    $self->{'captions'}{$date}{$location}{$caption_id}{'timestamp'} = $datetime;
+		    $self->{'captions'}{$date}{$location}{$datetime}{'name'} = $current_name;
+		    $self->{'captions'}{$date}{$location}{$datetime}{'position'} = $current_position;
+		    $self->{'captions'}{$date}{$location}{$datetime}{'caption_id'} = $caption_id;
 		    $previous_name = $current_name;
 		    $caption_id += 1;
 		    $self->{'stats'}{'captions-total'} += 1;
@@ -414,10 +420,15 @@ sub merge_captions_with_hansard {
 
 	    $self->{'stats'}{'hansard-total-gids'} += $num_gids;
 
-	    my @caption_ids = (sort {$a <=> $b} keys %{$self->{'captions'}{$date}{$location}});
-	    #warn Dumper @caption_ids;
+	    my @timestamps = (sort keys %{$self->{'captions'}{$date}{$location}});
+	    #my @timestamps = (sort {$a <=> $b} keys %{$self->{'captions'}{$date}{$location}});
+	    #warn Dumper @timestamps;
 
-	    foreach my $caption_id (@caption_ids) {
+	    my $window_size = $self->{'constants'}{'gid-window-size'};
+
+	    foreach my $datetime (@timestamps) {
+
+		# process a new caption (each one has a unique timestamp)
 
 		# cycle through each caption in turn; foreach caption,
 		# compare name with the next gid.name; if it matches,
@@ -427,16 +438,15 @@ sub merge_captions_with_hansard {
 		my $match_found = 0;
 		my $gid_offset = 0;
 		my $num_speech_gids = 0;
-		my $window_size = $self->{'constants'}{'gid-window-size'};
 
 		if ($gid_index >= $num_gids) {
 		    #warn "DEBUG: No more gids left!";
 		    $skip_caption = 1;
 		}
 
-		my $caption_name = $self->{'captions'}{$date}{$location}{$caption_id}{'name'};
-		my $caption_timestamp = $self->{'captions'}{$date}{$location}{$caption_id}{'timestamp'};
-		$self->debug("processing caption $caption_id $caption_name");
+		my $caption_id = $self->{'captions'}{$date}{$location}{$datetime}{'caption_id'};
+		my $caption_name = $self->{'captions'}{$date}{$location}{$datetime}{'name'};
+		$self->debug("processing caption $caption_id $caption_name $datetime");
 
 		while (($num_speech_gids < $window_size) && (($gid_index + $gid_offset) < $num_gids)) {
 		    
@@ -458,7 +468,7 @@ sub merge_captions_with_hansard {
 
 			my $hansard_name = $self->{'hansard'}{$date}{$location}{$gid}{'name'};
 			
-			$self->debug("comparing $caption_id: $caption_timestamp $caption_name <-> $hansard_name $gid");
+			$self->debug("comparing $datetime (caption_id) $caption_name <-> $hansard_name $gid");
 			my $cmp_result = undef;
 			if ($caption_name eq 'unknown') {
 			    $cmp_result = 1;
@@ -467,18 +477,23 @@ sub merge_captions_with_hansard {
 			}
 
 			if (defined($cmp_result) && $cmp_result == 1) {
-			    $self->debug("match found ($caption_name, $hansard_name)");
+			    $self->debug("match found (caption: $caption_name, hansard: $hansard_name)");
 			    $self->{'stats'}{'hansard-captions-matched'} += 1;
 			    $match_found = 1;
 			    #if ($caption_timestamp =~ /(\d{2}\/\d{2}\/\d{4}) (\d{2}:\d{2}:\d{2})/) 
-			    if ($caption_timestamp =~ /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})Z/) {
+			    if ($datetime =~ /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})Z/) {
 				$time = $2;
 			    } else {
-				warn "ERROR: Caption timestamp not valid ($caption_timestamp)";
+				$self->error("Caption timestamp not valid ($datetime)");
+			    }
+			    if ($window_size > $self->{'constants'}{'gid-window-size'}) {
+				$window_size -= 1;
+				$self->debug("decrementing window size - now $window_size");
 			    }
 			} else {
-			    #warn "DEBUG: failed to match $caption_name with $hansard_name - skipping $hansard_name";
+			    $self->debug("DEBUG: failed to match caption: $caption_name with hansard: $hansard_name - skipping hansard: $hansard_name");
 			    $match_found = 0;
+			    $self->{'stats'}{'hansard-not-matched'} += 1;
 			}
 
 		    } else {
@@ -492,12 +507,12 @@ sub merge_captions_with_hansard {
 			if (defined($self->{'timezones'}{$location})) {
 			    $tz = $self->{'timezones'}{$location};
 			} elsif (defined($self->{'timezones'}{'default'})) {
-			    warn "ERROR: No timezone specified for location $location";
-			    warn "ERROR: Using default timezone: " . $self->{'timezones'}{'default'};
+			    $self->error( "No timezone specified for location $location");
+			    $self->error( "Using default timezone: " . $self->{'timezones'}{'default'});
 			    $tz = $self->{'timezones'}{'default'};
 			} else {
-			    warn "ERROR: No timezone specified for location $location";
-			    warn "ERROR: No default timezone available. Ignoring timezones.";
+			    $self->error("No timezone specified for location $location");
+			    $self->error("No default timezone available. Ignoring timezones.");
 			}
 		
 			my @time = ();
@@ -522,9 +537,12 @@ sub merge_captions_with_hansard {
 			$self->debug("Comparing hansard time $self->{'hansard'}{$date}{$location}{$gid}{'htime'} with captions time " . $dt->hms(':'));
 
 			if ($self->{'hansard'}{$date}{$location}{$gid}{'htime'} lt $dt->hms(':')) {
-			    $self->debug("Updating htime for $gid - now " . $dt->hms(':'));
-			    $self->{'updates'}{$date}{$location}{$gid}{'htime'} = $dt->hms(':');
-			    #$self->{'stats'}{'hansard-gids-updated'} += 1;
+			    # only update the time if we are still reasonably in synch
+			    if ($window_size eq $self->{'constants'}{'gid-window-size'}) {
+				$self->debug("Updating htime for $gid - now " . $dt->hms(':'));
+				$self->{'updates'}{$date}{$location}{$gid}{'htime'} = $dt->hms(':');
+				#$self->{'stats'}{'hansard-gids-updated'} += 1;
+			    }
 			}
 
 		    } else {
@@ -546,11 +564,13 @@ sub merge_captions_with_hansard {
 		    #warn "DEBUG: skipping caption $caption_id ($caption_name, $time)";
 		    $skip_caption = 0;
 		    $self->{'stats'}{'captions-skipped'} += 1;
+		    $window_size += 1;
+		    $self->debug("incremented window-size - now $window_size");
 		}
-
+	    
 		$self->{'stats'}{'captions-processed'} += 1;
 
-		#warn "finished with caption $caption_id $caption_name";
+		$self->debug( "finished with caption $caption_id $caption_name");
 
 	    }
 
@@ -702,8 +722,8 @@ sub get_hansard_data {
 					  } );
 	    
 	    unless ($response->is_success()) {
-		warn "ERROR: Could not fetch data from TWFY API; error was " . $response->status_line();
-		warn "ERROR: Skipping captions processing for $location on $date";
+		$self->error("Could not fetch data from TWFY API; error was " . $response->status_line());
+		$self->error("Skipping captions processing for $location on $date");
 		next;
 	    }
 	    
@@ -811,8 +831,8 @@ sub get_hansard_data {
 						     } );
 		
 		unless ($speech_response->is_success()) {
-		    warn "ERROR: Could not fetch data from TWFY API; error was " . $speech_response->status_line();
-		    warn "ERROR: Skipping captions processing for $location on $date";
+		    $self->error("Could not fetch data from TWFY API; error was " . $speech_response->status_line());
+		    $self->error("Skipping captions processing for $location on $date");
 		    next;
 		}
 		
@@ -884,14 +904,14 @@ sub write_update_files {
     my ($self) = @_;
 
     unless (defined($self->{'updates'})) {
-	warn "ERROR: No updates found, skipping write_update_files";
-	warn Dumper $self;
+	$self->error("No updates found, skipping write_update_files");
+	$self->debug(Dumper $self);
 	return undef;
     }
 
     $self->debug("Updates are");
 
-    $self->debug(Dumper $self->{'updates'});
+    $self->debug(Dumper $self);
     
     my $date_time_format = '%FT%TZ';
     my $date_time = strftime($date_time_format,gmtime());
@@ -900,11 +920,11 @@ sub write_update_files {
 #    my $updates_filename = $self->{'path'}{'updates-files-dir'} . "/hansard-updates-$date_time.sql";    
     my $updates_filename = $self->{'constants'}{'hansard-updates-directory'} . "/hansard-updates-$date_time";
     if (-e $updates_filename) {
-	warn "ERROR: Replacing existing file $updates_filename";
+	$self->error("Replacing existing file $updates_filename");
     }
     
     unless (open(UPDATES, ">$updates_filename")) {
-	warn "ERROR: Cannot open $updates_filename; error was $!";
+	$self->error("Cannot open $updates_filename; error was $!");
 	$self->{'stats'}{'write-update-files-status'} = "error-opening-file ($updates_filename)";
 	return undef;
     }
@@ -934,7 +954,11 @@ sub write_update_files {
     }
 
     close UPDATES;
-    
+
+    # TODO - upload to TWFY using the post script at
+    # http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php with
+    # HTTP basic auth (fawkes/the usual) and parameter "data"
+
     return $num_updates;
 
 }
