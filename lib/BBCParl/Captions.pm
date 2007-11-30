@@ -58,7 +58,8 @@ sub new {
     $self->{'constants'}{'captions-directory-local'} = $self->{'path'}{'home-dir'} . "/downloads/parliament-logs";
     $self->{'constants'}{'hansard-updates-directory'} = $self->{'path'}{'home-dir'} . "/hansard-updates";
 
-    $self->{'constants'}{'gid-window-size'} = 5;
+    $self->{'constants'}{'min-window-size'} = 5;
+    $self->{'constants'}{'max-window-size'} = 10;
 
     $self->{'timezones'}{'commons'} = 'Europe/London';
 #    $self->{'timezones'}{'lords'} = 'Europe/London';
@@ -424,7 +425,7 @@ sub merge_captions_with_hansard {
 	    #my @timestamps = (sort {$a <=> $b} keys %{$self->{'captions'}{$date}{$location}});
 	    #warn Dumper @timestamps;
 
-	    my $window_size = $self->{'constants'}{'gid-window-size'};
+	    my $window_size = $self->{'constants'}{'max-window-size'};
 
 	    foreach my $datetime (@timestamps) {
 
@@ -486,7 +487,7 @@ sub merge_captions_with_hansard {
 			    } else {
 				$self->error("Caption timestamp not valid ($datetime)");
 			    }
-			    if ($window_size > $self->{'constants'}{'gid-window-size'}) {
+			    if ($window_size > $self->{'constants'}{'min-window-size'}) {
 				$window_size -= 1;
 				$self->debug("decrementing window size - now $window_size");
 			    }
@@ -538,7 +539,7 @@ sub merge_captions_with_hansard {
 
 			if ($self->{'hansard'}{$date}{$location}{$gid}{'htime'} lt $dt->hms(':')) {
 			    # only update the time if we are still reasonably in synch
-			    if ($window_size eq $self->{'constants'}{'gid-window-size'}) {
+			    if ($window_size le ($self->{'constants'}{'min-window-size'} + 2)) {
 				$self->debug("Updating htime for $gid - now " . $dt->hms(':'));
 				$self->{'updates'}{$date}{$location}{$gid}{'htime'} = $dt->hms(':');
 				#$self->{'stats'}{'hansard-gids-updated'} += 1;
@@ -564,8 +565,10 @@ sub merge_captions_with_hansard {
 		    #warn "DEBUG: skipping caption $caption_id ($caption_name, $time)";
 		    $skip_caption = 0;
 		    $self->{'stats'}{'captions-skipped'} += 1;
-		    $window_size += 1;
-		    $self->debug("incremented window-size - now $window_size");
+		    unless ($window_size ge $self->{'constants'}{'max-window-size'}) {
+			$window_size += 1;
+			$self->debug("incremented window-size - now $window_size");
+		    }
 		}
 	    
 		$self->{'stats'}{'captions-processed'} += 1;
