@@ -5,12 +5,15 @@ use strict;
 use HTML::TreeBuilder;
 use HTML::Entities;
 use POSIX qw ( strftime );
+use HTTP::Request::Common;
 use LWP::UserAgent;
 use Date::Manip;
 use XML::Simple;
 use WebService::TWFY::API;
 use DateTime;
 #use DateTime::TimeZone;
+
+use mySociety::Config;
 
 use Data::Dumper;
 
@@ -38,6 +41,8 @@ sub new {
 
     my $self = {};
 
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
     bless $self,$class;
 
     if (%args) {
@@ -53,13 +58,14 @@ sub new {
 #    $self->{'constants'}{'captions-location'} = 'http://www.leitchy.com/parliament-logs/';
     $self->{'constants'}{'captions-directory-url'} = 'http://www.bbc.co.uk/test/parliament/';
     $self->{'constants'}{'twfy-api-location'} = 'http://www.theyworkforyou.com/api/';
+    $self->{'constants'}{'twfy-update-location'} = 'http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php';
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
     $self->{'constants'}{'captions-directory-local'} = $self->{'path'}{'home-dir'} . "/downloads/parliament-logs";
     $self->{'constants'}{'hansard-updates-directory'} = $self->{'path'}{'home-dir'} . "/hansard-updates";
 
-    $self->{'constants'}{'min-window-size'} = 5;
-    $self->{'constants'}{'max-window-size'} = 10;
+    $self->{'constants'}{'min-window-size'} = 25;
+    $self->{'constants'}{'max-window-size'} = 25;
 
     $self->{'timezones'}{'commons'} = 'Europe/London';
 #    $self->{'timezones'}{'lords'} = 'Europe/London';
@@ -124,6 +130,10 @@ sub run {
 	$self->write_update_files();
     }
 
+    if (defined($self->{'updates'})) {
+	$self->upload_updates();
+    }
+
     if ($self->{'debug'} || $self->{'stats'}{'print-stats'}) {
 	my $temp_debug = $self->{'debug'};
 	$self->{'debug'} = 1;
@@ -135,10 +145,75 @@ sub run {
 
 }
 
-sub print_stats {
+sub upload_updates {
     my ($self) = @_;
+
+    # upload to TWFY using the post script at
+    # http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php with
+    # HTTP basic auth (fawkes/the usual) and parameters "filename" and
+    # "data"
+
+    my $updates_filename = $self->{'updates-filename'};
+
+    unless (open(IN,$updates_filename)) {
+	$self->error("Cannot open $updates_filename");
+	return undef;
+    }
+
+    my $updates = undef;
+    while (<IN>) {
+	$updates .= $_;
+    }
+
+    my $url = $self->{'constants'}{'twfy-update-location'};
+    my $username = mySociety::Config::get('TWFY_USERNAME');
+    my $password = mySociety::Config::get('TWFY_PASSWORD');
+
+    my $realm = "You didn't see us; we're not here";
+
+    my $netloc = '';
+    if ($url =~ /^.+:\/\/([^\/]+)\//) {
+	$netloc = $1;
+	unless ($netloc =~ /:[\d]+$/) {
+	    $netloc .= ":80";
+	}
+    }
+
+    $self->debug("Preparing to upload to $url - auth: $netloc, \"$realm\", $username, $password"); 
+    $self->debug("Updates are:\n" . $updates);
+
+    if ($self->{'args'}{'no-updates'}) {
+	$self->debug("Updates disabled, skipping TWFY timestamp update procedure.");
+	return undef;
+    }
+
+    my $ua;
+    unless ($ua = LWP::UserAgent->new()) {
+	$self->error( "Cannot create new LWP::UserAgent object; error was $!");
+	return undef;
+    }
+
+    $ua->credentials($netloc, $realm, $username, $password);
+
+    my $form = { 'filename' => $updates_filename,
+		 'data' => $updates };
+
+    my $response = $ua->post($url,
+			     $form);
+
+    $self->debug("Response was: " . $response->status_line());
+
+    return 1;
+
+}
+
+sub print_stats {
+    my ($self) =@_;
     
-    $self->{'stats'}{'hansard-not-matched'} = $self->{'stats'}{'hansard-total-gids'} - $self->{'stats'}{'hansard-captions-matched'};
+    if (defined($self->{'stats'}{'hansard-total-gids'}) && defined($self->{'stats'}{'hansard-captions-matched'}) && defined($self->{'stats'}{'captions-processed'})) {
+	$self->{'stats'}{'hansard-not-matched'} = $self->{'stats'}{'hansard-total-gids'} - $self->{'stats'}{'hansard-captions-matched'};
+	$self->{'stats'}{'match-percentage'} = $self->{'stats'}{'hansard-captions-matched'} / $self->{'stats'}{'captions-processed'};
+    }
 
     $self->debug("STATS: Attempted to merge captions and hansard data from the following dates:");
 
@@ -223,6 +298,8 @@ sub set_processing_dates {
 
     $self->{'dates-to-process'}{$start_date} = 1;
 
+    $self->debug("from $start_date to $end_date");
+
     my $next_date = $start_date;
     while ($next_date lt $end_date) {
 	$next_date = $self->modify_date ($next_date, "+1 days");
@@ -260,7 +337,7 @@ sub mirror_log_files {
 	    my $response = $ua->mirror($url, $filename);
 	    unless ($response->is_success()) {
 		if ($response->status_line() =~ /304/) {
-		    $self->debug("Could not fetch $url (error was " . $response->status_line() . ").");
+		    $self->debug("Did not re-fetch $url (error was " . $response->status_line() . ").");
 		} else {
 		    $self->error( "Could not fetch $url (error was " . $response->status_line() . ").");
 		}
@@ -293,9 +370,8 @@ sub load_log_files {
 
 	    my $location = 'unknown';
 
-	    # TODO - add support for non-commons logfiles
-	    #if ($filename =~ /(commons|bigted)/) {
-	    if ($filename =~ /(commons)/) {
+	    if ($filename =~ /(commons|bigted)/) {
+	    #if ($filename =~ /(commons)/) {
 		$location = 'commons';
 	    } else {
 		$self->debug("Skipping logfile $filename");
@@ -317,7 +393,8 @@ sub load_log_files {
 		next;
 	    }
 	    
-	    # store data in $self->{'captions'}{$date}{$location}{$caption_id}
+	    # store data in $self->{'captions'}{$date}{$location}{$datetime}
+
 	    my $caption_id = 0;
 	    my $datetime = 'unknown';
 	    my $current_name = '';
@@ -328,14 +405,37 @@ sub load_log_files {
 	    # update datetime every time we see a TIMESTAMP line
 
 	    foreach my $line (split("\n",$raw_captions_data)) {
-		if ($line =~ /TIMESTAMP: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/i) {
-		    $datetime = $1;
+		if ($line =~ /TIMESTAMP: (\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z/i) {
+		    my $dt = DateTime->new('year' => $1,
+					   'month' => $2,
+					   'day' => $3,
+					   'hour' => $4,
+					   'minute' => $5,
+					   'second' => $6,
+					   'time_zone' => $self->{'timezones'}{'default'});
+		    if ($filename =~ /bigted2/) {
+			$dt->subtract('hours' => 4,
+				      'minutes' => 15);
+		    }
+		    $datetime = $dt->datetime . "Z";
 		}
 		if ($line =~ /STRAPS INFO\s*:\s*House of Lords/i) {
 		    $location = 'lords';
 		}
 		if ($line =~ /STRAPS INFO\s*:\s*House of Commons/i) {
 		    $location = 'commons';
+		}
+		if ($line =~ /STRAPS INFO\s*:\s*Westminster Hall/i) {
+		    $location = 'westminster';
+		}
+		if ($line =~ /STRAPS TOPLINE\s*:\s*.*First Minister/i) {
+		    $location = 'devolved';
+		}
+		if ($line =~ /STRAPS INFO\s*:\s*.*Committee/i) {
+		    $location = 'unknown';
+		}
+		if ($line =~ /LIMBO/) {
+		    $location = 'unknown';
 		}
 		if ($line =~ /LSHAPE ADD .+ \\Today/i) {
 		    $self->debug("Skipping $line");
@@ -448,14 +548,22 @@ sub merge_captions_with_hansard {
 		my $caption_id = $self->{'captions'}{$date}{$location}{$datetime}{'caption_id'};
 		my $caption_name = $self->{'captions'}{$date}{$location}{$datetime}{'name'};
 		$self->debug("processing caption $caption_id $caption_name $datetime");
+		$self->debug("window size: $window_size");
+
+		if ($caption_name eq 'unknown') {
+		    $skip_caption = 1;
+		}
 
 		while (($num_speech_gids < $window_size) && (($gid_index + $gid_offset) < $num_gids)) {
 		    
 		    #warn "gid index: $gid_index; gid offset: $gid_offset";
-
+		    
 		    if (($gid_index + $gid_offset) >= $num_gids) {
 			#warn "DEBUG: No more gids left!";
 			$skip_caption = 1;
+		    }
+
+		    if ($skip_caption) {
 			last;
 		    }
 
@@ -469,10 +577,12 @@ sub merge_captions_with_hansard {
 
 			my $hansard_name = $self->{'hansard'}{$date}{$location}{$gid}{'name'};
 			
-			$self->debug("comparing $datetime (caption_id) $caption_name <-> $hansard_name $gid");
+			$self->debug("comparing $datetime ($caption_id) $caption_name <-> $hansard_name $gid");
 			my $cmp_result = undef;
+
 			if ($caption_name eq 'unknown') {
-			    $cmp_result = 1;
+			#    $cmp_result = 1;
+			    $cmp_result = 0;
 			} else {
 			    $cmp_result = compare_names($caption_name, $hansard_name);
 			}
@@ -487,9 +597,9 @@ sub merge_captions_with_hansard {
 			    } else {
 				$self->error("Caption timestamp not valid ($datetime)");
 			    }
-			    if ($window_size > $self->{'constants'}{'min-window-size'}) {
-				$window_size -= 1;
-				$self->debug("decrementing window size - now $window_size");
+			    if ($window_size < $self->{'constants'}{'min-window-size'}) {
+				$window_size += 1;
+				$self->debug("incrementing window size - now $window_size");
 			    }
 			} else {
 			    $self->debug("DEBUG: failed to match caption: $caption_name with hansard: $hansard_name - skipping hansard: $hansard_name");
@@ -565,9 +675,9 @@ sub merge_captions_with_hansard {
 		    #warn "DEBUG: skipping caption $caption_id ($caption_name, $time)";
 		    $skip_caption = 0;
 		    $self->{'stats'}{'captions-skipped'} += 1;
-		    unless ($window_size ge $self->{'constants'}{'max-window-size'}) {
-			$window_size += 1;
-			$self->debug("incremented window-size - now $window_size");
+		    if ($window_size > $self->{'constants'}{'min-window-size'}) {
+			$window_size -= 1;
+			$self->debug("decremented window-size - now $window_size");
 		    }
 		}
 	    
@@ -639,6 +749,10 @@ sub clean_name {
 sub normalise_name {
     my ($name) = @_;
     $name = lc($name);
+
+    if ($name =~ /&Ouml;pik/) {
+	$name =~ s/&Ouml;pik/Opik/;
+    }
     
     # some common first name matches e.g. Mike -> Michael
 
@@ -648,8 +762,13 @@ sub normalise_name {
 		       'bob' => 'robert',
 		       'ed' => 'edward',
 		       'geoff' => 'geoffrey',
+		       'greg' => 'gregory',
+		       'jenny' => 'jennifer',
+		       'jonathan r' => 'jonathan',
+		       'ken' => 'kenneth',
 		       'mike' => 'michael',
 		       'nick' => 'nicholas',
+		       'pat' => 'patrick',
 		       'philip' => 'phil',
 		       'phillip' => 'phil',
 		       'rob' => 'robert',
@@ -912,8 +1031,6 @@ sub write_update_files {
 	return undef;
     }
 
-    $self->debug("Updates are");
-
     $self->debug(Dumper $self);
     
     my $date_time_format = '%FT%TZ';
@@ -932,7 +1049,7 @@ sub write_update_files {
 	return undef;
     }
 
-    print UPDATES "-- updates for hansard (generated at $date_time)\n-- timestamps are in GMT\n-- command line arguments were:\n\n";
+    print UPDATES "-- updates for hansard (generated at $date_time)\n-- timestamps are in localtime\n-- command line arguments were:\n\n";
 
     foreach my $arg_name (sort keys %{$self->{'args'}}) {
 	print UPDATES "-- --$arg_name";
@@ -958,9 +1075,7 @@ sub write_update_files {
 
     close UPDATES;
 
-    # TODO - upload to TWFY using the post script at
-    # http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php with
-    # HTTP basic auth (fawkes/the usual) and parameter "data"
+    $self->{'updates-filename'} = $updates_filename;
 
     return $num_updates;
 
