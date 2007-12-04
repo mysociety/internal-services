@@ -119,9 +119,10 @@ sub process_params {
 	return undef;
     }
     
-    # outputs can be: 1) javascript that embeds a flash video into a #
+    # outputs can be: 1) javascript that embeds a flash video into a
     # web-page, 2) the URL of the flash video. default is 1). if both
-    # XML and JS, ignore JS.
+    # XML and JS, ignore JS. TODO - update with text-only and
+    # minimal-js output options and descriptions
 
     if ($cgi->param('output') && lc($cgi->param('output')) eq 'xml') {
 	$self->{'param'}{'output'} = 'xml';
@@ -686,7 +687,7 @@ sub print_result {
 	
 	my $video_url = "$self->{'urls'}{'video-proxy'}/$prog_id.flv";
 	my $auto_start = $self->{'param'}{'autostart'};
-	if ($auto_start && $auto_start =~ /^(yes|true|y|1)/i) {
+	if ($auto_start && $auto_start =~ /^(yes|true|y|t|1)$/i) {
 	    $auto_start = 'true';
 	} else {
 	    $auto_start = 'false';
