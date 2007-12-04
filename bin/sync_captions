@@ -13,15 +13,19 @@ use BBCParl::Captions;
 
 # get command line options
 
-my ($help, $from, $to, $date, $verbose, $nomirror, $nohansard, $print_stats, $no_output_write, $debug) = ('','','','','','','','','');
+my ($help, $from, $to, $date, $verbose, $nomirror, $nohansard, $print_stats, $no_output_write, $debug, $no_retries, $no_updates) = ('','','','','','','','','','','');
 
 $help = 0;
-$verbose = 0;
+$verbose = 1;
+
 $nomirror = 0;
 $nohansard = 0;
 $print_stats = 0;
 $no_output_write = 0;
-$debug = 0;
+
+$debug = 1;
+$no_retries = 0;
+$no_updates = 0;
 
 GetOptions (
 	    'help+' => \$help,
@@ -33,13 +37,16 @@ GetOptions (
 	    'nohansard+' => \$nohansard,
 	    'dry-run+' => \$no_output_write,
 	    'stats+' => \$print_stats,
-	    'debug+' => \$debug
+	    'debug+' => \$debug,
+	    'no-retries+' => \$no_retries,
+	    'no-updates+' => \$no_updates
 	    );
 
 if ($help) {
     print << "END";
 usage: sync_captions [--date=yyyy-mm-dd] [--from=yyyy-mm-dd --to=yyy-mm-dd]
-                     [--verbose] [--nomirror] [--nohansard] [--stats] [--dry-run] [--debug]
+                     [--verbose] [--nomirror] [--nohansard] [--stats]
+		     [--dry-run] [--debug] [--no-retries] [--no-updates]
 
 1) Creates/updates local mirror of captions logfiles from the BBC for
    specified dates (or previous day if no dates are specified).
@@ -71,6 +78,10 @@ usage: sync_captions [--date=yyyy-mm-dd] [--from=yyyy-mm-dd --to=yyy-mm-dd]
 
 --debug                  Prints out debugging information to STDERR (off by default)
 
+--no-retries             Only try each date once (default is to try 5 times, with an hour between attempts)
+
+--no-updates             Do not upload any updated timestamps (if available) to TheyWorkForYou.com database
+
 END
 
     exit 0;
@@ -87,8 +98,12 @@ my $object = BBCParl::Captions->new(
 				    'nohansard' => $nohansard,
 				    'no-output-write' => $no_output_write,
 				    'print-stats' => $print_stats,
-                                    'debug' => $debug
+                                    'debug' => $debug,
+                                    'no-retries' => $no_retries,
+                                    'no-updates' => $no_updates
 				    );
+
+#$object->{'debug'} = 1;
 
 if ($object->run()) {
     exit(0);
