@@ -87,7 +87,7 @@ rpm -i freshrpms-release-1.1-1.fc.noarch.rpm
 
 yum update
 
-yum install cvs gcc php ffmpeg xorg-x11-Mesa-libGL mplayer emacs lighttpd perlbal sqlite perl-XML-Parser perl-XML-libXML libxml2-devel # for the headers, otherwise CPAN can't install XMK::LibXML::XPathContext perl-DBI
+yum install cvs gcc php ffmpeg xorg-x11-Mesa-libGL mencoder mplayer emacs lighttpd perl-Perlbal sqlite perl-XML-Parser perl-XML-libXML libxml2-devel # for the headers, otherwise CPAN can't install XMK::LibXML::XPathContext perl-DBI
 
 Note: mplayer can't find /usr/lib/libGL.so.1 # because it's not there - for some reason, the mplayer package doesn't include this as a dependency
 
@@ -224,7 +224,7 @@ Sometimes it doesn't work, and you get this:
 | i-5ba74832 | ami-07f4116e | code=48 name=terminated | CLIENT-ERROR | bbcparlservers_keypair |
 +------------+--------------+-------------------------+--------------+------------------------+
 
-But eventually you get a runnig instance.  Yay!
+But eventually you get a running instance.  Yay!
 
 ssh -i ~/conf/ejhp/bbcparlservers_keypair root@ec2-xx-xx-xx-xx.z-1.compute-1.amazonaws.com
 
@@ -240,3 +240,9 @@ processing/raw-footage
 All of the above should be owned by user and group bbcparlvid.
 
 Make all files in /mnt/processing/output world-readable + the directories and symlinks
+
+Updated /etc/lighttpd/lighttpd.conf with connection.kbytes-per-second = 35
+
+Updated /etc/lighttpd/lighttpd.conf to uncomment mod_cgi, and add ".cgi" to the list of static-file transfer exclusions, and add: cgi.assign = ( "/redirect" => '')
+
+Updated /etc/lighttpd/lighttpd.conf to uncomment server.port = 81, change document-root to /home/bbcparlvid/bin/, and that's it...
