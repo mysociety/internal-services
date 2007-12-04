@@ -20,6 +20,14 @@ use BBCParl::SQS;
 
 use mySociety::Config;
 
+sub debug {
+    my ($self, $message) = @_;
+    if ($self->{'debug'}) {
+	warn "DEBUG: $message";
+    }
+    return undef;
+}
+
 sub new {
     my ($class, %args) = @_;
 
