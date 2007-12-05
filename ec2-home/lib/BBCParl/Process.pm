@@ -5,11 +5,21 @@ use strict;
 use DateTime;
 use File::Copy;
 
+use Data::Dumper;
+
 use BBCParl::SQS;
 use BBCParl::EC2;
 use BBCParl::S3;
 
 use mySociety::Config;
+
+sub debug {
+    my ($self, $message) = @_;
+    if ($self->{'debug'}) {
+        warn "DEBUG: $message";
+    }
+    return undef;
+}
 
 sub new {
     my ($class) = @_;
@@ -26,7 +36,7 @@ sub new {
     $self->{'path'}{'yamdi'} = $self->{'path'}{'home-dir'} . '/bin/yamdi';
 
     $self->{'path'}{'processing-dir'} = '/mnt/processing';
-    $self->{'path'}{'footage-cache-dir'} = $self->{'path'}{'processing-dir'} .'/raw-footage';
+    $self->{'path'}{'footage-cache-dir'} = $self->{'path'}{'processing-dir'} .'/raw-footage/bbcparliament';
     $self->{'path'}{'output-cache-dir'} = $self->{'path'}{'processing-dir'} .'/output';
 
     $self->{'constants'}{'raw-footage-bucket'} = mySociety::Config::get('BBC_BUCKET_RAW_FOOTAGE');
@@ -56,9 +66,11 @@ sub run {
 	return 0;
     }
 
-    use Data::Dumper; warn Dumper $self;
-
     unless ($self->process_requests()) {
+	return 0;
+    }
+
+    unless ($self->cache_cleanup()) {
 	return 0;
     }
 
@@ -73,10 +85,12 @@ sub get_processing_requests {
     my $requests_queue = $self->{'constants'}{'processing-requests-queue'};
     my $request_id = 0;
 
-    warn "DEBUG: Checking for messages from the processing queue (EC2)";
+    $self->debug("Checking for messages from the processing queue (EC2)");
 
-    while (1) {
-	#warn "DEBUG: Getting a message from the queue";
+    my $messages_to_get = 2;
+
+    while ($messages_to_get > 0) {
+	$self->debug("DEBUG: Checking the queue for a new message");
 	my ($message_body, $queue_url, $message_id) = $q->receive($requests_queue);
 	if ($message_id) {
 	    #warn "DEBUG: Got $message_id";
@@ -88,17 +102,29 @@ sub get_processing_requests {
 	    }
 	    $self->{'processing-requests-queue'}{'queue-url'} = $queue_url;
 
-	    warn Dumper $self->{'request'}{$request_id};
+	    $self->debug("DEBUG: Removing request $request_id from the processing queue");
+
+	    my $retries = 5;
+
+	    while ($retries > 0) {
+
+		if ($q->delete($self->{'processing-requests-queue'}{'queue-url'},
+				   $self->{'requests'}{$request_id}{'message-id'})) {
+		    last;
+		} else {
+		    warn "ERROR: Did not remove request $request_id from the procesing queue";
+		    $retries -= 1;
+		    sleep 10;
+		}
+	    }
+
+	    $messages_to_get -= 1;
+	    $request_id += 1;
 
 	} else {
-	    #warn "DEBUG: No more messages in queue";
+	    $self->debug("DEBUG: No more messages in queue");
 	    last;
 	}
-	$request_id += 1;
-
-	# TODO - remove the next line
-	#if ($request_id == 1) { last; }
-	#sleep(1);
 
     }
 
@@ -111,22 +137,20 @@ sub process_requests {
 
    my $q = BBCParl::SQS->new();
 
-   warn "DEBUG: starting to process requests";
+   $self->debug("DEBUG: starting to process requests");
 
-   warn "DEBUG: preparing to mirror footage on local storage";
+#   warn "DEBUG: preparing to mirror footage on local storage";
 
    my $skip_request = undef;
 
-   unless ($self->mirror_footage_locally()) {
-       warn "DEBUG: Did not mirror necessary footage; unrecoverable error, skipping request.";
-       $skip_request = 1;
-   }
+#   unless ($self->mirror_footage_locally()) {
+#       warn "DEBUG: Did not mirror necessary footage; unrecoverable error, skipping request.";
+#       $skip_request = 1;
+#   }
    
    foreach my $request_id (sort keys %{$self->{'requests'}}) {
 
        $skip_request = undef;
-
-#       use Data::Dumper;       warn Dumper $self->{'requests'}{$request_id};
 
        my $encoding_args = ();
 
@@ -137,7 +161,7 @@ sub process_requests {
 
        # calculate the offset(s) for each file of raw footage
 
-       warn "DEBUG: Calculating offsets for FLV encoding";
+       $self->debug("DEBUG: Calculating offsets for FLV encoding");
 
        my ($start,$end) = map { $self->{'requests'}{$request_id}{$_}; } qw (broadcast_start broadcast_end);
 
@@ -158,14 +182,14 @@ sub process_requests {
 	       $filename = $2;
 	   }
 
-#	   warn "$filename";
+	   $self->debug("Calculating offset for $filename");
 
 	   my ($file_start, $file_end) = BBCParl::EC2::extract_start_end($filename);
 	   map { s/Z//; } ($file_start, $file_end);
 
 	   # does the footage end before this file starts?
 	   if ($end lt $file_start) {
-#	       warn "DEBUG: Skipping $filename";
+	       $self->debug("DEBUG: Programme already ended, skipping $filename");
 	       last;
 	   }
 
@@ -184,8 +208,8 @@ sub process_requests {
 	   } else {
 	       $slice_start = $file_start;
 	   }
-
-	   #warn "offset is $offset seconds ($start and $file_start)";
+	   
+	   $self->debug("offset is $offset seconds ($start and $file_start)");
 	   
 	   # do we need to use footage from the next file?
 
@@ -231,7 +255,7 @@ sub process_requests {
 
 	   }
 
-	   #warn "duration is $duration";
+	   $self->debug("duration is $duration");
 
 	   $encoding_args->{$filename}{'duration'} = $duration;
 	   $encoding_args->{$filename}{'offset'} = $offset;
@@ -249,9 +273,9 @@ sub process_requests {
 	   $skip_request = 1;
        }
    
-       warn "DEBUG: Encoding args are:";
+       $self->debug("DEBUG: Encoding args are:");
 
-       use Data::Dumper; warn Dumper $encoding_args;
+       $self->debug(Dumper $encoding_args);
 
        # now comes the video encoding, which is done in several stages
        # by a mixture of ffmpeg and mencoder
@@ -275,7 +299,7 @@ sub process_requests {
 	       last;
 	   }
 
-	   warn "DEBUG: Using part of $filename";
+	   $self->debug("DEBUG: Using part of $filename");
 
 	   if ($filename =~ /^(.+?)\/(.+)$/) {
 	       $filename = $2;
@@ -283,7 +307,7 @@ sub process_requests {
 
 	   #warn "DEBUG: Indexing on $filename";
 
-	   my $input_dir_filename = $self->{'mirror-footage'}{$filename};
+	   my $input_dir_filename = $self->{'path'}{'footage-cache-dir'} . "/" . $filename;
 	   my $output_dir_filename = "$output_dir/$prog_id.slice.$intermediate.flv";
 
 	   unless ($input_dir_filename) {
@@ -306,10 +330,10 @@ sub process_requests {
 	   my $flash_args = " -ss $offset -t $duration -i $input_dir_filename $output_dir_filename";
 	   #$flash_args .= "$output_dir_filename -ovc lavc -oac lavc";
 
-	   warn "DEBUG: Create FLV slice: $ffmpeg -v quiet $flash_args 2>&1";
-	   warn "DEBUG: starting FLV encoding at " . `date`;
+	   $self->debug("DEBUG: Create FLV slice: $ffmpeg -v quiet $flash_args 2>&1");
+	   $self->debug("DEBUG: starting FLV encoding at " . `date`);
 	   my $ffmpeg_output = `$ffmpeg -v quiet $flash_args 2>&1`;
-	   warn "DEBUG: ending FLV encoding at " . `date`;
+	   $self->debug("DEBUG: ending FLV encoding at " . `date`);
 	   #warn $ffmpeg_output;
 
 	   # TODO - the following error-catching code doesn't seem to
@@ -327,6 +351,14 @@ sub process_requests {
 	       warn $ffmpeg_output;
 	       $skip_request = 1;
 	   }
+
+	   my $file_size = `ls -sh $output_dir_filename`;
+
+	   if ($file_size eq '4.0K') {
+	       warn "ERROR: Fragment is empty (4.0k file size), skipping rest of the fragments ($output_dir_filename)";
+	       $skip_request = 1;
+	       last;
+	   }
 	   
 	   push @flv_slices, $output_dir_filename;
 	   $intermediate += 1;
@@ -338,23 +370,33 @@ sub process_requests {
 	   my $token = "$prog_id.flv,footage-not-available";
 	   my $queue_name = $self->{'constants'}{'available-programmes-queue'};
 	   
-	   if ($q->send($queue_name, $token)) {
-	       unless ($q->delete($self->{'processing-requests-queue'}{'queue-url'},
-				  $self->{'requests'}{$request_id}{'message-id'})) {
-		   warn "ERROR: Did not remove request $request_id (programme $prog_id) from the procesing queue";
+	   my $retries = 5;
+
+	   while ($retries > 0) {
+
+	       if ($q->send($queue_name, $token)) {
+		   $self->debug("sent update for programme $prog_id (request $request_id) via $queue_name");
+		   last;
+	       } else {
+		   $retries -= 1;
+		   sleep 10;
 	       }
-	   } else {
-	       warn "ERROR: Could not add a message to the available programmes queue";
+
+	       if ($retries == 0) {
+		   warn "ERROR: Could not add a message to the available programmes queue";
+		   next;
+	       }
+
 	   }
-	   next;
+
        }
 
        # if there is more than one slice, concatenate them all using
        # mencoder
 
-       if (@flv_slices > 1) {
+	   if (@flv_slices > 1) {
 
-	   warn "DEBUG: Joining slices together";
+	   $self->debug("DEBUG: Joining slices together");
 
 	   my $input_filenames = join (' ', @flv_slices);
 
@@ -365,7 +407,7 @@ sub process_requests {
 
 	   my $mencoder_command = "$mencoder $input_filenames -o $output_dir_filename -of lavf -oac copy -ovc lavc -lavcopts vcodec=flv -lavfopts i_certify_that_my_video_stream_does_not_use_b_frames";
 
-	   warn "DEBUG: $mencoder_command";
+	   $self->debug("DEBUG: $mencoder_command");
 
 	   `$mencoder_command`;
 
@@ -378,11 +420,11 @@ sub process_requests {
 		   warn "ERROR: Did not delete $file_to_unlink; unlink return value was $unlink_ret_value";
 	       }
 	   }
-
+	   
        } else {
-
+	   
 	   my $mv_command = "mv $output_dir/$prog_id.slice.0.flv $output_dir/$prog_id.flv";
-	   warn "DEBUG: $mv_command";
+	   $self->debug("DEBUG: $mv_command");
 	   `$mv_command`;
 
        }
@@ -390,8 +432,8 @@ sub process_requests {
        my $bucket = $self->{'constants'}{'programmes-bucket'};
        my $local_filename = "$output_dir/$prog_id.flv";
        my $remote_filename = "$bucket/$prog_id.flv";
-
-       warn "DEBUG: adding FLV metadata (using yamdi on $local_filename)";
+       
+       $self->debug("DEBUG: adding FLV metadata (using yamdi on $local_filename)");
 
        # update FLV file cue-points using yamdi
 
@@ -410,12 +452,13 @@ sub process_requests {
        }
 
        if ($file_size) {
-	   warn "DEBUG: file size is $file_size";
-	   if ($file_size eq '4.0k') {
+	   $self->debug("DEBUG: file size is $file_size");
+	   if ($file_size eq '4.0K') {
+	       warn "ERROR: Empty file, not-available";
 	       $token = "$remote_filename,footage-not-available";
 	   }
        }
-
+	   
        unless ($token) {
 
 	   my $store = BBCParl::S3->new();
@@ -424,7 +467,7 @@ sub process_requests {
 
 	   if ($store->put($local_filename, $remote_filename, 'public')) {
 
-	       warn "DEBUG: Stored $local_filename in S3 as $remote_filename";
+	       $self->debug("DEBUG: Stored $local_filename in S3 as $remote_filename");
 	       $token = "$remote_filename,available";
 
 	   } else {
@@ -438,48 +481,66 @@ sub process_requests {
 
        my $queue_name = $self->{'constants'}{'available-programmes-queue'};
 	   
-       if ($q->send($queue_name, $token)) {
+       my $retries = 5;
 
-	   warn "DEBUG sent availability message: $token";
-
-	   # TODO - check the location - if it's commons, keep a
-	   # local copy; otherwise, just upload the file
-
-	   if (defined($self->{'requests'}{$request_id}{'location'})) {
-	       my $location = $self->{'requests'}{$request_id}{'location'};
-	       if (lc($location) eq 'commons') {
-		   warn "DEBUG: Did not delete $local_filename (location was $location)";
-	       } else {
-		   #unlink($local_filename);
-		   warn "DEBUG: Did not delete $local_filename (location was $location)";
-		   warn "TODO: Uncomment the delete-file line above!";
-	       }
-	   }
-       
-       }
+       while ($retries > 0) {
 	   
-       # request processing is now complete - remove it from the
-       # processing queue
+	   if ($q->send($queue_name, $token)) {
+	       $self->debug("sent update for programme $prog_id (request $request_id) via $queue_name");
+	       last;
+	   } else {
+	       $retries -= 1;
+	       sleep 10;
+	   }
+	   
+	   if ($retries == 0) {
+	       warn "ERROR: Could not add a message to the available programmes queue ($token)";
+	   }
 
-       warn "DEBUG: Removing request $request_id from the processing queue";
-
-       unless ($q->delete($self->{'processing-requests-queue'}{'queue-url'},
-			  $self->{'requests'}{$request_id}{'message-id'})) {
-	   warn "ERROR: Did not remove request $request_id (programme $prog_id) from the procesing queue";
        }
 
    }
 
-   # TODO - remove and replace with a separate cache-cleaning process
-
-   # Once we've done all the requests in the queue, remove all mpeg
-   # files from the local raw-footage cache more than 3 days old
-
-   warn "TODO: remove all mpeg files that are more than 3 days old";
-
-   warn "DEBUG: end processing of requests";
+   $self->debug("DEBUG: end processing of requests");
 
    return 1;
+
+}
+
+sub cache_cleanup {
+    my ($self) = @_;
+    
+    # TODO - remove and replace with a separate cache-cleaning process
+    
+    # Once we've done all the requests in the queue, remove all mpeg
+    # files from the local raw-footage cache more than 3 days old
+    
+    my $week_old_dt = DateTime->now();
+    $week_old_dt->subtract( days => 4 );
+    my $cutoff = $week_old_dt->datetime();
+
+    $self->debug("cache_cleanup for raw-footage: cutoff datetime is $cutoff");
+
+    my $raw_footage_dir = $self->{'path'}{'footage-cache-dir'};
+    
+    # list all files in raw-footage
+
+    # foreach my $filename (@files) {
+    # extract the end-time
+    # if end-time < $ymd_hms, unlink $filename
+
+    my @filenames = split("\n",`ls $raw_footage_dir`);
+
+    foreach my $filename (sort @filenames) {
+	if ($filename =~ /.+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z.mpeg/) {
+	    if ($1 lt $cutoff) {
+		$self->debug("unlinking $filename");
+		unlink "$raw_footage_dir/$filename";
+	    }
+	}
+    }
+
+    return 1;
 
 }
 
