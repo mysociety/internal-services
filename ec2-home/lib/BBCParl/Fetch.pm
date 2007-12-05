@@ -9,10 +9,26 @@ use BBCParl::SQS;
 
 use mySociety::Config;
 
+sub debug {
+    my ($self, $message) = @_;
+    if ($self->{'debug'}) {
+        warn "DEBUG: $message";
+    }
+    return undef;
+}
+
 sub new {
-    my ($class, $test) = @_;
+    my ($class, %args) = @_;
     my $self = {};
     bless $self, $class;
+
+    foreach my $key (keys %args) {
+        $self->{'args'}{$key} = $args{$key};
+    }
+
+    if ($self->{'args'} && $self->{'args'}{'debug'}) {
+        $self->{'debug'} = 'true';
+    }
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
     $self->{'path'}{'config-dir'} = $self->{'path'}{'home-dir'} . '/conf';
@@ -29,15 +45,13 @@ sub new {
 
     # TODO - eventually, we should have a per-download sleep period, and fork() to sleep/reap individual downloads
 
-    $self->{'constants'}{'download-sleep'} = 23400;  # 23400 secs == 6 hours = 60 secs * 60 mins * 6 hours
+    #$self->{'constants'}{'download-sleep'} = 23400;  # 23400 secs == 6 hours = 60 secs * 60 mins * 6 hours
+
+    $self->{'constants'}{'download-sleep'} = 4500;  # 4500 secs == 1.25 hours = 60 secs * 60 mins * 1.25 hours
 
     $self->{'constants'}{'raw-footage-bucket'} = mySociety::Config::get('BBC_BUCKET_RAW_FOOTAGE');
     # raw-footage is ec2->bitter
     $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
-
-    # TODO - remove temporary testing value:
-
-###    $self->{'constants'}{'download-sleep'} = 10;
 
     return $self;
 }
@@ -237,7 +251,7 @@ sub reap_processes {
 	    next;
 	}
 
-#	warn "DEBUG: adding $filename to \$self->{'files-to-process'}{$pid}{'filename'}";
+	$self->debug("adding $filename to \$self->{'files-to-process'}{$pid}{'filename'}");
 
 	$self->{'files-to-process'}{$pid}{'directory'} = $directory;
 	$self->{'files-to-process'}{$pid}{'filename'} = $filename;
@@ -265,19 +279,19 @@ sub process_raw_files {
 
 	    my $input_filename = "$directory/$filename";
 	    my $output_filename = "$output_directory/$1$date_time.mpeg";
-#	    warn "DEBUG: $ffmpeg -v quiet -async 2 -i $input_filename -s 320x180 $output_filename > /dev/null";
 
-#	    warn "DEBUG: Encoding $input_filename to MPEG format as $output_filename";
+	    $self->debug("Encoding $input_filename to MPEG format as $output_filename");
 
 	    # convert to MPEG video, 320x180
 
 	    my $convert_command = "$ffmpeg -v quiet -async 2 -i $input_filename -s 320x180 $output_filename 2>&1";
+	    $self->debug("$convert_command");
+
 	    my $ffmpeg_output = `$convert_command`;
 
 	    unless (-e $output_filename) {
 		warn "ERROR: Output file from mpeg conversion not found ($output_filename)";
 		warn "ERROR: Not deleting input file ($input_filename)";
-		warn "DEBUG: Conversion command was: $convert_command";
 		warn "ERROR: Output from ffmpeg was: $ffmpeg_output";
 	    } else {
 		$self->{'files-to-upload'}{$output_filename} = 1;
@@ -317,31 +331,27 @@ sub upload_processed_files {
 	    $remote_filename = "$bucket/$2";
 	}
 	
-	warn "DEBUG: uploading $local_filename to $remote_filename";
+	my $q = BBCParl::SQS->new();
+	
+	my $token = $remote_filename;
+	my $queue_name = $self->{'constants'}{'raw-footage-queue'};
+	
+	my $retries = 5;
 
-	if ($store->put($local_filename, $remote_filename)) {
+	while ($retries > 0) {
 
-	    # upload an SQS token per new raw-footage file - a script
-	    # on bitter will check for new tokens of this form and
-	    # update local database of footage
-
-	    my $q = BBCParl::SQS->new();
-
-	    my $token = $remote_filename;
-	    my $queue_name = $self->{'constants'}{'raw-footage-queue'};
-
-	    unless ($q->send($queue_name, $token)) {
+	    if ($q->send($queue_name, $token)) {
+		$self->debug("Sent footage update message to queue $queue_name");
+		last;
+	    } else {
+		$retries -= 1;
+		sleep 10;
+	    }
+		
+	    if ($retries == 0) {
 		warn "ERROR: Could not send message to raw-footage-queue $queue_name";
 	    }
-
-	    # don't delete files as soon as they have been uploaded -
-	    # they get automatically deleted in Process.pm once they
-	    # are more than 3 days old
-
-	    #unlink($local_filename);
-
-	} else {
-	    warn "ERROR: Did not store $local_filename in S3";
+	
 	}
 
     }
