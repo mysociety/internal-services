@@ -17,8 +17,12 @@ $s = `date`;
 
 my $object = BBCParl::Process->new();
 
-exit $object->run();
+$object->{'debug'} = 1;
+
+my $ret_value = $object->run();
 
 $e = `date`;
 
 warn "DEBUG: start = $s, end = $e";
+
+exit $ret_value;
