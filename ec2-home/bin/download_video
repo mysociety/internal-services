@@ -3,7 +3,7 @@
 # version 0.1 - etienne pollard (mysociety@ejhp.net)
 
 # downloads video from online streaming video servers (e.g. BBC
-# Parliament) and stores raw footage in BBC Radio One's S3 account
+# Parliament) and stores raw footage on local disk
 
 use strict;
 
@@ -26,10 +26,10 @@ mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 my $object = BBCParl::Fetch->new('debug' => $debug);
 
 # since we're invoked at xx:59:00, we should sleep for just under a minute
-
-unless ($skip_pause) {
-    sleep (57);
-}
+# 
+# unless ($skip_pause) {
+#     sleep (57);
+# }
 
 $object->run();
 
