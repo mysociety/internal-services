@@ -77,9 +77,7 @@ sub handle_request {
 
     # fetch data on programmes from the database
 
-    unless ($self->get_programme_data()) {
-	return undef;
-    }
+    $self->get_programme_data();
 
     # display information obtained from database
 
@@ -117,7 +115,9 @@ sub write_js {
     print header(-type => 'text/html');
     # TODO add a cache-control header to stop expiry for 1 year if it's certain result types...
 
-    if (defined($self->{'params'}{'gid'})) {
+    if (defined($self->{'output'}{'error'})) {
+	print "<!-- Sorry, there was an error.  Message was: " . $self->{'output'}{'error'}{'message'} . ", error code was " . $self->{'output'}{'error'}{'code'} . ". -->";
+    } elsif (defined($self->{'params'}{'gid'})) {
 	
 	my $content = '';
 	foreach my $id (sort keys %{$self->{'programmes'}}) {
@@ -184,7 +184,7 @@ sub write_html {
     } else {
 	$self->{'output'}{'error'}{'message'} = 'Sorry, something went wrong. Not sure what, but you definitely should not be seeing this.';
 	$self->{'output'}{'error'}{'code'} = 999;
-	$self->write_error_html();
+    	$self->write_error_html();
     }
 
     $self->write_footer_html();
@@ -262,11 +262,20 @@ This website was hand-made by robots.
 </div> 
 </div> 
 
+HTML
+
+if ($self->{'debug'}) {
+
+    print <<HTML;
 <br clear="all">
 <div>
 <pre>$debug</pre>
 </div>
+HTML
 
+}
+
+    print <<HTML;
 </body> 
 </html> 
 HTML
@@ -338,7 +347,9 @@ sub get_programme_listing_set_html {
     my $item_number = 0;
     my @list_prog_ids;
 
-    $content = "page_start_number $page_start_number page_end_number $page_end_number";
+    if ($self->{'debug'}) {
+	$content = "page_start_number $page_start_number page_end_number $page_end_number";
+    }
 
     foreach my $id (@all_prog_ids) {
 
@@ -351,8 +362,9 @@ sub get_programme_listing_set_html {
 		$item_number <= $page_end_number) {
 
 		$content .= $self->get_programme_listing_html($id,{'auto_start' => 0, 'full_or_partial' => $full_or_partial});
-		$content .= "<p>item_number $item_number</p>";
-		
+		if ($self->{'debug'}) {
+		    $content .= "<p>item_number $item_number</p>";
+		}
 	    }
 
 	    push @list_prog_ids, $id;
@@ -390,12 +402,17 @@ sub get_results_page_links {
 	$url .= '?';
     }
 
-    my $content = "$url";
+    my $content;
+    if ($self->{'debug'}) {
+	$content = "$url";
+    }
     if (@prog_ids > $self->{'constants'}{'page-size'}) {
 	$content .= "<p>Result page: ";
 	for (my $page_number = 1; $page_number <= $last_page_number; $page_number++) {
 	    if ($page eq $page_number) {
-		$content .= "$page_number ";
+		if ($self->{'debug'}) {
+		    $content .= "$page_number ";
+		}
 	    } else {
 		$content .= "<a href='$url&page=$page_number'>$page_number</a> ";
 	    }
@@ -423,9 +440,19 @@ sub write_recent_programmes_html {
 sub write_programme_html {
     my ($self) = @_;
 
+    my @all_prog_ids = reverse sort {$a <=> $b} keys %{$self->{'programmes'}};
+    my $id = $all_prog_ids[0];
+
     my $content = '';
 
     $content .= $self->get_programme_listing_set_html();
+
+    my $title = $self->{'programmes'}{$id}{'title'} .
+	" (broadcast on " . $self->{'programmes'}{$id}{'date'} .
+	" at " . $self->{'programmes'}{$id}{'time'} .
+	")";
+
+    $self->write_start_html($title);
 
     $self->write_body_html($content);
 
@@ -469,7 +496,10 @@ sub get_programme_listing_html {
 	$ymd = "$1/$2/$3";
     }
 
-    my $listing_html = "<p><a href='/programme/$id/autostart'><b>$title</b></a> - <a href='/$ymd'>$date</a> at $time GMT</p><p>$description</p>";
+    $self->{'programmes'}{$id}{'date'} = $date;
+    $self->{'programmes'}{$id}{'time'} = $time;
+
+    my $listing_html = "<p><a href='/programme/$id/autostart'><b>$title</b></a> - <a href='/$ymd'>$date</a> at $time</p><p>$description</p>";
 
     if (defined($self->{'programmes'}{$id}{'gid'})) {
 	$listing_html .= "<p><a href='http://www.theyworkforyou.com/debates/?id=$self->{'programmes'}{$id}{'gid'}'>Read the transcript on TheyworkForYou.com</a></p>";
@@ -1032,7 +1062,6 @@ sub get_programme_data {
 	}
     }
 
-
     $self->debug("Got all the data that we need");
 
     return 1;
@@ -1244,7 +1273,11 @@ sub get_programmes_from_search {
     } elsif (defined($self->{'params'}{'person'})) {
 
 	$self->search_for_mps();
-	$self->search_for_programmes();
+
+	unless (defined($self->{'params'}{'person'})) {
+	    $self->search_for_programmes();
+	}
+
 	return 1;
 
     } else {
@@ -1699,6 +1732,8 @@ sub get_programme_from_start {
 	return $prog_id;
     } else {
 	$self->debug("No programme for $start");
+	$self->{'output'}{'error'}{'message'} = "Sorry, we don't have any available footage starting at that time.";
+	$self->{'output'}{'error'}{'code'} = 21;
 	return undef;
     }
 
