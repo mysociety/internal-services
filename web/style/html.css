@@ -1,0 +1,119 @@
+body {
+font-family: helvetica, arial, sans-serif;
+margin: 0em;
+margin-left: 1em;
+margin-right: 1em;
+font-size: 80%;
+}
+
+#search-form {
+float: right;
+width: 50%;
+margin: 0em;
+padding: 0em;
+}
+
+h4 {
+margin-top: 0.5em;
+}
+
+p.message {
+background: #ffffcc;
+border: 1px solid grey;
+padding: 0.5em;
+margin-top: 0.5em;
+font-size: 110%;
+}
+
+span.full-list {
+
+width: 50%;
+font-size: 75%;
+text-align: right;
+}
+
+p.not-available {
+font-color: #c0c0c0;
+width: 80%;
+border: red dotted 1px;
+padding: 1em;
+align: center;
+margin-top: 0em;
+margin-bottom: 0em;
+}
+
+#wrapper {
+width: 100%;
+}
+
+#content {
+float: left;
+width: 70%;
+border-right: 2px solid black;
+margin-right: 0.5em;
+padding-bottom: 2em; 
+}
+
+#calendar {
+border-top: 2px solid black;
+}
+
+#footer {
+float: left;
+width: 100%;
+border-top: solid 2px black;
+}
+
+div.video-container {
+float: left;
+width: 95%;
+}
+
+div.video {
+float: left;
+width: 250;
+padding-top: 0.5em;
+padding-bottom: 0.5em;
+}
+
+div.programme-info {
+float: left;
+width: 50%;
+padding-top: 0em;
+margin-bottom: 0em;
+}
+
+#nav-sidebar {
+float: right;
+margin: 0em;
+padding-left: 0em;
+margin-right: 1em;
+}
+
+#nav-sidebar fieldset {
+margin: 0em;
+margin-top: 1em;
+margin-bottom: 1em;
+padding-left: 1em;
+}
+
+#nav-sidebar fieldset legend {
+font-weight: bold;
+}
+
+#nav-sidebar fieldset form {
+margin: 0em;
+}
+
+#nav-sidebar fieldset ul {
+margin: 0em;
+padding-left: 1em;
+}
+
+#nav-sidebar fieldset label {
+float: left;
+margin-right: 1em;
+text-align: right;
+width: 30%;
+
+}

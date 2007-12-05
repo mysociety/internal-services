@@ -1,0 +1,46 @@
+
+body {
+font-family: helvetica, arial, sans-serif;
+padding-top: 0.5em;
+}
+
+h1 {
+font-size: 153.9%;
+margin-bottom: 0.5em;
+}
+
+h2 {
+font-size: 138.5%;
+}
+
+h3 {
+font-size: 108%;
+font-weight: bold;
+margin-top: 0.5em;
+margin-bottom: 0.5em;
+}
+
+div.video-container {
+float: left;
+width: 95%;
+padding-top: 0.5em;
+padding-bottom: 0.5em;
+}
+
+div.video-embed {
+float: left;
+width: 45%;
+}
+
+div.programme-info {
+float: left;
+width: 45%;
+}
+
+#ft {
+float: left;
+width: 100%;
+border-top: solid 1px brown;
+margin-top: 1em;
+padding-top: 0.5em;
+}
