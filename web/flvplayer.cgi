@@ -31,9 +31,10 @@ BEGIN {
 sub main {
     my ($q) = @_;
     my $object = BBCParl::Web->new($q);
-    $object->{'debug'} = undef;
+#
+    $object->{'debug'} = 'true';
     $object->{'disable-cache'} = 'true';
-    $object->handle_request();
+    $object->handle_flv_request();
 }
 
 # Start FastCGI
