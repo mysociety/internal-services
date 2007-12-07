@@ -109,7 +109,8 @@ sub run {
 
 	    $self->merge_captions_with_hansard();
 
-	    if (defined($self->{'updates'}) || defined($self->{'args'}{'no-retries'})) {
+	    if (defined($self->{'updates'}) || $self->{'args'}{'no-retries'}) {
+		$self->debug("Found updates, ending this function now!");
 		last;
 	    } else {
 		$retries -= 1;
@@ -165,6 +166,8 @@ sub upload_updates {
 	$updates .= $_;
     }
 
+    $updates_filename =~ s/^.*\///;
+
     my $url = $self->{'constants'}{'twfy-update-location'};
     my $username = mySociety::Config::get('TWFY_USERNAME');
     my $password = mySociety::Config::get('TWFY_PASSWORD');
@@ -180,6 +183,7 @@ sub upload_updates {
     }
 
     $self->debug("Preparing to upload to $url - auth: $netloc, \"$realm\", $username, $password"); 
+    $self->debug("Filename is: " . $updates_filename);
     $self->debug("Updates are:\n" . $updates);
 
     if ($self->{'args'}{'no-updates'}) {
@@ -202,6 +206,7 @@ sub upload_updates {
 			     $form);
 
     $self->debug("Response was: " . $response->status_line());
+    $self->debug("Response was: " . $response->content());
 
     return 1;
 
