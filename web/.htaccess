@@ -19,3 +19,5 @@ RewriteRule  ^search[/]*(.*)                            video.cgi?search=text&ou
 RewriteRule  ^person/([0-9]+)[/]*([^/]*)[/]*            video.cgi?search=person&person=$1&output=$2
 
 RewriteRule  ^home video.cgi
+
+RewriteRule ^$ video.cgi
