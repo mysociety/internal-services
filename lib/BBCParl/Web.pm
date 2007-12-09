@@ -258,8 +258,9 @@ HTML
 </div> 
 </div> 
 <div id="ft">
-This website was hand-made by robots.
-</div> 
+This website was hand-made by <a href="mailto:team\@mysociety.org">robots</a>. Funded as a prototype project by <a href="http://backstage.bbc.co.uk/">BBC Backstage</a> (maybe one day they'll pay the invoice).
+All footage is copyright <a href="http://www.bbc.co.uk/parliament/">BBC Parliament</a>.
+</div>
 </div> 
 
 HTML
@@ -361,7 +362,7 @@ sub get_programme_listing_set_html {
 	    if ($item_number >= $page_start_number &&
 		$item_number <= $page_end_number) {
 
-		$content .= $self->get_programme_listing_html($id,{'auto_start' => 0, 'full_or_partial' => $full_or_partial});
+		$content .= $self->get_programme_listing_html($id, 'auto_start' => 0, 'full_or_partial' => $full_or_partial);
 		if ($self->{'debug'}) {
 		    $content .= "<p>item_number $item_number</p>";
 		}
@@ -469,7 +470,7 @@ sub get_programme_listing_html {
     my $channel_id = $self->{'programmes'}{$id}{'channel-id'};
     my $channel = '';
 
-    if ($channel_id eq 'BBCParl') {
+    if ($channel_id && $channel_id eq 'BBCParl') {
 	$channel = 'BBC Parliament';
     }
 
@@ -503,6 +504,10 @@ sub get_programme_listing_html {
 
     if (defined($self->{'programmes'}{$id}{'gid'})) {
 	$listing_html .= "<p><a href='http://www.theyworkforyou.com/debates/?id=$self->{'programmes'}{$id}{'gid'}'>Read the transcript on TheyworkForYou.com</a></p>";
+    }
+
+    if ($self->{'debug'}) {
+	$self->debug("params: " . Dumper %params);
     }
 
     my $content;
@@ -1105,7 +1110,7 @@ sub new {
     $self->{'constants'}{'twfy-api-location'} = 'http://www.theyworkforyou.com/api/';
     $self->{'constants'}{'search-tip'} = "Search for an MP or programme";
 
-    $self->{'constants'}{'page-size'} = 5;
+    $self->{'constants'}{'page-size'} = 10;
     $self->{'constants'}{'recent-programmes'} = 50;
 
     my $cache = new Cache::Memcached { 'servers' => [ 'localhost:11211' ],
