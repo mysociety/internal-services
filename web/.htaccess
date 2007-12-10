@@ -8,9 +8,8 @@ RewriteRule  ^([0-9]+)/([0-9]+)/([0-9]+)[/]*([^/]*)[/]*$    video.cgi?ymd=$1-$2-
 
 RewriteRule  ^hansard/([^/]+)[/]*([^/]*)[/]*               video.cgi?gid=$1&output=$2
 
-RewriteRule  ^programme/([0-9]+)/series[/]*([0-9]*)[/]*([^/]*)[/]*  video.cgi?prog=$1&offset=$2&output=$3
-RewriteRule  ^programme/([0-9]+)/autostart[/]*([^/]*)[/]*  video.cgi?prog=$1&autostart=true&output=$2
-RewriteRule  ^programme/([0-9]+)[/]*([^/]*)[/]*              video.cgi?prog=$1&output=$2
+RewriteRule  ^(programme|gid)/([^/]+)/autostart[/]*([^/]*)[/]*  video.cgi?$1=$2&autostart=true&output=$3 [QSA]
+RewriteRule  ^(programme|gid)/([^/]+)[/]*([^/]*)[/]*              video.cgi?$1=$2&output=$3 [QSA]
 
 RewriteRule  ^search/date[/]*([^/]*)                            video.cgi?search=date&output=$1  [QSA]
 RewriteRule  ^search/([^/]+)[/]*(.*)                            video.cgi?search=text&query=$1&output=$2  [QSA]
