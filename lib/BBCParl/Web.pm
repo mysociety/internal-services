@@ -179,7 +179,9 @@ sub write_html {
 	$self->write_search_results_html();
     } elsif (defined($self->{'output'}{'recent'})) {
 	$self->write_recent_programmes_html();
-    } elsif (defined($self->{'params'}{'prog'})) {
+    } elsif (defined($self->{'params'}{'programme'})) {
+	$self->write_programme_html();
+    } elsif (defined($self->{'params'}{'gid'})) {
 	$self->write_programme_html();
     } else {
 	$self->{'output'}{'error'}{'message'} = 'Sorry, something went wrong. Not sure what, but you definitely should not be seeing this.';
@@ -211,16 +213,16 @@ sub write_footer_html {
 
 <div id="calendar"></div>
 
-<fieldset class="nav-sidebar">
-<legend>Browse Programmes by Date</legend>
+<fieldset id="nav-sidebar">
+<legend>Search by Date</legend>
 <form name="date-search" type="get" action="/search/date">
 HTML
 
-    print "<label for='day'>Day:</label> <select name='day'>\n";
+    print "<div><label for='day'>Day:</label> <select name='day'>\n";
     foreach my $day (1 .. 31) {
 	print "<option value='$day'>$day</option>\n";
     }
-    print "</select><br/>\n";
+    print "</select></div>\n";
 
     my %months = ('1' => 'Jan',
 		  '2' => 'Feb',
@@ -235,17 +237,17 @@ HTML
 		  '11' => 'Nov',
 		  '12' => 'Dec');
 
-    print "<label for='month'>Month:</label> <select name='month'>\n";
+    print "<div><label for='month'>Month:</label> <select name='month'>\n";
     foreach my $month (1 .. 12) {
 	print "<option value='$month'>$months{$month}</option>\n";
     }
-    print "</select><br/>\n";
+    print "</select></div>\n";
 
-    print "<label for='year'>Year:</label> <select name='year'>\n";
+    print "<div><label for='year'>Year:</label> <select name='year'>\n";
     foreach my $year (2007 .. 2100) {
 	print "<option value='$year'>$year</option>\n";
     }
-    print "</select><br/>\n";
+    print "</select></div>\n";
 
     my $debug = Dumper $self;
 
@@ -258,8 +260,7 @@ HTML
 </div> 
 </div> 
 <div id="ft">
-This website was hand-made by <a href="mailto:team\@mysociety.org">robots</a>. Funded as a prototype project by <a href="http://backstage.bbc.co.uk/">BBC Backstage</a> (maybe one day they'll pay the invoice).
-All footage is copyright <a href="http://www.bbc.co.uk/parliament/">BBC Parliament</a>.
+Video footage is &copy; <a href="http://www.bbc.co.uk/parliament/">BBC Parliament</a>.  Commissioned as a prototype by <a href="http://backstage.bbc.co.uk/">BBC Backstage</a>, built by <a href="http://www.mysociety.org/">mySociety</a>.
 </div>
 </div> 
 
@@ -311,7 +312,7 @@ sub write_ymd_html {
 
 	$content .= "<p>Browse: <a href='/$previous_ymd'>$previous_date</a> | <a href='/$next_ymd'>$next_date</a></p>\n";
 
-	$content .= $self->get_programme_listing_set_html();
+	$content .= $self->get_programme_listing_set_html('partial');
 
     } else {
 
@@ -386,9 +387,6 @@ sub get_programme_listing_set_html {
 sub get_results_page_links {
     my ($self, $page, @prog_ids) = @_;
 
-    my $last_page_number = (@prog_ids) / $self->{'constants'}{'page-size'};
-    $last_page_number = int($last_page_number + 0.5);
-
     my $cgi = $self->{'cgi'};
 
     unless ($cgi) {
@@ -403,17 +401,32 @@ sub get_results_page_links {
 	$url .= '?';
     }
 
+    my $num_results = 0;
+    foreach my $id (@prog_ids) {
+	if ($self->{'programmes'}{$id}{'status'} eq 'available') {
+	    $num_results ++;
+	}
+    }
+
+    my $num_start_results = (($page - 1) * $self->{'constants'}{'page-size'}) + 1;
+    my $num_end_results = $num_start_results + $self->{'constants'}{'page-size'} - 1;
+    if ($num_end_results > $num_results) {
+	$num_end_results = $num_results;
+    }
+
+    my $last_page_number = ($num_results) / $self->{'constants'}{'page-size'};
+    $last_page_number = int($last_page_number + 0.9);
+
     my $content;
     if ($self->{'debug'}) {
 	$content = "$url";
     }
-    if (@prog_ids > $self->{'constants'}{'page-size'}) {
-	$content .= "<p>Result page: ";
+    $content .= "<p class='results-paging'>Results $num_start_results - $num_end_results of $num_results";
+    if ($num_results > $self->{'constants'}{'page-size'}) {
+	$content .=" &mdash; page: ";
 	for (my $page_number = 1; $page_number <= $last_page_number; $page_number++) {
 	    if ($page eq $page_number) {
-		if ($self->{'debug'}) {
-		    $content .= "$page_number ";
-		}
+		$content .= "$page_number ";
 	    } else {
 		$content .= "<a href='$url&page=$page_number'>$page_number</a> ";
 	    }
@@ -466,9 +479,13 @@ sub get_programme_listing_html {
 
     my $title = $self->{'programmes'}{$id}{'title'};
     my $datetime = $self->{'programmes'}{$id}{'broadcast-start'};
+    if (defined($self->{'programmes'}{$id}{'start'})) {
+	$datetime = $self->{'programmes'}{$id}{'start'};
+    }
     my $description = $self->{'programmes'}{$id}{'synopsis'};
     my $channel_id = $self->{'programmes'}{$id}{'channel-id'};
     my $channel = '';
+    my $offset = $self->{'programmes'}{$id}{'offset'};
 
     if ($channel_id && $channel_id eq 'BBCParl') {
 	$channel = 'BBC Parliament';
@@ -491,7 +508,7 @@ sub get_programme_listing_html {
 		  '11' => 'November',
 		  '12' => 'December');
 
-    if ($datetime =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/) {
+    if ($datetime =~ /(\d{4})-(\d{2})-(\d{2}).(\d{2}):(\d{2}):(\d{2})/) {
 	$date = "$3 $months{$2} $1";
 	$time = "$4:$5";
 	$ymd = "$1/$2/$3";
@@ -500,11 +517,28 @@ sub get_programme_listing_html {
     $self->{'programmes'}{$id}{'date'} = $date;
     $self->{'programmes'}{$id}{'time'} = $time;
 
-    my $listing_html = "<p><a href='/programme/$id/autostart'><b>$title</b></a> - <a href='/$ymd'>$date</a> at $time</p><p>$description</p>";
+    my $listing_html = "";
+    my $type = "";
+    my $var = "";
+    my $speech_or_broadcast = '';
+    if (defined($self->{'programmes'}{$id}{'gid'})) {
+	$type = 'gid';
+	$var = $self->{'programmes'}{$id}{'gid'};
+	$speech_or_broadcast = 'Speech';
+    } else {
+	$type = 'programme';
+	$var = $id;
+	$speech_or_broadcast = 'Broadcast';
+    }
+
+    $listing_html = "<div class='results-title'><img src='/movie.gif' align='middle' width='20' height='22' alt='Video'> <b>$title &mdash; <a href='/$type/$var/autostart'>watch it online</a></b></div>";
+    $listing_html .= "<div class='results-description'>$description</div><div class='results-description'>$speech_or_broadcast at $time on <a href='/$ymd'>$date</a>.";
 
     if (defined($self->{'programmes'}{$id}{'gid'})) {
-	$listing_html .= "<p><a href='http://www.theyworkforyou.com/debates/?id=$self->{'programmes'}{$id}{'gid'}'>Read the transcript on TheyworkForYou.com</a></p>";
+	$listing_html .= " Read the transcript on <a href='http://www.theyworkforyou.com/debates/?id=$self->{'programmes'}{$id}{'gid'}'>TheyworkForYou.com</a>";
     }
+
+    $listing_html .= "</div>";
 
     if ($self->{'debug'}) {
 	$self->debug("params: " . Dumper %params);
@@ -593,18 +627,18 @@ sub write_search_results_html {
 		my $name = $$match_ref{'speaker'}{'first_name'} . ' ' . $$match_ref{'speaker'}{'last_name'};
 		my $party = $$match_ref{'speaker'}{'party'};
 		my $const = $$match_ref{'speaker'}{'constituency'};
-		$content .= "<h3>Coverage of recent appearances by <a href='/person/$person_id'>$name</a> ($party, $const)</h3>";
+		$content .= "<h3>Recent footage for: <a href='/person/$person_id'>$name</a> ($party, $const)</h3>";
 		$query = undef;
 		last;
 	    }
 
 	} elsif ($num_ppl > 1) {
 
-	    $content .= "<h3>MPs matching '$query':</h3>\n<ul>\n";
+	    $content .= "<div id='mps-list'><h3>MPs matching '$query':</h3>\n<ul>\n";
 	    foreach my $person_id (sort keys %{$self->{'people'}}) {
 		$content .= "<li><a href='/person/$person_id'>" . $self->{'people'}{$person_id}{'name'} . "</a> (" . $self->{'people'}{$person_id}{'party'} . ", " . $self->{'people'}{$person_id}{'constituency'} . ")</li>";
 	    }
-	    $content .= "</ul>";
+	    $content .= "</ul></div>";
 
 	}
 
@@ -690,17 +724,19 @@ sub write_start_html {
 <body class=" yui-skin-sam">
 <div id="doc" class="yui-t4"> 
 <div id="hd">
-<h1><b><a href="/home">$service_name</a></b></h1>
+<span class="search-form">
 <form method="get" action="/search" id="search_top">
 <input type="text" name="query" size="$search_size" value="$search_value">
 <input type="submit" name="submit" value="Search">
 </form>
-<hr size="1">
-<h2>$title</h2>
+</span>
+<h1><b>$service_name</b> <span class="beta-test">Beta Test</span></h1>
 </div>
 
 <div id="bd"> 
 <div id="yui-main"> 
+
+<h3><a href="/">Home</a> / $title_string</h3>
 
 HTML
 
@@ -858,8 +894,8 @@ HTML
 </ul>
 </fieldset>
 
-<fieldset class="nav-sidebar">
-<legend>Browse Programmes by Date</legend>
+<fieldset id="nav-sidebar">
+<legend>Search by Date</legend>
 <form name="date-search" type="get" action="/search/date">
 HTML
 
@@ -938,7 +974,7 @@ sub check_params {
 		  'gid' => '',
 		  'start' => '',
 		  'end' => '',
-		  'prog' => '',
+		  'programme' => '',
 		  'ymd' => '',
 		  'autostart' => '',
 		  'offset' => '',
@@ -1011,7 +1047,7 @@ sub get_programme_data {
 
     my $action = lc($self->{'params'}{'action'});
 
-    if ($self->{'params'}{'search'}) {
+    if ($self->{'params'}{'search'} || $self->{'params'}{'query'} || $self->{'params'}{'person'}) {
 	unless ($self->get_programmes_from_search()) {
 	    return undef;
 	}
@@ -1037,7 +1073,7 @@ sub get_programme_data {
 	}
     }
     
-    elsif ($self->{'params'}{'prog'}) {
+    elsif ($self->{'params'}{'programme'}) {
 	unless ($self->get_programme_from_prog()) {
 	    return undef;
 	}
@@ -1051,16 +1087,7 @@ sub get_programme_data {
 	    return undef;
 	}
     }
-    
-    elsif ($self->{'params'}{'person'}) {
-	unless ($self->get_programme_from_person()) {
-	    return undef;
-	}
-	unless ($self->calculate_seconds_offsets()) {
-	    return undef;
-	}
-    }
-
+   
     else {
 	unless ($self->get_recent_programmes()) {
 	    return undef;
@@ -1250,7 +1277,7 @@ sub update_programmes_hash {
 sub get_programmes_from_search {
     my ($self) = @_;
 
-    $self->debug("get_programes_from_search");
+    $self->debug("get_programmes_from_search");
 
     if ($self->{'params'}{'year'} &&
 	$self->{'params'}{'month'} &&
@@ -1271,18 +1298,23 @@ sub get_programmes_from_search {
 	    return 1;
 	} else {
 	    $self->search_for_mps();
-	    $self->search_for_programmes();
+	    if (defined($self->{'params'}{'person'})) {
+		my $num_results = $self->get_programmes_from_person();
+		if ($num_results > 0) {
+		    return 1;
+		}
+	    }
+	    $self->get_programmes_from_query();
 	    return 1;
 	}
 
     } elsif (defined($self->{'params'}{'person'})) {
 
 	$self->search_for_mps();
-
-	unless (defined($self->{'params'}{'person'})) {
-	    $self->search_for_programmes();
+	my $num_results = $self->get_programmes_from_person();
+	unless ($num_results) {
+	    $self->get_programmes_from_query();
 	}
-
 	return 1;
 
     } else {
@@ -1300,7 +1332,6 @@ sub search_for_mps {
     my $api = WebService::TWFY::API->new();
 	
     my @names = ();
-    my $person_id = undef;
 
     if (defined($self->{'params'}{'query'})) {
 
@@ -1339,24 +1370,18 @@ sub search_for_mps {
 	if (scalar @names == 1) {
 	    
 	    # fetch debates from TWFY for person_id, and call get_programmes_by_gid for each MP
+
+	    $self->debug("just one person with that name");
 	    
-	    $person_id = $results_ref->{'match'}{$names[0]}{'person_id'};
+	    my $person_id = $results_ref->{'match'}{$names[0]}{'person_id'};
+	    $self->{'params'}{'person'} = $person_id;
+	    $self->{'params'}{'query'} = $self->{'people'}{$person_id}{'name'};
 	    
 	}
 
-    } elsif (defined($self->{'params'}{'person'})) {
-
-	$person_id = $self->{'params'}{'person'};
-
     }
 
-    if ($person_id) {
-
-	return $self->get_programmes_from_person($person_id);
-
-    }
-
-    return undef;
+    return scalar @names;
 
 }
 
@@ -1425,20 +1450,26 @@ sub get_programmes_from_ymd {
     return 1;
 }
 
-sub search_for_programmes {
+sub get_programmes_from_query {
     my ($self) = @_;
 
-    if ($self->get_programmes_from_database('title-synopsis',
-					    $self->{'params'}{'query'},
-					    $self->{'params'}{'channel'},)) {
+    $self->debug("searching in database for programmes about " . $self->{'params'}{'query'});
 
-	foreach my $id (keys %{$self->{'programmes'}}) {
-	    $self->{'programmes'}{$id}{'offset'} = 0;
+    if ($self->{'params'}{'query'}) {
+	if ($self->get_programmes_from_database('title-synopsis',
+						$self->{'params'}{'query'},
+						$self->{'params'}{'channel'},)) {
+	    
+	    foreach my $id (keys %{$self->{'programmes'}}) {
+		$self->{'programmes'}{$id}{'offset'} = 0;
+	    }
 	}
+	return 1;
+    } else {
+	$self->{'output'}{'error'}{'message'} = "Sorry, could not search for an empty string";
+	$self->{'output'}{'error'}{'code'} = 41;
+	return undef;
     }
-
-    return 1;
-
 
 }
 
@@ -1447,7 +1478,11 @@ sub get_programmes_from_person {
 
     my $api = WebService::TWFY::API->new();
 
-    $self->debug("getting speeches for person id: $person_id");
+    unless ($person_id) {
+	$person_id = $self->{'params'}{'person'};
+    }
+
+    $self->debug("get_programmes_from_person - getting speeches for person id: $person_id");
     
     my $speech_response = $api->query ( 'getDebates',
 					{ 'type' => 'commons',
@@ -1463,10 +1498,15 @@ sub get_programmes_from_person {
     
     my $speech_results_ref = XMLin($speech_results,
 				   'ForceArray' => ['match']);
+
+    $self->debug(Dumper $speech_results_ref);
     
     $self->{'people'}{$person_id}{'speeches'} = $speech_results_ref;
-    
+
+    my $num_results = 0;
     foreach my $match_ref (@{$speech_results_ref->{'rows'}{'match'}}) {
+
+	$num_results ++;
 	
 	my $gid = $$match_ref{'gid'};
 	
@@ -1474,14 +1514,31 @@ sub get_programmes_from_person {
 	
 	$self->debug(Dumper $self->{'params'});
 	
-	$self->get_programme_from_gid($gid);
-	
-	$self->calculate_seconds_offsets();
+	my $prog_id = $self->get_programme_from_gid($gid);
 	
     }
-    
-    return 1;
 
+    if ($num_results > 0) {
+
+	$self->calculate_seconds_offsets();
+
+    } else {
+
+	if ($speech_results_ref->{'searchdescription'} =~ /spoken by (.+) in/gi) {
+	    unless ($1 =~ /^\s*$/) {
+		$self->{'params'}{'query'} = lc($1);
+		return $num_results;
+	    }
+	}
+
+	$self->debug("Cannot work out person name");
+	$self->{'output'}{'error'}{'message'} = "Sorry, could not work out the name of that person.";
+	$self->{'output'}{'error'}{'code'} = 40;
+    
+    }
+
+    return $num_results;
+    
 }
 
 sub get_programme_from_prog {
@@ -1491,10 +1548,10 @@ sub get_programme_from_prog {
 
     my $prog = undef;
 
-    if ($self->{'params'}{'prog'}) {
-	$prog = $self->{'params'}{'prog'};
+    if ($self->{'params'}{'programme'}) {
+	$prog = $self->{'params'}{'programme'};
     } else {
-	$self->error("No value specified for required parameter 'prog'.",1);
+	$self->error("No value specified for required parameter 'programme'.",1);
 	return undef;
     }
 
@@ -1737,7 +1794,7 @@ sub get_programme_from_start {
 	return $prog_id;
     } else {
 	$self->debug("No programme for $start");
-	$self->{'output'}{'error'}{'message'} = "Sorry, we don't have any available footage starting at that time.";
+	$self->{'output'}{'error'}{'message'} = "We don't have any available footage for that person or start time.";
 	$self->{'output'}{'error'}{'code'} = 21;
 	return undef;
     }
@@ -1843,7 +1900,7 @@ sub calculate_seconds_offsets {
     foreach my $id (keys %{$self->{'programmes'}}) {
 
 	if (defined($self->{'programmes'}{$id}{'offset'})) {
-	    $self->debug("skipping offset calculation, already set elsewhere");
+	    $self->debug("skipping offset calculation for $id, already set elsewhere");
 	    next;
 	}
 
@@ -1876,6 +1933,7 @@ sub calculate_seconds_offsets {
 	    }
 	    
 	    $self->{'programmes'}{$id}{'offset'} = $offset;
+	    $self->debug("offset is $offset for $id");
 	} else {
 	    $self->error("Start parameter not defined, cannot calculate offset",8);
 	    return undef;
