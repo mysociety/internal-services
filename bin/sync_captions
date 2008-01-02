@@ -13,13 +13,13 @@ use BBCParl::Captions;
 
 # get command line options
 
-my ($help, $from, $to, $date, $verbose, $nomirror, $nohansard, $print_stats, $no_output_write, $debug, $no_retries, $no_updates) = ('','','','','','','','','','','');
+my ($help, $from, $to, $date, $verbose, $no_mirror, $no_hansard, $print_stats, $no_output_write, $debug, $no_retries, $no_updates) = ('','','','','','','','','','','');
 
 $help = 0;
 $verbose = 1;
 
-$nomirror = 0;
-$nohansard = 0;
+$no_mirror = 0;
+$no_hansard = 0;
 $print_stats = 0;
 $no_output_write = 0;
 
@@ -28,25 +28,25 @@ $no_retries = 0;
 $no_updates = 0;
 
 GetOptions (
-	    'help+' => \$help,
-	    'from=s' => \$from,
-	    'to=s' => \$to,
-	    'date=s' => \$date,
-	    'verbose+' => \$verbose,
-	    'nomirror+' => \$nomirror,
-	    'nohansard+' => \$nohansard,
-	    'dry-run+' => \$no_output_write,
-	    'stats+' => \$print_stats,
-	    'debug+' => \$debug,
-	    'no-retries+' => \$no_retries,
-	    'no-updates+' => \$no_updates
-	    );
+            'help+' => \$help,
+            'from=s' => \$from,
+            'to=s' => \$to,
+            'date=s' => \$date,
+            'verbose+' => \$verbose,
+            'no-mirror+' => \$no_mirror,
+            'no-hansard+' => \$no_hansard,
+            'dry-run+' => \$no_output_write,
+            'stats+' => \$print_stats,
+            'debug+' => \$debug,
+            'no-retries+' => \$no_retries,
+            'no-updates+' => \$no_updates
+            );
 
 if ($help) {
     print << "END";
 usage: sync_captions [--date=yyyy-mm-dd] [--from=yyyy-mm-dd --to=yyy-mm-dd]
-                     [--verbose] [--nomirror] [--nohansard] [--stats]
-		     [--dry-run] [--debug] [--no-retries] [--no-updates]
+                     [--verbose] [--no-mirror] [--no-hansard] [--stats]
+                     [--dry-run] [--debug] [--no-retries] [--no-updates]
 
 1) Creates/updates local mirror of captions logfiles from the BBC for
    specified dates (or previous day if no dates are specified).
@@ -68,19 +68,19 @@ usage: sync_captions [--date=yyyy-mm-dd] [--from=yyyy-mm-dd --to=yyy-mm-dd]
 --from=yyyy-mm-dd        Only update speeches between yyyy-mm-dd
 --to=yyyy-mm-dd          and yyyy-mm-dd
 
---nomirror               Do not fetch updated captions files from the BBC (just use local mirror)
+--no-mirror              Do not fetch updated captions files from the BBC (just use local mirror)
 
---nohansard              Do not fetch hansard; do not merge hansard and captions; do not write update files
+--no-hansard             Do not fetch or process any Hansard
 
---dry-run                Fetch and combine captions and hansard, but do not write out update files
+--dry-run                Fetch and combine captions and Hansard, but do not write out update files or send updated timestamps to TheyWorkForYou
+
+--no-updates             Do not send any updated timestamps to TheyWorkForYou
+
+--no-retries             Only try each date once (default is to try 5 times, with an hour between attempts)
 
 --stats                  Print summary of this run to STDOUT
 
 --debug                  Prints out debugging information to STDERR (off by default)
-
---no-retries             Only try each date once (default is to try 5 times, with an hour between attempts)
-
---no-updates             Do not upload any updated timestamps (if available) to TheyWorkForYou.com database
 
 END
 
@@ -90,18 +90,18 @@ END
 # invoke the actual captions-processing code
 
 my $object = BBCParl::Captions->new(
-				    'from' => $from,
-				    'to' => $to,
-				    'date' => $date,
-				    'verbose' => $verbose,
-				    'nomirror' => $nomirror,
-				    'nohansard' => $nohansard,
-				    'no-output-write' => $no_output_write,
-				    'print-stats' => $print_stats,
-                                    'debug' => $debug,
+                                    'from' => $from,
+                                    'to' => $to,
+                                    'date' => $date,
+                                    'verbose' => $verbose,
+                                    'no-mirror' => $no_mirror,
+                                    'no-hansard' => $no_hansard,
+                                    'no-output-write' => $no_output_write,
                                     'no-retries' => $no_retries,
                                     'no-updates' => $no_updates
-				    );
+                                    'print-stats' => $print_stats,
+                                    'debug' => $debug,
+                                    );
 
 #$object->{'debug'} = 1;
 
