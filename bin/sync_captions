@@ -98,9 +98,9 @@ my $object = BBCParl::Captions->new(
                                     'no-hansard' => $no_hansard,
                                     'no-output-write' => $no_output_write,
                                     'no-retries' => $no_retries,
-                                    'no-updates' => $no_updates
+                                    'no-updates' => $no_updates,
                                     'print-stats' => $print_stats,
-                                    'debug' => $debug,
+                                    'debug' => $debug
                                     );
 
 #$object->{'debug'} = 1;
