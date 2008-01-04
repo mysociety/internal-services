@@ -1,3 +1,8 @@
+AuthType Basic
+AuthName Private
+AuthUserFile /home/bbcparlvid/data/mysociety/bbcparlvid/passwd
+Require user parlvid
+
 RewriteEngine on
 RewriteBase  /
 
