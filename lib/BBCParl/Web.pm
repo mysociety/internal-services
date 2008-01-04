@@ -986,6 +986,7 @@ sub check_params {
 		  'filter' => '',
 		  'person' => '',
 		  'page' => '',
+		  'debug' => ''
 		  );
 
     foreach my $key (keys %params) {
@@ -1879,8 +1880,8 @@ sub get_programmes_from_database {
 
     $self->debug("Got database results: " . Dumper $self->{'programmes'} );
 
-    $self->debug("last prog id:$last_programme_id;");
     if (defined($last_programme_id)) {
+	$self->debug("last prog id:$last_programme_id;");
 	return $last_programme_id;
     } else {
 	$self->debug("No programme found.");
