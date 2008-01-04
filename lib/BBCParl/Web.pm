@@ -119,7 +119,7 @@ sub write_js {
 	print "<!-- Sorry, there was an error.  Message was: " . $self->{'output'}{'error'}{'message'} . ", error code was " . $self->{'output'}{'error'}{'code'} . ". -->";
     } elsif (defined($self->{'params'}{'gid'}) || defined($self->{'params'}{'start'})) {
 	
-	my $content = '';
+	#my $content = '';
 	foreach my $id (sort keys %{$self->{'programmes'}}) {
 	    
 	    my $embed_html_version = $self->get_video_embed_html($id);
@@ -135,19 +135,20 @@ sub write_js {
 	    print "document.write(\"<b>Click 'START' to watch this debate</b>\");\n";
 	    print "document.write(\"$embed_js_version\");\n";
 
-	    print <<EMBED;
+#  //document.write("<br/><small><b>Share:</b> <input type='text' name='share' value='TODO!' onClick='javascript:document.embedForm$id.shar.focus();document.embedForm$id.share.select();' />");
+            if ($embed_js_version !~ /<p class='error'>/) { # XXX
+	        print <<EMBED;
 document.write("$form_start");
-//document.write("<br/><small><b>Share:</b> <input type='text' name='share' value='TODO!' onClick='javascript:document.embedForm$id.shar.focus();document.embedForm$id.share.select();' />");
 document.write("<br/><b>Embed:</b> <input type='text' name='embed' value='$embed_js_version' onClick='javascript:document.embedForm$id.embed.focus();document.embedForm$id.embed.select();' /></small>");
 document.write("$attribution</form>");
 EMBED
-    1;
+            }
 
 	    print '-->';
 	    last;
 	}
 	
-	$self->write_body_js($content);
+	#$self->write_body_js($content);
 
     }
 
@@ -461,7 +462,7 @@ sub write_programme_html {
 
     my $content = '';
 
-    $content .= $self->get_programme_listing_set_html();
+    $content .= $self->get_programme_listing_set_html('full');
 
     my $title = $self->{'programmes'}{$id}{'title'} .
 	" (broadcast on " . $self->{'programmes'}{$id}{'date'} .

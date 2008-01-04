@@ -25,7 +25,7 @@ use Data::Dumper;
 sub debug {
     my ($self, $message) = @_;
     if ($self->{'debug'}) {
-        warn "DEBUG: $message";
+        warn "DEBUG: $message\n";
     }
     return undef;
 }
@@ -104,8 +104,11 @@ sub run {
         while ($retries > 0) {
             $self->get_hansard_data();
             $self->merge_captions_with_hansard();
-            if (defined($self->{'updates'}) || $self->{'args'}{'no-retries'}) {
+            if (defined($self->{'updates'})) {
                 $self->debug("Found updates, ending this function now!");
+                last;
+            } elsif ($self->{'args'}{'no-retries'}) {
+                $self->debug("Problem with captions, not trying again");
                 last;
             } else {
                 $retries -= 1;
@@ -901,12 +904,12 @@ sub get_hansard_data {
                 $gid_type{$gid} = '1';
                 $parents{$gid} = 0;
                 $hansard_data{$gid}{'htime'} = $$match_ref{'entry'}{'htime'};
-                my $children = 0;
+                my $children = $$match_ref{entry}{contentcount};
                 
                 if (defined($$match_ref{'subs'}{'match'})) {
                     foreach my $subs_match_ref (@{$$match_ref{'subs'}{'match'}}) {
                         
-                        $children++;
+                        #$children++;
                         my $child_gid = $$subs_match_ref{'gid'};
                         push @gids, $child_gid;
                         $gid_type{$child_gid} = '2';
@@ -930,14 +933,11 @@ sub get_hansard_data {
             
             foreach my $gid (@gids) {
                 
-                if ($num_children{$gid} > 0 && $gid_type{$gid} == 1) {
-                    
+                if ($num_children{$gid} == 0 && $gid_type{$gid} == 1) {
                     # skip level-one gids that have children
                     # (i.e. headings without a speaker id)
-                    
-#                    warn "INFO: skipping gid $gid";
-                    
-#                    next;
+                    #warn "INFO: skipping gid $gid";
+                    next;
                 }
                 
                 #warn "INFO: getting $gid";
@@ -957,7 +957,7 @@ sub get_hansard_data {
                 my $speech_results = $speech_response->{results};
                 
                 unless ($speech_results) {
-                    #warn "INFO: No result was returned from TWFY API for gif $gid";
+                    #warn "INFO: No result was returned from TWFY API for gid $gid";
                     $self->{'stats'}{'hansard-empty-gid'} += 1;
                     next;
                 }
