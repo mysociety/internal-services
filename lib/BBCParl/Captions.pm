@@ -296,6 +296,7 @@ sub set_processing_dates {
     }
 
     $self->{'dates-to-process'}{$start_date} = 1;
+    $self->debug("processing captions from $start_date");
 
     $self->debug("from $start_date to $end_date");
 
