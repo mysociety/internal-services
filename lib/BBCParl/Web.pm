@@ -1931,7 +1931,7 @@ sub calculate_seconds_offsets {
 		$additional_offset = 0;
 	    }
 	    
-	    $offset += $additional_offset;
+	    $offset -= $additional_offset;
 	    if ($offset < 0) {
 		$offset = 0;
 	    }
