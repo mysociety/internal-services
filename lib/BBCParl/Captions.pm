@@ -361,7 +361,6 @@ sub load_log_files {
         my $filename_date = $date;
         $filename_date =~ s/-//g;
         my $filename_pattern = $self->{'constants'}{'captions-directory-local'} . "/*.$filename_date.*";
-
         foreach my $filename (glob($filename_pattern)) {
             if ($filename =~ /done$/) {
                 $self->debug("Skipping $filename");
@@ -401,6 +400,9 @@ sub load_log_files {
             my $current_position = '';
             my $previous_name = '';
             my $previous_position = '';
+	    my $just_had_commons = 0;
+	    my $curr_maj = 'a';
+	    my $prev_qn = 0;
 
             # update datetime every time we see a TIMESTAMP line
 
@@ -417,13 +419,29 @@ sub load_log_files {
                         $dt->subtract('hours' => 4,
                                       'minutes' => 15);
                     }
+		    if ($just_had_commons) {
+		        $just_had_commons = 0;
+			my ($oh, $om, $os) = $datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
+			my ($nh, $nm, $ns) = $dt->datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
+			my $delta = ($nh*3600+$nm*60+$ns) - ($oh*3600+$om*60+$os);
+			if ($delta > 15) { # XXX: Random choice of seconds
+                            $self->{'captions'}{$date}{$location}{$datetime}{'name'} = 'KnownUnknown';
+                            $self->{'captions'}{$date}{$location}{$datetime}{'position'} = '';
+                            $self->{'captions'}{$date}{$location}{$datetime}{'caption_id'} = $caption_id;
+                            $previous_name = 'KnownUnknown';
+                            $caption_id += 1;
+                            $self->{'stats'}{'captions-total'} += 1;
+			}
+		    }
                     $datetime = $dt->datetime . "Z";
+		    next;
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*House of Lords/i) {
                     $location = 'lords';
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*House of Commons/i) {
                     $location = 'commons';
+		    $just_had_commons = 1;
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*Westminster Hall/i) {
                     $location = 'westminster';
@@ -434,22 +452,26 @@ sub load_log_files {
                 if ($line =~ /STRAPS INFO\s*:\s*.*Committee/i) {
                     $location = 'unknown';
                 }
-                if ($line =~ /LIMBO/) {
-                    $location = 'unknown';
-                }
+		# XXX Don't think this is needed
+                #if ($line =~ /LIMBO/) {
+                #    $location = 'unknown';
+                #}
                 if ($line =~ /LSHAPE ADD .+ \\Today/i) {
                     $self->debug("Skipping $line");
                     next;
                 }
-                if ($line =~ /STRAPS INFO\s*:\s*\d+/ ||
-                    $line =~ /LSHAPE ADD .+ Statement/i ||
-                    $line =~ /LSHAPE ADD .+ Bill/i ||
-                    $line =~ /LSHAPE ADD .+ MPs are debating/i ||
-                    $line =~ /STRAPS NAME\s*:\s*(.+)\\(.+)$/) {
+                if ($line =~ /STRAPS INFO\s*:\s*(\d+)|STRAPS NAME\s*:\s*(.+)\\(.+)$/ ||
+                    $line =~ /LSHAPE ADD .+ (?:Statement|Bill|MPs are debating)/i
+		    ) {
                     #$self->debug("Using $line");
-                    if ($1 && $2) {
-                        $current_name = $1;
-                        $current_position = $2;
+                    if ($2 && $3) {
+                        $current_name = $2;
+                        $current_position = $3;
+		    } elsif ($1) {
+		        $current_name = 'Question';
+			$curr_maj++ if ($1 == 1 && $prev_qn > 1);
+			$current_position = "$curr_maj$1";
+			$prev_qn = $1;
                     } else {
                         $current_name = 'unknown';
                         $current_position = 'unknown';
@@ -527,7 +549,9 @@ sub merge_captions_with_hansard {
 
             my $window_size = $self->{'constants'}{'max-window-size'};
 
-            foreach my $datetime (@timestamps) {
+            my %qnseen = ();
+            for (my $dt_idx = 0; $dt_idx < @timestamps; $dt_idx++) {
+	        my $datetime = $timestamps[$dt_idx];
 
                 # process a new caption (each one has a unique timestamp)
 
@@ -552,7 +576,14 @@ sub merge_captions_with_hansard {
 
                 if ($caption_name eq 'unknown') {
                     $skip_caption = 1;
-                }
+                } elsif ($caption_name eq 'Question') {
+		    my $qn = $self->{'captions'}{$date}{$location}{$datetime}{'position'};
+		    if ($qnseen{$qn}) {
+		        $skip_caption = 1;
+		    } else {
+		        $qnseen{$qn} = 1;
+		    }
+		}
 
                 while (($num_speech_gids < $window_size) && (($gid_index + $gid_offset) < $num_gids)) {
                     
@@ -583,6 +614,23 @@ sub merge_captions_with_hansard {
                         if ($caption_name eq 'unknown') {
                         #    $cmp_result = 1;
                             $cmp_result = 0;
+                        } elsif ($caption_name eq 'Question') {
+                            $cmp_result = 1;
+			} elsif ($caption_name eq 'KnownUnknown') {
+			    my $next_gid = $gids[$gid_index + $gid_offset + 1];
+			    my $next_dt = $timestamps[$dt_idx + 1];
+                            my $next_caption_name = $self->{'captions'}{$date}{$location}{$next_dt}{'name'};
+			    my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
+			    warn "$next_gid $next_dt $next_caption_name $next_hansard_name";
+			    if (compare_names($next_caption_name, $next_hansard_name)) {
+			        # Next caption matches next Hansard speech, so this unknown
+				# is probably a speaker
+                                $cmp_result = 1;
+			    } else {
+			        # Ignore this unknown
+				$skip_caption = 1;
+			        last;
+			    }
                         } else {
                             $cmp_result = compare_names($caption_name, $hansard_name);
                         }
@@ -682,9 +730,7 @@ sub merge_captions_with_hansard {
                 }
             
                 $self->{'stats'}{'captions-processed'} += 1;
-
                 $self->debug( "finished with caption $caption_id $caption_name");
-
             }
 
             $self->{'stats'}{'hansard-not-processed'} = $num_gids - $gid_index;
