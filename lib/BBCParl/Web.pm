@@ -117,7 +117,7 @@ sub write_js {
 
     if (defined($self->{'output'}{'error'})) {
 	print "<!-- Sorry, there was an error.  Message was: " . $self->{'output'}{'error'}{'message'} . ", error code was " . $self->{'output'}{'error'}{'code'} . ". -->";
-    } elsif (defined($self->{'params'}{'gid'})) {
+    } elsif (defined($self->{'params'}{'gid'}) || defined($self->{'params'}{'start'})) {
 	
 	my $content = '';
 	foreach my $id (sort keys %{$self->{'programmes'}}) {
@@ -182,6 +182,8 @@ sub write_html {
     } elsif (defined($self->{'params'}{'programme'})) {
 	$self->write_programme_html();
     } elsif (defined($self->{'params'}{'gid'})) {
+	$self->write_programme_html();
+    } elsif (defined($self->{'params'}{'start'})) {
 	$self->write_programme_html();
     } else {
 	$self->{'output'}{'error'}{'message'} = 'Sorry, something went wrong. Not sure what, but you definitely should not be seeing this.';
