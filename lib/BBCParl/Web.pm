@@ -1132,9 +1132,9 @@ sub new {
     $self->{'urls'}{'js'}{'yahoo-calendar-deps'} = "http://yui.yahooapis.com/2.3.1/build/yahoo-dom-event/yahoo-dom-event.js";
     $self->{'urls'}{'js'}{'yahoo-calendar-source'} = "http://yui.yahooapis.com/2.3.1/build/calendar/calendar-min.js";
 
-    $self->{'flash-params'}{'width'} = 240;
-    $self->{'flash-params'}{'height'} = 200;
-    $self->{'flash-params'}{'display-height'} = 200;
+    $self->{'flash-params'}{'width'} = 360;
+    $self->{'flash-params'}{'height'} = 300;
+    $self->{'flash-params'}{'display-height'} = 300;
 
     $self->{'cgi'} = $cgi;
 
