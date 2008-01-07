@@ -582,7 +582,7 @@ sub merge_captions_with_hansard {
                 if ($caption_name eq 'unknown') {
                     $skip_caption = 1;
                 } elsif ($caption_name eq 'Question') {
-		    # Check in case this question has already been displayed
+                    # Check in case this question has already been displayed
                     my $qn = $self->{'captions'}{$date}{$location}{$datetime}{'position'};
                     if ($qnseen{$qn}) {
                         $skip_caption = 1;
@@ -668,7 +668,7 @@ sub merge_captions_with_hansard {
                         }
 
                     } else {
-                        #warn "DEBUG: $gid is a heading";
+                        #warn "DEBUG: $gid is a heading or several speakers";
                         $just_had_heading = 1;
                     }
 
@@ -1044,8 +1044,10 @@ sub get_hansard_data {
 
                     unless (defined($$match_ref{'speaker'}) &&
                             defined($$match_ref{'speaker'}{'last_name'})) {
-                        #if ($$match_ref{'htype'} == 12) {
-                        #}
+                        if ($$match_ref{'htype'} == 12 && $$match_ref{'speaker_id'} == 0) {
+                            # Several hon. Members or similar
+                            $hansard_data{$this_gid}{'htime'} = $$match_ref{'htime'};
+                        }
                         next;
                     }
 
