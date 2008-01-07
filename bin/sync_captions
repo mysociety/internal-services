@@ -23,7 +23,7 @@ $no_hansard = 0;
 $print_stats = 0;
 $no_output_write = 0;
 
-$debug = 1;
+$debug = 0;
 $no_retries = 0;
 $no_updates = 0;
 
