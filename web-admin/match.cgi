@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.36 2007-08-22 14:20:29 matthew Exp $
+# $Id: match.cgi,v 1.37 2008-01-07 12:37:16 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.36 2007-08-22 14:20:29 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.37 2008-01-07 12:37:16 matthew Exp $';
 
 use strict;
 
@@ -423,11 +423,19 @@ sub do_council_edit ($) {
     my $name = $name_data->{'name'};
     print html_head($q, $name . " - Edit");
     print $q->h1($name . " $area_id &mdash; Edit $reps_count Reps");
-    print $q->p($q->b("Note:"), "Data entered here", $q->b("will"), "be
+    print $q->ul(
+        $q->li("Data entered here", $q->b("will"), "be
         returned to GovEval (if we ever get round to writing the script).
         Please do not enter information which a councillor wishes to remain
-        private.  Leave email and fax blank and the councillor
-        will be contacted via Democratic Services.");
+        private."),
+        $q->li("Leave email and fax blank and the councillor
+        will be contacted via the central contact we have for the council."),
+        $q->li("To remove a councillor, blank out every item on their row.
+        To add a councillor, add their details in the blank line at the top.
+        If a councillor has changed, do", $q->b('not'), "just alter that
+        councillor's row, as the GovEval IDs are unique for a person -
+        delete the councillor and add the new one at the top.")
+    );
 
     # Large form for editing council details
     print $q->start_form(-method => 'POST', -action => $q->url('relative'=>1));
