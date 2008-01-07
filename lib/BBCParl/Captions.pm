@@ -61,6 +61,7 @@ sub new {
     $self->{'constants'}{'twfy-update-location'} = 'http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php';
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
+    $self->{'path'}{'home-dir'} = '/home/etienne';
     $self->{'constants'}{'captions-directory-local'} = $self->{'path'}{'home-dir'} . "/downloads/parliament-logs";
     $self->{'constants'}{'hansard-updates-directory'} = $self->{'path'}{'home-dir'} . "/hansard-updates";
 
@@ -129,7 +130,7 @@ sub run {
         }
     }
 
-    if ($self->{'debug'} || $self->{'stats'}{'print-stats'}) {
+    if ($self->{'args'}{'print-stats'}) {
         my $temp_debug = $self->{'debug'};
         $self->{'debug'} = 1;
         $self->print_stats();
@@ -211,7 +212,8 @@ sub print_stats {
     
     if (defined($self->{'stats'}{'hansard-total-gids'}) && defined($self->{'stats'}{'hansard-captions-matched'}) && defined($self->{'stats'}{'captions-processed'})) {
         $self->{'stats'}{'hansard-not-matched'} = $self->{'stats'}{'hansard-total-gids'} - $self->{'stats'}{'hansard-captions-matched'};
-        $self->{'stats'}{'match-percentage'} = $self->{'stats'}{'hansard-captions-matched'} / $self->{'stats'}{'captions-processed'};
+        $self->{'stats'}{'match-percentage'} = $self->{'stats'}{'hansard-captions-matched'} / $self->{'stats'}{'captions-processed'}
+            if $self->{'stats'}{'captions-processed'}>0;
     }
 
     $self->debug("STATS: Attempted to merge captions and hansard data from the following dates:");
@@ -400,9 +402,9 @@ sub load_log_files {
             my $current_position = '';
             my $previous_name = '';
             my $previous_position = '';
-	    my $just_had_commons = 0;
-	    my $curr_maj = 'a';
-	    my $prev_qn = 0;
+            my $just_had_commons = 0;
+            my $curr_maj = 'a';
+            my $prev_qn = 0;
 
             # update datetime every time we see a TIMESTAMP line
 
@@ -419,29 +421,29 @@ sub load_log_files {
                         $dt->subtract('hours' => 4,
                                       'minutes' => 15);
                     }
-		    if ($just_had_commons) {
-		        $just_had_commons = 0;
-			my ($oh, $om, $os) = $datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
-			my ($nh, $nm, $ns) = $dt->datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
-			my $delta = ($nh*3600+$nm*60+$ns) - ($oh*3600+$om*60+$os);
-			if ($delta > 15) { # XXX: Random choice of seconds
+                    if ($just_had_commons) {
+                        $just_had_commons = 0;
+                        my ($oh, $om, $os) = $datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
+                        my ($nh, $nm, $ns) = $dt->datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
+                        my $delta = ($nh*3600+$nm*60+$ns) - ($oh*3600+$om*60+$os);
+                        if ($delta > 15) { # XXX: Random choice of seconds
                             $self->{'captions'}{$date}{$location}{$datetime}{'name'} = 'KnownUnknown';
                             $self->{'captions'}{$date}{$location}{$datetime}{'position'} = '';
                             $self->{'captions'}{$date}{$location}{$datetime}{'caption_id'} = $caption_id;
                             $previous_name = 'KnownUnknown';
                             $caption_id += 1;
                             $self->{'stats'}{'captions-total'} += 1;
-			}
-		    }
+                        }
+                    }
                     $datetime = $dt->datetime . "Z";
-		    next;
+                    next;
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*House of Lords/i) {
                     $location = 'lords';
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*House of Commons/i) {
                     $location = 'commons';
-		    $just_had_commons = 1;
+                    $just_had_commons = 1;
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*Westminster Hall/i) {
                     $location = 'westminster';
@@ -452,7 +454,7 @@ sub load_log_files {
                 if ($line =~ /STRAPS INFO\s*:\s*.*Committee/i) {
                     $location = 'unknown';
                 }
-		# XXX Don't think this is needed
+                # XXX Don't think this is needed
                 #if ($line =~ /LIMBO/) {
                 #    $location = 'unknown';
                 #}
@@ -461,17 +463,17 @@ sub load_log_files {
                     next;
                 }
                 if ($line =~ /STRAPS INFO\s*:\s*(\d+)|STRAPS NAME\s*:\s*(.+)\\(.+)$/ ||
-                    $line =~ /LSHAPE ADD .+ (?:Statement|Bill|MPs are debating)/i
-		    ) {
+                    $line =~ /LSHAPE ADD .+ (?:Statement|Bill|MPs are debating)/i # XXX Someone's probably talking...
+                    ) {
                     #$self->debug("Using $line");
                     if ($2 && $3) {
                         $current_name = $2;
                         $current_position = $3;
-		    } elsif ($1) {
-		        $current_name = 'Question';
-			$curr_maj++ if ($1 == 1 && $prev_qn > 1);
-			$current_position = "$curr_maj$1";
-			$prev_qn = $1;
+                    } elsif ($1) {
+                        $current_name = 'Question';
+                        $curr_maj++ if ($1 == 1 && $prev_qn > 1);
+                        $current_position = "$curr_maj$1";
+                        $prev_qn = $1;
                     } else {
                         $current_name = 'unknown';
                         $current_position = 'unknown';
@@ -515,6 +517,8 @@ sub merge_captions_with_hansard {
 
     #warn Dumper $self->{'captions'};
 
+    $self->{'stats'}{'hansard-captions-matched'} = 0;
+    $self->{'stats'}{'captions-processed'} = 0;
     foreach my $date (sort keys %{$self->{'hansard'}}) {
 
         # reset $time or it carries over from the previous evening!
@@ -550,8 +554,9 @@ sub merge_captions_with_hansard {
             my $window_size = $self->{'constants'}{'max-window-size'};
 
             my %qnseen = ();
+            my $just_had_heading = 0;
             for (my $dt_idx = 0; $dt_idx < @timestamps; $dt_idx++) {
-	        my $datetime = $timestamps[$dt_idx];
+                my $datetime = $timestamps[$dt_idx];
 
                 # process a new caption (each one has a unique timestamp)
 
@@ -577,13 +582,14 @@ sub merge_captions_with_hansard {
                 if ($caption_name eq 'unknown') {
                     $skip_caption = 1;
                 } elsif ($caption_name eq 'Question') {
-		    my $qn = $self->{'captions'}{$date}{$location}{$datetime}{'position'};
-		    if ($qnseen{$qn}) {
-		        $skip_caption = 1;
-		    } else {
-		        $qnseen{$qn} = 1;
-		    }
-		}
+		    # Check in case this question has already been displayed
+                    my $qn = $self->{'captions'}{$date}{$location}{$datetime}{'position'};
+                    if ($qnseen{$qn}) {
+                        $skip_caption = 1;
+                    } else {
+                        $qnseen{$qn} = 1;
+                    }
+                }
 
                 while (($num_speech_gids < $window_size) && (($gid_index + $gid_offset) < $num_gids)) {
                     
@@ -615,25 +621,31 @@ sub merge_captions_with_hansard {
                         #    $cmp_result = 1;
                             $cmp_result = 0;
                         } elsif ($caption_name eq 'Question') {
-                            $cmp_result = 1;
-			} elsif ($caption_name eq 'KnownUnknown') {
-			    my $next_gid = $gids[$gid_index + $gid_offset + 1];
-			    my $next_dt = $timestamps[$dt_idx + 1];
-                            my $next_caption_name = $self->{'captions'}{$date}{$location}{$next_dt}{'name'};
-			    my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
-			    warn "$next_gid $next_dt $next_caption_name $next_hansard_name";
-			    if (compare_names($next_caption_name, $next_hansard_name)) {
-			        # Next caption matches next Hansard speech, so this unknown
-				# is probably a speaker
+                            if ($just_had_heading && $num_speech_gids<5) { # XXX
                                 $cmp_result = 1;
-			    } else {
-			        # Ignore this unknown
-				$skip_caption = 1;
-			        last;
-			    }
+                            }
+                        } elsif ($caption_name eq 'KnownUnknown') {
+                            my $next_gid = $gids[$gid_index + $gid_offset + 1];
+                            my $next_dt = $timestamps[$dt_idx + 1];
+                            if ($next_gid && $next_dt) {
+                                my $next_caption_name = $self->{'captions'}{$date}{$location}{$next_dt}{'name'};
+                                my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
+                                $self->debug("$next_gid $next_dt $next_caption_name $next_hansard_name");
+                                if (compare_names($next_caption_name, $next_hansard_name)) {
+                                    # Next caption matches next Hansard speech, so this unknown
+                                    # is probably a speaker
+                                    $cmp_result = 1;
+                                } else {
+                                    # Ignore this unknown
+                                    $skip_caption = 1;
+                                    last;
+                                }
+                            }
                         } else {
                             $cmp_result = compare_names($caption_name, $hansard_name);
                         }
+
+                        $just_had_heading = 0;
 
                         if (defined($cmp_result) && $cmp_result == 1) {
                             $self->debug("match found (caption: $caption_name, hansard: $hansard_name)");
@@ -657,6 +669,7 @@ sub merge_captions_with_hansard {
 
                     } else {
                         #warn "DEBUG: $gid is a heading";
+                        $just_had_heading = 1;
                     }
 
                     if ($time) {
@@ -1031,6 +1044,8 @@ sub get_hansard_data {
 
                     unless (defined($$match_ref{'speaker'}) &&
                             defined($$match_ref{'speaker'}{'last_name'})) {
+                        #if ($$match_ref{'htype'} == 12) {
+                        #}
                         next;
                     }
 
@@ -1070,11 +1085,11 @@ sub write_update_files {
 
     unless (defined($self->{'updates'})) {
         $self->error("No updates found, skipping write_update_files");
-        $self->debug(Dumper $self);
+        #$self->debug(Dumper $self);
         return undef;
     }
 
-    $self->debug(Dumper $self);
+    #$self->debug(Dumper $self);
     
     my $date_time_format = '%FT%TZ';
     my $date_time = strftime($date_time_format,gmtime());
