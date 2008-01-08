@@ -819,6 +819,7 @@ sub normalise_name {
                        'andy' => 'andrew',
                        'bill' => 'william',
                        'bob' => 'robert',
+                       'chris' => 'christopher',
                        'ed' => 'edward',
                        'geoff' => 'geoffrey',
                        'greg' => 'gregory',
@@ -833,6 +834,7 @@ sub normalise_name {
                        'rob' => 'robert',
                        'tony' => 'anthony',
                        'sue' => 'susan',
+                       'jimmy' => 'james',
                        'jim' => 'james',
                        'will' => 'william'
     );
