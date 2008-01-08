@@ -608,7 +608,8 @@ sub merge_captions_with_hansard {
 
                     #warn "DEBUG: gid = $gid";
 
-                    if (defined($self->{'hansard'}{$date}{$location}{$gid}{'name'})) {
+                    if (defined($self->{'hansard'}{$date}{$location}{$gid}{'name'})
+                      && !defined($self->{'hansard'}{$date}{$location}{$gid}{'rose'})) {
                         #warn "DEBUG: $gid is a speech";
                         $num_speech_gids += 1;
 
@@ -668,8 +669,8 @@ sub merge_captions_with_hansard {
                         }
 
                     } else {
-                        #warn "DEBUG: $gid is a heading or several speakers";
-                        $just_had_heading = 1;
+                        #warn "DEBUG: $gid is a heading or several speakers or a 'rose-'";
+                        $just_had_heading = 1; # XXX Should just be for headings?
                     }
 
                     if ($time) {
@@ -1061,6 +1062,7 @@ sub get_hansard_data {
                     $hansard_data{$this_gid}{'constituency'} = $$match_ref{'speaker'}{'constituency'};
                     $hansard_data{$this_gid}{'house'} = $$match_ref{'speaker'}{'house'};
                     $hansard_data{$this_gid}{'htime'} = $$match_ref{'htime'};
+                    $hansard_data{$this_gid}{'rose'} = 1 if $$match_ref{'body'} =~ /rose\s*&#8212;/;
                     
                 }
                 
