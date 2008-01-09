@@ -641,7 +641,7 @@ sub merge_captions_with_hansard {
                                 $c++;
                                 $next_gid = $gids[$gid_index + $gid_offset + $c];
                             }
-                            while (!defined($self->{'hansard'}{$date}{$location}{$next_gid}{'name'})
+                            while ($next_gid && !defined($self->{'hansard'}{$date}{$location}{$next_gid}{'name'})
                                 || defined($self->{'hansard'}{$date}{$location}{$next_gid}{'rose'}));
 
                             if ($next_gid && $next_dt) {
@@ -704,7 +704,7 @@ sub merge_captions_with_hansard {
                             $c++;
                             $next_gid = $gids[$gid_index + $gid_offset + $c];
                         }
-                        while (defined($self->{'hansard'}{$date}{$location}{$next_gid}{'rose'}));
+                        while ($next_gid && defined($self->{'hansard'}{$date}{$location}{$next_gid}{'rose'}));
                         $skip_next_gid = $c - 1;
                         my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
                         my $prev_gid = $gids[$gid_index + $gid_offset - 1];
@@ -755,14 +755,14 @@ sub merge_captions_with_hansard {
                         
                         $self->debug("Comparing hansard time $self->{'hansard'}{$date}{$location}{$gid}{'htime'} with captions time " . $dt->hms(':'));
 
-                        if ($self->{'hansard'}{$date}{$location}{$gid}{'htime'} lt $dt->hms(':')) {
+                        #if ($self->{'hansard'}{$date}{$location}{$gid}{'htime'} lt $dt->hms(':')) {
                             # only update the time if we are still reasonably in synch
                             if ($window_size le ($self->{'constants'}{'min-window-size'} + 2)) {
                                 $self->debug("Updating htime for $gid - now " . $dt->hms(':'));
                                 $self->{'updates'}{$date}{$location}{$gid}{'htime'} = $dt->hms(':');
                                 #$self->{'stats'}{'hansard-gids-updated'} += 1;
                             }
-                        }
+                        #}
 
                     } else {
                         $self->{'stats'}{'hansard-not-processed'} += 1;
