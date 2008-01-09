@@ -555,8 +555,14 @@ sub merge_captions_with_hansard {
 
             my %qnseen = ();
             my $just_had_heading = 0;
+            my $skip_next_caption = 0;
             for (my $dt_idx = 0; $dt_idx < @timestamps; $dt_idx++) {
                 my $datetime = $timestamps[$dt_idx];
+
+                if ($skip_next_caption) {
+                    $skip_next_caption = 0;
+                    next;
+                }
 
                 # process a new caption (each one has a unique timestamp)
 
@@ -639,6 +645,13 @@ sub merge_captions_with_hansard {
                                 } else {
                                     # Ignore this unknown
                                     $skip_caption = 1;
+                                    # If the next caption is the same as the previous caption, ignore the next one
+                                    # as well as without the unknown they're treated as the same speech
+                                    my $prev_dt = $timestamps[$dt_idx - 1];
+                                    my $prev_caption_name = $self->{'captions'}{$date}{$location}{$prev_dt}{'name'};
+                                    if ($next_caption_name eq $prev_caption_name) {
+                                        $skip_next_caption = 1;
+                                    }
                                     last;
                                 }
                             }
