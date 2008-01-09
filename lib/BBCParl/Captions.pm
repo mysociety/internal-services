@@ -574,6 +574,7 @@ sub merge_captions_with_hansard {
                 my $match_found = 0;
                 my $gid_offset = 0;
                 my $num_speech_gids = 0;
+                my $skip_next_gid = 0;
 
                 if ($gid_index >= $num_gids) {
                     #warn "DEBUG: No more gids left!";
@@ -614,7 +615,7 @@ sub merge_captions_with_hansard {
 
                     #warn "DEBUG: gid = $gid";
 
-                    if (defined($self->{'hansard'}{$date}{$location}{$gid}{'name'})
+                    if (!$skip_next_gid && defined($self->{'hansard'}{$date}{$location}{$gid}{'name'})
                       && !defined($self->{'hansard'}{$date}{$location}{$gid}{'rose'})) {
                         #warn "DEBUG: $gid is a speech";
                         $num_speech_gids += 1;
@@ -632,12 +633,21 @@ sub merge_captions_with_hansard {
                                 $cmp_result = 1;
                             }
                         } elsif ($caption_name eq 'KnownUnknown') {
-                            my $next_gid = $gids[$gid_index + $gid_offset + 1];
+
                             my $next_dt = $timestamps[$dt_idx + 1];
+                            my ($next_gid);
+                            my $c = 0;
+                            do {
+                                $c++;
+                                $next_gid = $gids[$gid_index + $gid_offset + $c];
+                            }
+                            while (!defined($self->{'hansard'}{$date}{$location}{$next_gid}{'name'})
+                                || defined($self->{'hansard'}{$date}{$location}{$next_gid}{'rose'}));
+
                             if ($next_gid && $next_dt) {
                                 my $next_caption_name = $self->{'captions'}{$date}{$location}{$next_dt}{'name'};
                                 my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
-                                $self->debug("$next_gid $next_dt $next_caption_name $next_hansard_name");
+                                $self->debug("Comparing next things: $next_gid $next_dt $next_caption_name $next_hansard_name");
                                 if (compare_names($next_caption_name, $next_hansard_name)) {
                                     # Next caption matches next Hansard speech, so this unknown
                                     # is probably a speaker
@@ -681,8 +691,31 @@ sub merge_captions_with_hansard {
                             $self->{'stats'}{'hansard-not-matched'} += 1;
                         }
 
+                    } elsif ($skip_next_gid) {
+                        $skip_next_gid--;
+                    } elsif (defined($self->{'hansard'}{$date}{$location}{$gid}{'rose'})) {
+                        # Want to skip all the "rose-"s, and perhaps the speech after if
+                        # it's the same speaker as before the "rose-"s.
+                        # This has to be here rather than just ignored when loading Hansard,
+                        # as we need to still need to update the timestamps
+                        my ($next_gid);
+                        my $c = 0;
+                        do {
+                            $c++;
+                            $next_gid = $gids[$gid_index + $gid_offset + $c];
+                        }
+                        while (defined($self->{'hansard'}{$date}{$location}{$next_gid}{'rose'}));
+                        $skip_next_gid = $c - 1;
+                        my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
+                        my $prev_gid = $gids[$gid_index + $gid_offset - 1];
+                        my $prev_hansard_name = $self->{'hansard'}{$date}{$location}{$prev_gid}{'name'};
+                        if ($prev_hansard_name eq $next_hansard_name) {
+                            $skip_next_gid++;
+                        }
+                        $self->debug("Skipping $skip_next_gid GIDs");
+
                     } else {
-                        #warn "DEBUG: $gid is a heading or several speakers or a 'rose-'";
+                        #warn "DEBUG: $gid is a heading or several speakers";
                         $just_had_heading = 1; # XXX Should just be for headings?
                     }
 
