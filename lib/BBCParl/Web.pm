@@ -123,7 +123,6 @@ sub write_js {
 	foreach my $id (sort keys %{$self->{'programmes'}}) {
 	    
 	    my $embed_html_version = $self->get_video_embed_html($id);
-
 	    my $embed_js_version = $embed_html_version;
 	    $embed_js_version =~ s!\"!\\\"!g;
 
@@ -139,7 +138,7 @@ sub write_js {
             if ($embed_js_version !~ /<p class='error'>/) { # XXX
 	        print <<EMBED;
 document.write("$form_start");
-document.write("<br/><b>Embed:</b> <input type='text' name='embed' value='$embed_js_version' onClick='javascript:document.embedForm$id.embed.focus();document.embedForm$id.embed.select();' /></small>");
+document.write("<br/><b>Embed:</b> <input type='text' name='embed' value=\\"$embed_js_version\\" onClick='javascript:document.embedForm$id.embed.focus();document.embedForm$id.embed.select();' /></small>");
 document.write("$attribution</form>");
 EMBED
             }
@@ -583,18 +582,22 @@ sub get_video_embed_html {
     if ($self->{'programmes'}{$id}{'rights'} eq 'internet'
 	&&
 	$self->{'programmes'}{$id}{'status'} eq 'available') {
+	my $player = $self->{'urls'}{'flash-player'};
+	my $width = $self->{'flash-params'}{'width'};
+	my $height = $self->{'flash-params'}{'height'};
+	my $flashvars = "file=$video_url&previewImage=$thumbnail_url&secondsToHide=0$auto_start&startAt=$secs_offset";
 	$embed_html =
-	    '<embed src="' . $self->{'urls'}{'flash-player'} . '"' .
-	    ' width="' . $self->{'flash-params'}{'width'} . '"' .
-	    ' height="' . $self->{'flash-params'}{'height'} . '"' .
-	    ' allowfullscreen="true"' .
-	    ' flashvars="&displayheight=' . $self->{'flash-params'}{'display-height'} .
-	    "&file=$video_url&height=" . $self->{'flash-params'}{'height'} .
-	    "&previewImage=$thumbnail_url&width=" . $self->{'flash-params'}{'width'} .
-	    '&largecontrols=true&logo=' . $self->{'urls'}{'bbcparl-logo'} .
-	    '&secondsToHide=0' .
-	    "$auto_start&duration=$duration&startAt=$secs_offset" .
-	    '" />';
+	    # XXX Do we need <object>? YouTube uses quite minimal <object> and <embed>
+	    #"<object width='$width' height='$height'>" .
+	    #"<param name='movie' value='$player' />" .
+	    #"<param name='flashVars' value='$flashvars' />" . 
+	    #"<param name='allowFullScreen' value='true' />" .
+	    #"<param name='allowScriptAccess' value='always' />" .
+	    "<embed src='$player' width='$width' height='$height'" .
+	    " allowfullscreen='true' allowscriptaccess='always'" .
+	    " flashvars='$flashvars'" .
+	    " />";
+	    #'</object>';
     } else {
 	$embed_html = "<p class='error'><b>We are very sorry about this, but it looks like that programme is not available for you to download.</b></p>";
     }
