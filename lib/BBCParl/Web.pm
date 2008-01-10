@@ -588,9 +588,10 @@ sub get_video_embed_html {
         $embed_html .=
             "<embed src='$player' width='$width' height='$height'" .
             " allowfullscreen='true' allowscriptaccess='always'" .
-            " flashvars='$flashvars'" .
-            " type='application/x-shockwave-flash' pluginspage='http://www.adobe.com/go/getflashplayer'" .
-            " />";
+            " flashvars='$flashvars'";
+        $embed_html .= " type='application/x-shockwave-flash' pluginspage='http://www.adobe.com/go/getflashplayer'"
+            if ($full_or_min eq 'full');
+        $embed_html .= " />";
         if ($full_or_min eq 'full') {
             $embed_html .= '</object>';
         }
