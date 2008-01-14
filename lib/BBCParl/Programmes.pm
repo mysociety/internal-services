@@ -278,22 +278,22 @@ sub update_programmes_from_footage {
 	    $title_synopsis =~ /^House of Lords/i ||
 	    $title_synopsis =~ /^Live.*?Lords/i) {
 	    $location = 'lords';
-	    $rights = 'internet';
+#	    $rights = 'internet';
 	} elsif ($title_synopsis =~ /^Scottish/i) {
 	    $location = 'scottish';
-	    $rights = 'internet';
+#	    $rights = 'internet';
 	} elsif ($title_synopsis =~ /^Westminster Hall/i) {
 	    $location = 'westminster-hall';
-	    $rights = 'internet';
+#	    $rights = 'internet';
 	} elsif ($title_synopsis =~ /^Northern Ireland Assembly/i) {
 	    $location = 'northern-ireland';
-	    $rights = 'internet';
+#	    $rights = 'internet';
 	} elsif ($title_synopsis =~ /^Welsh/i) {
 	    $location = 'welsh';
-	    $rights = 'internet';
+#	    $rights = 'internet';
 	} elsif ($title_synopsis =~ /^Mayor/i) {
 	    $location = 'gla';
-	    $rights = 'internet';
+#	    $rights = 'internet';
 	} elsif ($title_synopsis =~ /^House of Commons/i ||
 		 $title_synopsis =~ /^Live House of Commons/i ||
 		 $title_synopsis =~ /^Commons/i ||
@@ -306,6 +306,9 @@ sub update_programmes_from_footage {
 	    $rights = 'internet';
 	} else {
 	    $location = 'other';
+	    $rights = 'none';
+	}
+	unless ($rights) {
 	    $rights = 'none';
 	}
 
