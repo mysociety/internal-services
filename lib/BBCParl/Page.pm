@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Page.pm,v 1.1 2007-08-24 15:34:04 etienne Exp $
+# $Id: Page.pm,v 1.2 2008-02-02 18:26:06 matthew Exp $
 #
 
 package BBCParl::Page;
@@ -27,14 +27,25 @@ BEGIN {
     mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 }
 
+# FastCGI signal handling
+my $exit_requested = 0;
+my $handling_request = 0;
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+    # exit(0) unless $handling_request;
+};
+
 sub do_fastcgi {
     my $func = shift;
 
     try {
         my $W = new mySociety::WatchUpdate();
         while (my $q = new CGI::Fast()) {
+            $handling_request = 1;
             &$func($q);
             $W->exit_if_changed();
+            $handling_request = 0;
+            last if $exit_requested;
         }
     } catch Error::Simple with {
         my $E = shift;
