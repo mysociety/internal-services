@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.26 2008-02-02 18:26:05 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.27 2008-02-02 19:42:52 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -45,10 +45,10 @@ use constant cache_age => 0;
 # FastCGI signal handling
 my $exit_requested = 0;
 my $handling_request = 0;
-$SIG{TERM} = $SIG{USR1} = sub {
-    $exit_requested = 1;
-    # exit(0) unless $handling_request;
-};
+#$SIG{TERM} = $SIG{USR1} = sub {
+#    $exit_requested = 1;
+#    # exit(0) unless $handling_request;
+#};
 
 while ($handling_request = ($req->Accept() >= 0)) {
     # Only want to make the query results cacheable, not the admin interface.

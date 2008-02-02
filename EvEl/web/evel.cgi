@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: evel.cgi,v 1.4 2008-02-02 18:26:05 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: evel.cgi,v 1.5 2008-02-02 19:42:53 matthew Exp $';
 
 use strict;
 
@@ -36,10 +36,10 @@ my $W = new mySociety::WatchUpdate();
 # FastCGI signal handling
 my $exit_requested = 0;
 my $handling_request = 0;
-$SIG{TERM} = $SIG{USR1} = sub {
-    $exit_requested = 1;
-    # exit(0) unless $handling_request;
-};
+#$SIG{TERM} = $SIG{USR1} = sub {
+#    $exit_requested = 1;
+#    # exit(0) unless $handling_request;
+#};
 
 while ($handling_request = ($req->Accept() >= 0)) {
     RABX::Server::CGI::dispatch(
