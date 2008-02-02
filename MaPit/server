@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.19 2007-10-06 09:26:17 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.20 2008-02-02 18:26:05 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -30,11 +30,19 @@ use MaPit;
 my $req = FCGI::Request();
 my $W = new mySociety::WatchUpdate();
 
+# FastCGI signal handling
+my $exit_requested = 0;
+my $handling_request = 0;
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+    # exit(0) unless $handling_request;
+};
+
 use constant cache_age => 3600;
 
 # All the MaPit functions are cacheable.
 
-while ($req->Accept() >= 0) {
+while ($handling_request = ($req->Accept() >= 0)) {
     RABX::Server::CGI::dispatch(
             'MaPit.get_voting_areas' => [
                 sub { return MaPit::get_voting_areas($_[0]); },
@@ -86,4 +94,6 @@ while ($req->Accept() >= 0) {
             ]
         );
     $W->exit_if_changed();
+    $handling_request = 0;
+    last if $exit_requested;
 }

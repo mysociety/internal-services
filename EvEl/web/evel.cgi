@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: evel.cgi,v 1.3 2005-03-30 18:12:07 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: evel.cgi,v 1.4 2008-02-02 18:26:05 matthew Exp $';
 
 use strict;
 
@@ -33,7 +33,15 @@ use EvEl;
 my $req = FCGI::Request();
 my $W = new mySociety::WatchUpdate();
 
-while ($req->Accept() >= 0) {
+# FastCGI signal handling
+my $exit_requested = 0;
+my $handling_request = 0;
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+    # exit(0) unless $handling_request;
+};
+
+while ($handling_request = ($req->Accept() >= 0)) {
     RABX::Server::CGI::dispatch(
             'EvEl.send' => sub {
                 EvEl::send($_[0], @_[1 .. $#_]);
@@ -57,5 +65,7 @@ while ($req->Accept() >= 0) {
                 EvEl::list_send($_[0], $_[1], $_[2]);
             }
         );
-    last if ($W->changed());
+    $W->exit_if_changed();
+    $handling_request = 0;
+    last if $exit_requested;
 }
