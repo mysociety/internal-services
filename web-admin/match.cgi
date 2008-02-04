@@ -8,17 +8,17 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.38 2008-02-02 18:26:06 matthew Exp $
+# $Id: match.cgi,v 1.39 2008-02-04 22:50:30 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.38 2008-02-02 18:26:06 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.39 2008-02-04 22:50:30 matthew Exp $';
 
 use strict;
 
-use CGI::Fast qw(-no_xhtml);
+use mySociety::CGIFast qw(-no_xhtml);
 #use CGI::Pretty;
-#$CGI::Pretty::AutoloadClass = 'CGI::Fast';
-#@CGI::Pretty::ISA = qw( CGI::Fast );
+#$CGI::Pretty::AutoloadClass = 'mySociety::CGIFast';
+#@CGI::Pretty::ISA = qw( mySociety::CGIFast );
 
 use CGI::Carp;
 use HTML::Entities;
@@ -615,19 +615,10 @@ sub do_mapit_names_edit ($) {
     print html_tail($q);
 }
 
-# FastCGI signal handling
-my $exit_requested = 0;
-my $handling_request = 0;
-$SIG{TERM} = $SIG{USR1} = sub {
-    $exit_requested = 1;
-    # exit(0) unless $handling_request;
-};
-
 # Main loop, handles FastCGI requests
 my $q;
 try {
-    while ($q = new CGI::Fast()) {
-        $handling_request = 1;
+    while ($q = new mySociety::CGIFast()) {
         #print Dumper($q->Vars);
 
         my $page = $q->param('page');
@@ -656,8 +647,6 @@ try {
         }
 
         $W->exit_if_changed();
-        $handling_request = 0;
-        last if $exit_requested;
     }
 } catch Error::Simple with {
     my $E = shift;

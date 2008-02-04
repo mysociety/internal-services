@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.27 2008-02-02 19:42:52 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.28 2008-02-04 22:50:29 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -38,19 +38,17 @@ use DaDem;              # implementation
 
 my $W = new mySociety::WatchUpdate();
 
-my $req = FCGI::Request();
+my $req = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%ENV, 0, 1 );
 
 use constant cache_age => 0;
 
 # FastCGI signal handling
 my $exit_requested = 0;
-my $handling_request = 0;
-#$SIG{TERM} = $SIG{USR1} = sub {
-#    $exit_requested = 1;
-#    # exit(0) unless $handling_request;
-#};
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+};
 
-while ($handling_request = ($req->Accept() >= 0)) {
+while ($req->Accept() >= 0) {
     # Only want to make the query results cacheable, not the admin interface.
     RABX::Server::CGI::dispatch(
             'DaDem.get_representatives' => [
@@ -122,7 +120,6 @@ while ($handling_request = ($req->Accept() >= 0)) {
             }
          );
 #    $W->exit_if_changed();
-    $handling_request = 0;
     last if $exit_requested;
 }
 

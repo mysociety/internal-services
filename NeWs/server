@@ -7,7 +7,7 @@
 # Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.6 2006-12-07 15:43:57 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.7 2008-02-04 22:50:30 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -26,8 +26,14 @@ use RABX;
 use mySociety::WatchUpdate;
 use NeWs;
 
-my $req = FCGI::Request();
+my $req = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%ENV, 0, 1 );
 my $W = new mySociety::WatchUpdate();
+
+# FastCGI signal handling
+my $exit_requested = 0;
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+};
 
 
 while ($req->Accept() >= 0) {
@@ -70,6 +76,6 @@ while ($req->Accept() >= 0) {
             }
 
         );
-        last if ($W->changed());
-
+    $W->exit_if_changed();
+    last if $exit_requested;
 }

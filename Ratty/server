@@ -11,7 +11,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.11 2008-02-02 19:42:53 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.12 2008-02-04 22:50:30 matthew Exp $';
 
 # Do this first of all, because Ratty.pm needs to see the config file.
 BEGIN {
@@ -29,19 +29,17 @@ use mySociety::WatchUpdate;
 
 use Ratty;
 
-my $req = FCGI::Request();
+my $req = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%ENV, 0, 1 );
 my $W = new mySociety::WatchUpdate();
 my $R = new Ratty();
 
 # FastCGI signal handling
 my $exit_requested = 0;
-my $handling_request = 0;
-#$SIG{TERM} = $SIG{USR1} = sub {
-#    $exit_requested = 1;
-#    # exit(0) unless $handling_request;
-#};
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+};
 
-while ($handling_request = ($req->Accept() >= 0)) {
+while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'Ratty.test' => sub {
                 $R->test(@_);
@@ -69,6 +67,5 @@ while ($handling_request = ($req->Accept() >= 0)) {
             }
         );
     $W->exit_if_changed();
-    $handling_request = 0;
     last if $exit_requested;
 }
