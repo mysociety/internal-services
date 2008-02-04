@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.23 2008-02-04 17:44:43 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.24 2008-02-04 17:49:30 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -18,7 +18,7 @@ BEGIN {
     mySociety::Config::set_file('../conf/general');
 }
 
-use CGI::Fast;
+use FCGI;
 use RABX;
 
 use mySociety::MaPit;   # client interface
@@ -27,13 +27,14 @@ use mySociety::WatchUpdate;
 
 use MaPit;
 
+my $req = FCGI::Request();
 my $W = new mySociety::WatchUpdate();
 
 use constant cache_age => 3600;
 
 # All the MaPit functions are cacheable.
 
-while (my $q = new CGI::Fast()) {
+while ($req->Accept() >= 0) {
     RABX::Server::CGI::dispatch(
             'MaPit.get_voting_areas' => [
                 sub { return MaPit::get_voting_areas($_[0]); },
