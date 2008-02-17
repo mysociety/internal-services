@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+use strict;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use Getopt::Long;
+
+use BBCParl::Process;
+
+# invoke the actual programmes-processing code
+
+my ($s, $e);
+
+$s = `date`;
+
+my $object = BBCParl::Process->new();
+
+$object->{'debug'} = 1;
+
+my $ret_value = $object->run();
+
+$e = `date`;
+
+warn "DEBUG: start = $s, end = $e";
+
+exit $ret_value;
