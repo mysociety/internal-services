@@ -23,6 +23,6 @@ my $ret_value = $object->run();
 
 $e = `date`;
 
-warn "DEBUG: start = $s, end = $e";
+$object->debug("DEBUG: start = $s, end = $e");
 
 exit $ret_value;
