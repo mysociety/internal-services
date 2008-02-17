@@ -1,0 +1,36 @@
+#!/usr/bin/perl -w
+
+# version 0.1 - etienne pollard (mysociety@ejhp.net)
+
+# downloads video from online streaming video servers (e.g. BBC
+# Parliament) and stores raw footage on local disk
+
+use strict;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use Getopt::Long;
+
+my ($skip_pause, $debug) = (0, 0);
+
+GetOptions ('skip-pause+' => \$skip_pause,
+	    'debug+' => \$debug);
+
+use mySociety::Config;
+use BBCParl::Fetch;
+
+mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
+my $object = BBCParl::Fetch->new('debug' => $debug);
+
+# since we're invoked at xx:59:00, we should sleep for just under a minute
+# 
+# unless ($skip_pause) {
+#     sleep (57);
+# }
+
+$object->run();
+
+exit(0);
