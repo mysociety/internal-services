@@ -12,12 +12,23 @@ use lib "$FindBin::Bin/../../perllib";
 use mySociety::Config;
 use mySociety::EmailUtil qw (is_valid_email send_email);
 
+my $debug = 1;
+
+sub debug {
+    my ($line) = @_;
+    if ($debug) {
+	print "DEBUG: $line";
+    }
+}
+
 mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
 my $script_name = undef;
 my $send_to_email = mySociety::Config::get('ERRORS_TO_EMAIL');
 my $send_from_email = mySociety::Config::get('ERRORS_FROM_EMAIL');
 my $script_output = undef;
+
+debug("Config says: from = $send_from_email, to = $send_to_email");
 
 GetOptions ('target=s' => \$script_name);
 
