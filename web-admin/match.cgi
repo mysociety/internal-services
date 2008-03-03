@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.39 2008-02-04 22:50:30 matthew Exp $
+# $Id: match.cgi,v 1.40 2008-03-03 14:26:35 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.39 2008-02-04 22:50:30 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.40 2008-03-03 14:26:35 matthew Exp $';
 
 use strict;
 
@@ -377,7 +377,7 @@ sub do_council_edit ($) {
                     $rep->{$fieldname}= $q->param($fieldname . $c);
                 }
                 push @newdata, $rep;
-            } else { print "MOOOO"; }
+            }
             $c++;
         }
         # ... add new ward
