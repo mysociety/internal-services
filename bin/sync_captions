@@ -13,7 +13,7 @@ use BBCParl::Captions;
 
 # get command line options
 
-my ($help, $from, $to, $date, $verbose, $no_mirror, $no_hansard, $print_stats, $no_output_write, $debug, $no_retries, $no_updates) = ('','','','','','','','','','','');
+my ($help, $from, $to, $date, $verbose, $no_mirror, $no_hansard, $print_stats, $no_output_write, $debug, $no_retries, $no_updates, $yes_updates) = ('','','','','','','','','','','', '');
 
 $help = 0;
 $verbose = 1;
@@ -26,6 +26,7 @@ $no_output_write = 0;
 $debug = 0;
 $no_retries = 0;
 $no_updates = 0;
+$yes_updates = 0;
 
 GetOptions (
             'help+' => \$help,
@@ -39,6 +40,7 @@ GetOptions (
             'stats+' => \$print_stats,
             'debug+' => \$debug,
             'no-retries+' => \$no_retries,
+            'yes-updates+' => \$yes_updates,
             'no-updates+' => \$no_updates
             );
 
@@ -75,6 +77,7 @@ usage: sync_captions [--date=yyyy-mm-dd] [--from=yyyy-mm-dd --to=yyy-mm-dd]
 --dry-run                Fetch and combine captions and Hansard, but do not write out update files or send updated timestamps to TheyWorkForYou
 
 --no-updates             Do not send any updated timestamps to TheyWorkForYou
+--yes-updates            Force send of updated timestamps to TheyWorkForYou
 
 --no-retries             Only try each date once (default is to try 5 times, with an hour between attempts)
 
@@ -99,6 +102,7 @@ my $object = BBCParl::Captions->new(
                                     'no-output-write' => $no_output_write,
                                     'no-retries' => $no_retries,
                                     'no-updates' => $no_updates,
+                                    'yes-updates' => $yes_updates,
                                     'print-stats' => $print_stats,
                                     'debug' => $debug
                                     );

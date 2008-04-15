@@ -58,7 +58,7 @@ sub new {
 #    $self->{'constants'}{'captions-location'} = 'http://www.leitchy.com/parliament-logs/';
     $self->{'constants'}{'captions-directory-url'} = 'http://www.bbc.co.uk/test/parliament/';
     $self->{'constants'}{'twfy-api-location'} = 'http://www.theyworkforyou.com/api/';
-    $self->{'constants'}{'twfy-update-location'} = 'http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php';
+    $self->{'constants'}{'twfy-update-location'} = 'http://www.theyworkforyou.com/internal/parlvid-update-done.php';
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
     $self->{'path'}{'home-dir'} = '/home/etienne';
@@ -123,11 +123,20 @@ sub run {
         }
     }
 
+    my $upload_updates = 0;
     unless ($self->{'args'}{'no-output-write'} || $self->{'args'}{'no-hansard'}) {
         $self->write_update_files();
         if (defined($self->{'updates'}) && !$self->{'args'}{'no-updates'}) {
             $self->upload_updates();
+	    $upload_updates = 1;
         }
+    }
+
+    if (!$upload_updates && $self->{'args'}{'yes-updates'}) {
+        my @files = reverse sort glob $self->{'constants'}{'hansard-updates-directory'} . '/hansard-updates-*';
+        $self->{'updates-filename'} = shift(@files);
+	print $self->{'updates-filename'}."\n";
+        $self->upload_updates();
     }
 
     if ($self->{'args'}{'print-stats'}) {
@@ -144,10 +153,8 @@ sub run {
 sub upload_updates {
     my ($self) = @_;
 
-    # upload to TWFY using the post script at
-    # http://cake.ukcod.org.uk/~fawkes/parlvid-update-done.php with
-    # HTTP basic auth (fawkes/the usual) and parameters "filename" and
-    # "data"
+    # upload to TWFY using the post script with
+    # parameters "filename" and "data"
 
     my $updates_filename = $self->{'updates-filename'};
 
@@ -164,20 +171,8 @@ sub upload_updates {
     $updates_filename =~ s/^.*\///;
 
     my $url = $self->{'constants'}{'twfy-update-location'};
-    my $username = mySociety::Config::get('TWFY_USERNAME');
-    my $password = mySociety::Config::get('TWFY_PASSWORD');
 
-    my $realm = "You didn't see us; we're not here";
-
-    my $netloc = '';
-    if ($url =~ /^.+:\/\/([^\/]+)\//) {
-        $netloc = $1;
-        unless ($netloc =~ /:[\d]+$/) {
-            $netloc .= ":80";
-        }
-    }
-
-    $self->debug("Preparing to upload to $url - auth: $netloc, \"$realm\", $username, $password"); 
+    $self->debug("Preparing to upload to $url"); 
     $self->debug("Filename is: " . $updates_filename);
     $self->debug("Updates are:\n" . $updates);
 
@@ -191,8 +186,6 @@ sub upload_updates {
         $self->error( "Cannot create new LWP::UserAgent object; error was $!");
         return undef;
     }
-
-    $ua->credentials($netloc, $realm, $username, $password);
 
     my $form = { 'filename' => $updates_filename,
                  'data' => $updates };
@@ -426,7 +419,7 @@ sub load_log_files {
                         my ($oh, $om, $os) = $datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
                         my ($nh, $nm, $ns) = $dt->datetime =~ /(\d{2}):(\d{2}):(\d{2})/;
                         my $delta = ($nh*3600+$nm*60+$ns) - ($oh*3600+$om*60+$os);
-                        if ($delta > 15) { # XXX: Random choice of seconds
+                        if ($delta >= 15) { # XXX: Random choice of seconds
                             $self->{'captions'}{$date}{$location}{$datetime}{'name'} = 'KnownUnknown';
                             $self->{'captions'}{$date}{$location}{$datetime}{'position'} = '';
                             $self->{'captions'}{$date}{$location}{$datetime}{'caption_id'} = $caption_id;
@@ -451,7 +444,7 @@ sub load_log_files {
                 if ($line =~ /STRAPS TOPLINE\s*:\s*.*First Minister/i) {
                     $location = 'devolved';
                 }
-                if ($line =~ /STRAPS INFO\s*:\s*.*Committee/i) {
+                if ($line =~ /STRAPS INFO\s*:\s*.*Committee\s*\\/i) {
                     $location = 'unknown';
                 }
                 # XXX Don't think this is needed
@@ -660,6 +653,7 @@ sub merge_captions_with_hansard {
                                     my $prev_dt = $timestamps[$dt_idx - 1];
                                     my $prev_caption_name = $self->{'captions'}{$date}{$location}{$prev_dt}{'name'};
                                     if ($next_caption_name eq $prev_caption_name) {
+                                        $self->debug("Skipping next caption $prev_caption_name, $next_caption_name");
                                         $skip_next_caption = 1;
                                     }
                                     last;
@@ -705,15 +699,17 @@ sub merge_captions_with_hansard {
                             $next_gid = $gids[$gid_index + $gid_offset + $c];
                         }
                         while ($next_gid && defined($self->{'hansard'}{$date}{$location}{$next_gid}{'rose'}));
-                        $skip_next_gid = $c - 1;
-                        my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
-                        my $prev_gid = $gids[$gid_index + $gid_offset - 1];
-                        my $prev_hansard_name = $self->{'hansard'}{$date}{$location}{$prev_gid}{'name'};
-                        if ($prev_hansard_name eq $next_hansard_name) {
-                            $skip_next_gid++;
+                        if ($next_gid) {
+                            $skip_next_gid = $c - 1;
+                            my $next_hansard_name = $self->{'hansard'}{$date}{$location}{$next_gid}{'name'};
+			    $self->error($next_gid) unless $next_hansard_name;
+                            my $prev_gid = $gids[$gid_index + $gid_offset - 1];
+                            my $prev_hansard_name = $self->{'hansard'}{$date}{$location}{$prev_gid}{'name'};
+                            if ($prev_hansard_name && $prev_hansard_name eq $next_hansard_name) {
+                                $skip_next_gid++;
+                            }
+                            $self->debug("Skipping $skip_next_gid GIDs");
                         }
-                        $self->debug("Skipping $skip_next_gid GIDs");
-
                     } else {
                         #warn "DEBUG: $gid is a heading or several speakers";
                         $just_had_heading = 1; # XXX Should just be for headings?
