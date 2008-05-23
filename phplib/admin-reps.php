@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.11 2007-10-10 08:55:01 matthew Exp $
+ * $Id: admin-reps.php,v 1.12 2008-05-23 11:41:53 matthew Exp $
  * 
  */
 
@@ -222,13 +222,13 @@ class ADMIN_PAGE_REPS {
             }
             $readonly = $editable_here ? null : "readonly";
 
-            if ($rep_id) 
+            if ($rep_id) {
                 $form->addElement('header', '', 'Edit Representative');
-            else
+                if ($repinfo['deleted']) {
+                    $form->addElement('static', 'notedeleted', null, "<strong style=\"color: red\">Deleted representative</strong>, click 'Done' to undelete");
+                }
+            } else
                 $form->addElement('header', '', 'New Representative');
-            if ($repinfo['deleted']) {
-                $form->addElement('static', 'notedeleted', null, "<strong style=\"color: red\">Deleted representative</strong>, click 'Done' to undelete");
-            }
             if ($rep_id and $editable_here) {
                 $form->addElement('static', 'note1', null, "
                 Edit only the values which you need to.  If a representative
