@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.19 2007-08-23 11:17:29 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.20 2008-05-27 15:31:58 matthew Exp $';
 
 use strict;
 
@@ -90,6 +90,7 @@ sub friendly_from_mysoc ($) {
     s/^Blackburn /Blackburn with Darwen /;
 
     s/^Preston Borough Council$/Preston City Council/; # Became a city in 2002
+    s/^Wolverhampton Borough Council$/Wolverhampton City Council/;
 
     return $_;
 
