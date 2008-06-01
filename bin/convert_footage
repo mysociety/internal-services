@@ -1,10 +1,4 @@
 #!/usr/bin/perl -w
-
-# version 0.1 - etienne pollard (mysociety@ejhp.net)
-
-# downloads video from online streaming video servers (e.g. BBC
-# Parliament) and stores raw footage on local disk
-
 use strict;
 
 # Horrible boilerplate to set up appropriate library paths.
@@ -30,21 +24,38 @@ BEGIN {
 
 use Getopt::Long;
 
-my ($skip_pause, $debug) = (0, 0);
+use BBCParl::Process;
 
-GetOptions ('skip-pause+' => \$skip_pause,
-	    'debug+' => \$debug);
+my $object = BBCParl::Process->new();
 
-use BBCParl::Fetch;
+$object->{'debug'} = 1;
 
-my $object = BBCParl::Fetch->new('debug' => $debug);
+exit(convert_footage($object));
 
-# since we're invoked at xx:59:00, we should sleep for just under a minute
-# 
-# unless ($skip_pause) {
-#     sleep (57);
-# }
+sub convert_footage {
+    my ($object) = @_;
 
-$object->run();
+    unless ($object->get_processing_requests()) {
+	$object->debug("No programmes to process. Exiting.");
+	return 0;
+    }
 
-exit(0);
+    unless ($object->get_footage_for_programmes()) {
+	$object->debug("No programmes with any available footage. Exiting.");
+	return 0;
+    }
+
+    unless ($object->process_requests()) {
+	return 0;
+    }
+
+    die;
+
+    unless ($object->cache_cleanup()) {
+	return 0;
+    }
+
+
+    return 0;
+
+}
