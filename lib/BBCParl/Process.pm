@@ -2,16 +2,16 @@ package BBCParl::Process;
 
 use strict;
 
+use LWP::UserAgent;
+use XML::Simple;
 use DateTime;
-use File::Copy;
+use DateTime::TimeZone;
 
 use Data::Dumper;
 
-use BBCParl::SQS;
-use BBCParl::EC2;
-use BBCParl::S3;
-
 use mySociety::Config;
+use mySociety::DBHandle qw (dbh);
+use BBCParl::Common;
 
 sub debug {
     my ($self, $message) = @_;
@@ -21,6 +21,10 @@ sub debug {
     return undef;
 }
 
+# TODO make this load channels.conf, check that for channel_ids, and
+# then process footage one channel at a time - needs to update across
+# multiple subroutines
+
 sub new {
     my ($class) = @_;
     my $self = {};
@@ -29,126 +33,440 @@ sub new {
     mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
-#    $self->{'path'}{'aws'} = $self->{'path'}{'home-dir'} . "/bin/aws/aws";
     $self->{'path'}{'ffmpeg'} = '/usr/bin/ffmpeg';
     $self->{'path'}{'mencoder'} = '/usr/bin/mencoder';
-    $self->{'path'}{'flvtool2'} = '/usr/bin/flvtool2';
-    $self->{'path'}{'yamdi'} = $self->{'path'}{'home-dir'} . '/bin/yamdi';
+    $self->{'path'}{'yamdi'} = $self->{'path'}{'home-dir'} . mySociety::Config::get('YAMDI_BIN');
 
-    $self->{'path'}{'processing-dir'} = '/mnt/processing';
-    $self->{'path'}{'footage-cache-dir'} = $self->{'path'}{'processing-dir'} .'/raw-footage/bbcparliament';
-    $self->{'path'}{'output-cache-dir'} = $self->{'path'}{'processing-dir'} .'/output';
+    $self->{'path'}{'footage-cache-dir'} = mySociety::Config::get('FOOTAGE_DIR');
+    $self->{'path'}{'output-dir'} = mySociety::Config::get('OUTPUT_DIR');
 
-    $self->{'constants'}{'raw-footage-bucket'} = mySociety::Config::get('BBC_BUCKET_RAW_FOOTAGE');
-    $self->{'constants'}{'programmes-bucket'} = mySociety::Config::get('BBC_BUCKET_PROGRAMMES');
+    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
 
-    # raw-footage is ec2->bitter
-    $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
-    # processing-requests is bitter->ec2
-    $self->{'constants'}{'processing-requests-queue'} = mySociety::Config::get('BBC_QUEUE_PROCESSING_REQUESTS');
-    # available-programmes is ec2->bitter
-    $self->{'constants'}{'available-programmes-queue'} = mySociety::Config::get('BBC_QUEUE_AVAILABLE_PROGRAMMES');
+    $self->{'params'}{'channel_id'} = ',BBCParl';
+    $self->{'params'}{'method'} = 'bbc.schedule.getProgrammes';
+    $self->{'params'}{'limit'} = '500';
+    $self->{'params'}{'detail'} = 'schedule';
+    $self->{'params'}{'format'} = 'simple';
 
     return $self;
 }
 
-sub run {
+sub get_raw_footage_to_process {
     my ($self) = @_;
 
-    # in this function, we check for new processing requests (Amazon
-    # SQS queue) and convert the appropriate part(s) of the specified
-    # raw footage file(s) to flash video; the flash video file for
-    # each new programme (request) is uploaded to Aaazon S3 storage,
-    # and a new message is added to Amazon SQS telling the central
-    # server that a new flash video file is available for streaming.
+    my $st = dbh()->prepare("SELECT filename, start_dt, end_dt FROM raw_footage WHERE status = 'not-yet-processed'");
+    $st->execute();
 
-    unless ($self->get_processing_requests()) {
-	return 0;
+    my $num_files = 0;
+
+    while (my @row = $st->fetchrow_array()) {
+
+	$num_files += 1;
+	$self->{'raw-footage-to-process'}{$row[0]}{'start'} = $row[1];
+	$self->{'raw-footage-to-process'}{$row[0]}{'end'} = $row[2];
+
     }
 
-    unless ($self->process_requests()) {
-	return 0;
+    return $num_files;
+
+}
+
+sub calculate_date_time_range {
+    my ($self) = @_;
+
+    my $start = '';
+    my $end = '';
+
+    foreach my $filename (sort keys %{$self->{'raw-footage-to-process'}}) {
+	$self->debug("Calculating date-range with $filename");
+	if ($filename =~ /.+?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z/) {
+	    if ($start eq '' || $start gt $1) {
+		$start = $1;
+	    }
+	    if ($end eq '' || $end lt $2) {
+		$end = $2;
+	    }
+	}
+    }
+	
+    if ($start && $end) {
+	$self->{'params'}{'start'} = $start;
+	$self->{'params'}{'end'} = $end;
+	$self->debug("Files range from $start to $end");
+	return ($start, $end);
+    } else {
+	warn "ERROR: Did not calculate a date-range.";
+	return undef;
     }
 
-    unless ($self->cache_cleanup()) {
-	return 0;
+}
+
+
+sub update_programmes_from_footage {
+    my ($self) = @_;
+
+    # call the BBC TV web api
+
+    my $ua;
+    unless ($ua = LWP::UserAgent->new()) {
+	warn "FATAL: Cannot create new LWP::UserAgent object; error was $!";
+	return undef;
     }
+
+    my $url = $self->{'constants'}{'tv-schedule-api-url'} . '?';
+
+    foreach my $name (keys %{$self->{'params'}}) {
+	$url .= "$name=" . $self->{'params'}{$name} . '&';
+    }
+
+    my $response = $ua->get($url);
+
+    unless ($response->is_success) {
+	warn "FATAL: Could not fetch $url; error was " . $response->status_line();
+	return undef;
+    }
+
+    my $results = $response->content();
+
+    # convert it into an XML object
+    
+    my $results_ref = XMLin($results,
+			    'ForceArray' => ['programme']);
+
+    if (defined($results_ref->{'error'})) {
+	warn "ERROR: Could not fetch data from TV API; error was " . $results_ref->{'error'}{'message'};
+	warn "ERROR: URI was $url";
+	return undef;
+    }
+
+    foreach my $prog_ref (@{$results_ref->{'schedule'}{'programme'}}) {
+	my $start = $prog_ref->{'start'};
+	map {
+	    $self->{'programmes'}{$start}{$_} = $prog_ref->{$_};
+	} qw (channel_id synopsis duration title);
+	$self->{'programmes'}{$start}{'crid'} = $prog_ref->{'programme_id'};
+    }
+
+    # foreach programme, determine the rights situation and the
+    # broadcast start/end times - these should be in UTC (GMT)
+
+#    warn Dumper $self;
+
+    foreach my $prog_start (sort keys %{$self->{'programmes'}}) {
+	my $title_synopsis = $self->{'programmes'}{$prog_start}{'title'} . ' ' .  $self->{'programmes'}{$prog_start}{'synopsis'};
+	my $location = '';
+	my $rights = 'none';
+
+	if ($title_synopsis =~ /^Lords/i ||
+	    $title_synopsis =~ /^House of Lords/i ||
+	    $title_synopsis =~ /^Live.*?Lords/i) {
+	    $location = 'lords';
+#	    $rights = 'internet';
+	} elsif ($title_synopsis =~ /^Scottish/i) {
+	    $location = 'scottish';
+#	    $rights = 'internet';
+	} elsif ($title_synopsis =~ /^Westminster Hall/i) {
+	    $location = 'westminster-hall';
+#	    $rights = 'internet';
+	} elsif ($title_synopsis =~ /^Northern Ireland Assembly/i) {
+	    $location = 'northern-ireland';
+#	    $rights = 'internet';
+	} elsif ($title_synopsis =~ /^Welsh/i) {
+	    $location = 'welsh';
+#	    $rights = 'internet';
+	} elsif ($title_synopsis =~ /^Mayor/i) {
+	    $location = 'gla';
+#	    $rights = 'internet';
+	} elsif ($title_synopsis =~ /^House of Commons/i ||
+		 $title_synopsis =~ /^Live House of Commons/i ||
+		 $title_synopsis =~ /^Commons/i ||
+		 $title_synopsis =~ /in the House of Commons /i ||
+		 $title_synopsis =~ /^.+? Bill/i ||
+		 $title_synopsis =~ /^.+? Committee/i ||
+		 $title_synopsis =~ /^.+? Questions/i ||
+		 $title_synopsis =~ /recorded coverage of the .+? committee session/i) {
+	    $location = 'commons';
+	    $rights = 'internet';
+	} else {
+	    $location = 'other';
+	    $rights = 'none';
+	}
+	unless ($rights) {
+	    $rights = 'none';
+	}
+
+	$self->{'programmes'}{$prog_start}{'rights'} = $rights;
+	$self->{'programmes'}{$prog_start}{'location'} = $location;
+
+	my $duration = $self->{'programmes'}{$prog_start}{'title'} . ' ' .  $self->{'programmes'}{$prog_start}{'duration'};
+
+	# work out the start/end date-times for broadcast (on air)
+
+	my $broadcast_start = $prog_start;
+	my $broadcast_end = '';
+
+	my @date_time = ();
+	if ($broadcast_start =~ /(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z/) {
+	    @date_time = ('year' => $1,
+			  'month' => $2,
+			  'day' => $3,
+			  'hour' => $4,
+			  'minute' => $5,
+			  'second' => $6);
+	} else {
+	    warn "ERROR: $broadcast_start does not contain an hh:mm:ss time";
+	    warn "ERROR: skipping this programme";
+	    next;
+	}
+
+	my $dt = DateTime->new(@date_time,'time_zone','UTC');
+
+	if ($duration =~ /(\d{2}):(\d{2}):(\d{2})/) {
+	    $dt->add('hours' => $1,
+		     'minutes' => $2,
+		     'seconds' => $3);
+	    my $date_time_format = '%FT%TZ';
+	    $broadcast_end = $dt->strftime($date_time_format);
+	}
+
+	$self->{'programmes'}{$prog_start}{'broadcast_start'} = $broadcast_start;
+	$self->{'programmes'}{$prog_start}{'broadcast_end'} = $broadcast_end;
+
+	# foreach programme, work out the recording start/end times
+	# given duration (if possible) - these should be in UTC (GMT)
+
+	my ($rec_start, $rec_end) = ('','');
+
+	if ($title_synopsis =~ /^live/i || $title_synopsis =~ /\s+live\s/i) {
+
+	    # live broadcasts are easy, record date/time == broadcast date/time
+	    $rec_start = $broadcast_start;
+	    $rec_end = $broadcast_end;
+
+	} else {
+
+	    # TODO - try to extract the recording date from the
+	    # title/synopsis? this will also need us to find out when
+	    # the relevant meeting or debate started. not doing this
+	    # for the initial release.
+
+	}
+
+	$self->{'programmes'}{$prog_start}{'record_start'} = $rec_start;
+	$self->{'programmes'}{$prog_start}{'record_end'} = $rec_end;
+	
+	# foreach different recorded programme, create a
+	# unique_id - note that some programmes may be broadcast
+	# multiple times between $start and $end date-times
+
+	# NOTE - to be able to distinguish between different airings
+	# of the same programme, we need to know the recording date -
+	# but for the moment, we only have this for live broadcasts,
+	# so we'll use $broadcast_start for the moment. TODO - fix
+	# this once we have resolved the question of recording
+	# date/times.
+
+	# foreach unique_id, check whether it has been added to
+	# the db, and if yes, then whether already been processed or
+	# flagged for processing (db column processing-status)
+
+	if (dbh()->selectrow_array('SELECT broadcast_start FROM programmes WHERE broadcast_start = ? AND channel_id = ?',
+				   {},
+				   $prog_start,
+				   $self->{'programmes'}{$prog_start}{'channel_id'},
+				   )) {
+	    $self->debug("$prog_start is already in the database; skipping duplicate database insert.");
+	    next;
+	}
+
+	#warn Dumper $self->{'programmes'}{$prog_start};
+
+	my @params = qw (location broadcast_start broadcast_end title synopsis crid channel_id rights);
+	if ($self->{'programmes'}{$prog_start}{'record_start'}) {
+	    push @params, qw (record_start record_end);
+	}
+
+	{
+	    $self->debug("INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")");
+	    dbh->do("INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")",
+		    {},
+		    map {
+			$self->{'programmes'}{$prog_start}{$_};
+		    } @params);
+	}
+       
+	dbh()->commit();
+
+    }
+
+}
+
+sub update_footage_status {
+    my ($self) = @_;
+
+    foreach my $filename (keys %{$self->{'raw-footage-to-process'}}) {
+	$self->debug("setting status = 'processed' for $filename");
+
+	dbh()->do(
+		  "UPDATE raw_footage SET status = 'processed' WHERE filename = ?",
+		  {},
+		  $filename);
+	
+    }
+
+    dbh()->commit();
 
     return 1;
+
 }
 
 sub get_processing_requests {
     my ($self) = @_;
 
-    my $q = BBCParl::SQS->new();
+    $self->debug("look for programmes to process");
 
-    my $requests_queue = $self->{'constants'}{'processing-requests-queue'};
+    my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' AND rights != 'none' ORDER BY broadcast_start asc");
+    $st->execute();
+
+    # TODO - fetch all programmes, filter by rights; for "internet"
+    # process as normal; for all others, update status to
+    # "will-not-process" (since we don't have the rights)
+
     my $request_id = 0;
 
-    $self->debug("Checking for messages from the processing queue (EC2)");
+    while (my @row = $st->fetchrow_array()) {
 
-    my $messages_to_get = 2;
+	my %data = ( 'id' => $row[0],
+		     'location' => $row[1],
+		     'broadcast_start' => $row[2],
+		     'broadcast_end' => $row[3],
+		     'channel_id' => $row[4],
+		     'action' => 'process-raw-footage',
+		     'formats' => 'flash,mp4,thumbnail');
+	
+	# TODO - make this work for all channels (have to specify what
+	# channels to process in an input param somewhere)
 
-    while ($messages_to_get > 0) {
-	$self->debug("DEBUG: Checking the queue for a new message");
-	my ($message_body, $queue_url, $message_id) = $q->receive($requests_queue);
-	if ($message_id) {
-	    #warn "DEBUG: Got $message_id";
-	    $self->{'requests'}{$request_id}{'message-id'} = $message_id;
-	    foreach my $line (split("\n",$message_body)) {
-		if ($line =~ /(.+)=(.+)/) {
-		    $self->{'requests'}{$request_id}{$1} = $2;
-		}
+	if (lc($data{'channel_id'}) eq 'bbcparl') {
+	    $data{'channel_id'} = 'parliament';
+	}
+	
+	foreach my $key (keys %data) {
+	    $self->debug("$key = $data{$key}");
+	    $self->{'requests'}{$request_id}{$key} = $data{$key};
+	}
+
+	# TODO - need to include thumbnails
+
+	# NOTE: mplayer $inputFilename -ss $timeOffsetInSeconds
+	# -nosound -vo jpeg:outdir=$outDir -frames 1 will always
+	# generate two thumbnails (from
+	# http://gallery.menalto.com/node/40548)
+
+	$request_id += 1;
+
+    }
+
+    $self->debug("done getting processing requests");
+
+    return ($request_id + 1);
+
+}
+
+sub get_footage_for_programmes {
+    my ($self) = @_;
+
+    my $progs_to_process = 0;
+
+    foreach my $request_id (sort {$a <=> $b} %{$self->{'requests'}}) {
+    
+	unless(defined($self->{'requests'}{$request_id})) {
+	    next;
+	}
+
+	$self->debug(Dumper $self->{'requests'}{$request_id});
+
+	my $start_p = $self->{'requests'}{$request_id}{'broadcast_start'};
+	my $end_p = $self->{'requests'}{$request_id}{'broadcast_end'};
+	
+	my $sql = "select filename, start_dt, end_dt from raw_footage where channel_id = ? and "
+	    . "( "
+	    . "( ( start_dt <= ? or start_dt <= ?) and ( end_dt >= ? or end_dt >= ? ) ) "
+	    . " or "
+	    . "( ( start_dt > ? ) and ( end_dt < ? ) ) "
+	    . ") order by filename asc;";
+
+	# TODO - make this work for all channels (have to specify what
+	# channels to process in an input param somewhere)
+
+	my $channel_id = 'BBCParl';
+
+	my $st = dbh()->prepare($sql);
+	$st->execute($channel_id,
+		     $start_p, $end_p,
+		     $start_p, $end_p,
+		     $start_p, $end_p);
+
+	my @filenames = ();
+	
+	# determine which footage files should be addressed for this programme
+    
+	while (my @row = $st->fetchrow_array()) {
+
+	    my $filename = $row[0];
+	    my $start_dt = $row[1];
+	    my $end_dt = $row[2];
+
+	    $self->debug("adding $filename");
+
+	    push @filenames, $filename;
+	    next;
+
+	    $self->debug("check between $start_dt and $end_dt ($filename)");
+
+	    if ($start_p gt $end_dt && $end_p gt $end_dt) {
+		$self->debug("Skipping $filename");
+	    } elsif ($start_p lt $end_dt && $end_p gt $start_dt) {
+		$self->debug("hit on $filename");
+		push @filenames, $filename;
+	    } elsif ($start_p lt $end_dt && $end_p lt $end_dt) {
+		$self->debug("final hit on $filename");
+		push @filenames, $filename;
+		last;
 	    }
-	    $self->{'processing-requests-queue'}{'queue-url'} = $queue_url;
+	}
 
-	    $self->debug("DEBUG: Removing request $request_id from the processing queue");
-
-	    my $retries = 5;
-
-	    while ($retries > 0) {
-
-		if ($q->delete($self->{'processing-requests-queue'}{'queue-url'},
-				   $self->{'requests'}{$request_id}{'message-id'})) {
-		    last;
-		} else {
-		    warn "ERROR: Did not remove request $request_id from the procesing queue";
-		    $retries -= 1;
-		    sleep 10;
-		}
-	    }
-
-	    $messages_to_get -= 1;
-	    $request_id += 1;
-
+	if (@filenames) {
+	    $self->{'requests'}{$request_id}{'footage'} = join (',',@filenames);
+	    $progs_to_process += 1;
 	} else {
-	    $self->debug("DEBUG: No more messages in queue");
-	    last;
+	    $self->debug("No footage files found for this programme - marking as footage-not-available and skipping.");
+	    $self->debug("TODO - not updating status of programme - remove the next line!");
+	    next;
+
+	    dbh()->do(
+		      "UPDATE programmes SET status = 'footage-not-available' WHERE id = ?",
+		      {},
+		      $self->{'requests'}{$request_id}{'id'});
+	    next;
 	}
 
     }
 
-    return 1;
+    return $progs_to_process;
 
 }
 
 sub process_requests { 
    my ($self) = @_;
 
-   my $q = BBCParl::SQS->new();
-
    $self->debug("DEBUG: starting to process requests");
-
-#   warn "DEBUG: preparing to mirror footage on local storage";
 
    my $skip_request = undef;
 
-#   unless ($self->mirror_footage_locally()) {
-#       warn "DEBUG: Did not mirror necessary footage; unrecoverable error, skipping request.";
-#       $skip_request = 1;
-#   }
-   
-   foreach my $request_id (sort keys %{$self->{'requests'}}) {
+   foreach my $request_id (sort {$a <=> $b} keys %{$self->{'requests'}}) {
+
+       $self->debug("processing request $request_id");
 
        $skip_request = undef;
 
@@ -161,7 +479,7 @@ sub process_requests {
 
        # calculate the offset(s) for each file of raw footage
 
-       $self->debug("DEBUG: Calculating offsets for FLV encoding");
+       $self->debug("DEBUG: Calculating offsets within each raw footage file where video encoding should start");
 
        my ($start,$end) = map { $self->{'requests'}{$request_id}{$_}; } qw (broadcast_start broadcast_end);
 
@@ -178,18 +496,18 @@ sub process_requests {
 
 	   # remove bucket name from $filename
 
-	   if ($filename =~ /^(.+?)\/(.+)$/) {
+	   if ($filename =~ /^(.+?)([^\/]+)$/) {
 	       $filename = $2;
 	   }
 
 	   $self->debug("Calculating offset for $filename");
 
-	   my ($file_start, $file_end) = BBCParl::EC2::extract_start_end($filename);
+	   my ($file_start, $file_end) = BBCParl::Common::extract_start_end($filename);
 	   map { s/Z//; } ($file_start, $file_end);
 
 	   # does the footage end before this file starts?
 	   if ($end lt $file_start) {
-	       $self->debug("DEBUG: Programme already ended, skipping $filename");
+	       $self->debug("Programme already ended, skipping $filename");
 	       last;
 	   }
 
@@ -233,7 +551,7 @@ sub process_requests {
 
 	       if (($i + 1 < @filenames) && (my $next_filename = $filenames[$i+1])) {
 		   
-		   my ($next_start,$next_end) = BBCParl::EC2::extract_start_end($next_filename);
+		   my ($next_start,$next_end) = BBCParl::Common::extract_start_end($next_filename);
 
 		   # if the next file starts before start, we can just
 		   # use that footage, so skip the current file
@@ -255,7 +573,7 @@ sub process_requests {
 
 	   }
 
-	   $self->debug("duration is $duration");
+	   $self->debug("duration of video encoding in this raw footage file is $duration");
 
 	   $encoding_args->{$filename}{'duration'} = $duration;
 	   $encoding_args->{$filename}{'offset'} = $offset;
@@ -273,9 +591,12 @@ sub process_requests {
 	   $skip_request = 1;
        }
    
-       $self->debug("DEBUG: Encoding args are:");
+       $self->debug("Encoding args are:");
 
        $self->debug(Dumper $encoding_args);
+
+       # TODO - make this a loop that operates on each encoding type
+       # in turn (e.g. flv, mp4, thumbnails)
 
        # now comes the video encoding, which is done in several stages
        # by a mixture of ffmpeg and mencoder
@@ -283,14 +604,14 @@ sub process_requests {
        my $mencoder = $self->{'path'}{'mencoder'};
        my $ffmpeg = $self->{'path'}{'ffmpeg'};
        my $prog_id = $self->{'requests'}{$request_id}{'id'};
-       my $output_dir = $self->{'path'}{'output-cache-dir'};
+       my $output_dir = $self->{'path'}{'output-dir'};
    
        my $avi_args = undef;
        my $intermediate = 0;
 
-       # extract FLV file slices from the MPEG files
+       # extract video file slices from the MPEG files
 
-       my @flv_slices = ();
+       my @video_slices = ();
        $intermediate = 0;
 
        foreach my $filename (@files_used) {
@@ -301,13 +622,13 @@ sub process_requests {
 
 	   $self->debug("DEBUG: Using part of $filename");
 
-	   if ($filename =~ /^(.+?)\/(.+)$/) {
+	   if ($filename =~ /^(.+?)([^\/]+)$/) {
 	       $filename = $2;
 	   }
 
-	   #warn "DEBUG: Indexing on $filename";
+	   my $input_dir_filename = $self->{'path'}{'footage-cache-dir'} . $filename;
+	   $self->debug("input filename is now $input_dir_filename");
 
-	   my $input_dir_filename = $self->{'path'}{'footage-cache-dir'} . "/" . $filename;
 	   my $output_dir_filename = "$output_dir/$prog_id.slice.$intermediate.flv";
 
 	   unless ($input_dir_filename) {
@@ -333,7 +654,7 @@ sub process_requests {
 	   $self->debug("DEBUG: Create FLV slice: $ffmpeg -v quiet $flash_args 2>&1");
 	   $self->debug("DEBUG: starting FLV encoding at " . `date`);
 	   my $ffmpeg_output = `$ffmpeg -v quiet $flash_args 2>&1`;
-	   $self->debug("DEBUG: ending FLV encoding at " . `date`);
+	   $self->debug("DEBUG: finished FLV encoding at " . `date`);
 	   #warn $ffmpeg_output;
 
 	   # TODO - the following error-catching code doesn't seem to
@@ -360,45 +681,27 @@ sub process_requests {
 	       last;
 	   }
 	   
-	   push @flv_slices, $output_dir_filename;
+	   push @video_slices, $output_dir_filename;
 	   $intermediate += 1;
        }
 
        if ($skip_request) {
 	   warn "ERROR: Unrecoverable error; skipping request $request_id and marking as footage-not-available";
 
-	   my $token = "$prog_id.flv,footage-not-available";
-	   my $queue_name = $self->{'constants'}{'available-programmes-queue'};
+	   $self->set_prog_status($prog_id, "footage-not-available");
 	   
-	   my $retries = 5;
-
-	   while ($retries > 0) {
-
-	       if ($q->send($queue_name, $token)) {
-		   $self->debug("sent update for programme $prog_id (request $request_id) via $queue_name");
-		   last;
-	       } else {
-		   $retries -= 1;
-		   sleep 10;
-	       }
-
-	       if ($retries == 0) {
-		   warn "ERROR: Could not add a message to the available programmes queue";
-		   next;
-	       }
-
-	   }
+	   next;
 
        }
 
        # if there is more than one slice, concatenate them all using
        # mencoder
 
-	   if (@flv_slices > 1) {
+	   if (@video_slices > 1) {
 
 	   $self->debug("DEBUG: Joining slices together");
 
-	   my $input_filenames = join (' ', @flv_slices);
+	   my $input_filenames = join (' ', @video_slices);
 
 	   my $output_dir_filename = "$output_dir/$prog_id.flv";
 
@@ -429,81 +732,76 @@ sub process_requests {
 
        }
 
-       my $bucket = $self->{'constants'}{'programmes-bucket'};
-       my $local_filename = "$output_dir/$prog_id.flv";
-       my $remote_filename = "$bucket/$prog_id.flv";
+       my $final_output_filename = "$output_dir/$prog_id.flv";
        
-       $self->debug("DEBUG: adding FLV metadata (using yamdi on $local_filename)");
-
        # update FLV file cue-points using yamdi
 
        my $yamdi = $self->{'path'}{'yamdi'};
+       my $yamdi_input = $final_output_filename;
+       my $yamdi_output = "$yamdi_input.yamdi";
 
-       `$yamdi -i $local_filename -o $local_filename.yamdi`;
-       unlink($local_filename);
-       `mv $local_filename.yamdi $local_filename`;
+       $self->debug("DEBUG: adding FLV metadata (using $yamdi on $yamdi_input)");
 
-       my $token;
+       if (-e $yamdi) {
+	   
+	   my $yamdi_command = "$yamdi -i $yamdi_input -o $yamdi_output";
+	   $self->debug($yamdi_command);
+	   my $yamdi_command_output =`$yamdi_command`;
 
-       my $file_size = `ls -sh $local_filename`;
+	   if (-e $yamdi_output) {
+	       unlink($yamdi_input);
+	       `mv $yamdi_output $yamdi_input`;
+	   } else {
+	       warn "ERROR: could not find $yamdi_output";
+	       warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
+	       warn "ERROR: yamdi said: $yamdi_command_output";
+	   }
+
+       } else {
+	   warn "ERROR: Could not find yamdi ($yamdi does not exist)";
+	   warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
+       }
+
+       my $status = 'available';
+
+       my $file_size = `ls -sh $final_output_filename`;
 
        unless ($file_size) {
-	   $token = "$remote_filename,footage-not-available";
+	   $status = "footage-not-available";
        }
 
        if ($file_size) {
 	   $self->debug("DEBUG: file size is $file_size");
 	   if ($file_size eq '4.0K') {
-	       warn "ERROR: Empty file, not-available";
-	       $token = "$remote_filename,footage-not-available";
+	       warn "ERROR: Empty file, footage-not-available";
+	       $status = "footage-not-available";
 	   }
        }
 	   
-       unless ($token) {
-
-	   my $store = BBCParl::S3->new();
-
-	   # upload the FLV file and make it world-readable
-
-	   if ($store->put($local_filename, $remote_filename, 'public')) {
-
-	       $self->debug("DEBUG: Stored $local_filename in S3 as $remote_filename");
-	       $token = "$remote_filename,available";
-
-	   } else {
-
-	       warn "ERROR: Failed to store $local_filename in S3";
-	       $token = "$remote_filename,processed-but-not-stored-in-S3";
-
-	   }
-
-       }
-
-       my $queue_name = $self->{'constants'}{'available-programmes-queue'};
-	   
-       my $retries = 5;
-
-       while ($retries > 0) {
-	   
-	   if ($q->send($queue_name, $token)) {
-	       $self->debug("sent update for programme $prog_id (request $request_id) via $queue_name");
-	       last;
-	   } else {
-	       $retries -= 1;
-	       sleep 10;
-	   }
-	   
-	   if ($retries == 0) {
-	       warn "ERROR: Could not add a message to the available programmes queue ($token)";
-	   }
-
-       }
+       $self->set_prog_status($prog_id, $status);
 
    }
 
    $self->debug("DEBUG: end processing of requests");
 
    return 1;
+
+}
+
+sub set_prog_status {
+    my ($self, $prog_id, $status) = @_;
+
+    $self->debug("programme $prog_id status $status");
+
+    dbh()->do(
+	      "UPDATE programmes SET status = ? WHERE id = ?",
+	      {},
+	      $status,
+	      $prog_id);
+    
+    dbh()->commit();
+
+    $self->debug("updated status $prog_id $status");
 
 }
 
@@ -514,10 +812,12 @@ sub cache_cleanup {
     
     # Once we've done all the requests in the queue, remove all mpeg
     # files from the local raw-footage cache more than 3 days old
+
+    my $days_to_keep = 7;
     
-    my $week_old_dt = DateTime->now();
-    $week_old_dt->subtract( days => 4 );
-    my $cutoff = $week_old_dt->datetime();
+    my $cutoff_dt = DateTime->now();
+    $cutoff_dt->subtract( days => $days_to_keep );
+    my $cutoff = $cutoff_dt->datetime();
 
     $self->debug("cache_cleanup for raw-footage: cutoff datetime is $cutoff");
 
@@ -549,8 +849,8 @@ sub calculate_offset {
 
     #warn "$d1 <-> $d2";
 
-    my @d1 = BBCParl::EC2::extract_datetime_array ($d1);
-    my @d2 = BBCParl::EC2::extract_datetime_array ($d2);
+    my @d1 = BBCParl::Common::extract_datetime_array ($d1);
+    my @d2 = BBCParl::Common::extract_datetime_array ($d2);
 	       
     my $dt = DateTime->new(@d1);
     my $diff = $dt->subtract_datetime_absolute( DateTime->new(@d2));
