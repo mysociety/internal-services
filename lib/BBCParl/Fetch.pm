@@ -3,11 +3,8 @@ package BBCParl::Fetch;
 use strict;
 
 use POSIX qw (strftime);
-use BBCParl::EC2;
-use BBCParl::S3;
-use BBCParl::SQS;
-
-use mySociety::Config;
+use mySociety::DBHandle qw (dbh);
+use BBCParl::Common;
 
 sub debug {
     my ($self, $message) = @_;
@@ -17,9 +14,19 @@ sub debug {
     return undef;
 }
 
+# TODO add in parallel downloads feature (choose larger of the two files)
+
+# TODO move across from Programmes.pm the subroutine
+# update_raw_footage_table (see TODO in that file) and move subroutine
+# extract_start_end into BBCParl::Common (and then update the manner
+# in which it is called by Programmes.pm and Fetch.pm and others).
+
 sub new {
+    
     my ($class, %args) = @_;
+
     my $self = {};
+
     bless $self, $class;
 
     foreach my $key (keys %args) {
@@ -31,27 +38,27 @@ sub new {
     }
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
-    $self->{'path'}{'config-dir'} = $self->{'path'}{'home-dir'} . '/conf';
 
-    $self->{'path'}{'processing-dir'} = '/mnt/processing';
-    $self->{'path'}{'downloads-dir'} = $self->{'path'}{'processing-dir'} . '/downloads';
-    $self->{'path'}{'mpeg-output-dir'} = $self->{'path'}{'processing-dir'} . '/raw-footage';
+    $self->{'path'}{'config-dir'} = "$FindBin::Bin/../conf/";
+
+    $self->load_config(); # work out what we need to download
+
+    $self->{'path'}{'downloads-dir'} = mySociety::Config::get('FOOTAGE_DIR');
+
+    $self->{'path'}{'mpeg-output-dir'} = $self->{'path'}{'downloads-dir'};
     
-#    $self->{'path'}{'aws'} = $self->{'path'}{'home-dir'} . '/bin/aws/aws';
+    $self->{'path'}{'process-program'} = '/usr/bin/ffmpeg';
 
-    $self->{'path'}{'ffmpeg'} = 'ffmpeg';
+    $self->{'path'}{'fetch-program'} = '/usr/bin/mplayer';
 
-    $self->{'path'}{'fetch-program'} = 'mplayer';
-
-    # TODO - eventually, we should have a per-download sleep period, and fork() to sleep/reap individual downloads
+    # TODO - eventually, we should have a per-download sleep period,
+    # and fork() to sleep/reap individual downloads
 
     #$self->{'constants'}{'download-sleep'} = 23400;  # 23400 secs == 6 hours = 60 secs * 60 mins * 6 hours
 
     $self->{'constants'}{'download-sleep'} = 4500;  # 4500 secs == 1.25 hours = 60 secs * 60 mins * 1.25 hours
 
-    $self->{'constants'}{'raw-footage-bucket'} = mySociety::Config::get('BBC_BUCKET_RAW_FOOTAGE');
-    # raw-footage is ec2->bitter
-    $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
+    $self->{'constants'}{'output-dimensions'} = "320x180";
 
     return $self;
 }
@@ -59,22 +66,24 @@ sub new {
 sub run {
     my ($self) = @_;
 
-#    warn "INFO: starting to download video";
+    $self->debug("starting to download video");
 
-    $self->load_config(); # work out what we need to download
     $self->fetch_video(); # start mplayer downloading the video
     $self->reap_processes(); # kill mplayer
     $self->process_raw_files(); # convert raw files (wmv, etc.) to mpg files
-    $self->upload_processed_files(); # upload mpg files to amazon S3 storage
 
-#    warn "INFO: finished downloading video";
+#    $self->upload_processed_files(); # upload mpg files to amazon S3 storage
+
+    $self->update_database();
+
+    $self->debug("DONE");
 
 }
 
 sub load_config {
     my ($self) = @_;
-
-#    warn "INFO: loading config files";
+    
+    $self->debug("loading config files");
 
     my $channels_config_filename = $self->{'path'}{'config-dir'} . '/channels.conf';
 
@@ -107,6 +116,8 @@ sub load_config {
     close (CHANNELS);
 
     foreach my $channel (@channels) {
+
+	$self->debug("loading config for channel $channel");
 
 	# load the per-channel config files
 
@@ -144,6 +155,8 @@ sub load_config {
 
     }
 
+    $self->debug("loaded channels config - all done");
+
 }
 
 sub fetch_video {
@@ -151,7 +164,7 @@ sub fetch_video {
 
     foreach my $channel (keys %{$self->{'channels'}}) {
 
-#	warn "INFO: fetching video for $channel";
+	$self->debug("fetching video for $channel");
 
 	unless (defined($self->{'channels'}{$channel}{'args'}{'stream'})) {
 	    warn "ERROR: stream URL not defined; skipping download for $channel.";
@@ -165,20 +178,10 @@ sub fetch_video {
 	my $date_time_format = '%FT%TZ';
 	my $date_time = strftime($date_time_format,gmtime());
 	
-	unless (-e $self->{'path'}{'downloads-dir'} . "/$channel") {
-	    #warn "INFO: Creating new directory for downloads (" . $self->{'path'}{'downloads-dir'} . "/$channel)";
-	    # create directory for this channel
-	    unless (mkdir($self->{'path'}{'downloads-dir'} . "/$channel",770)) {
-		warn "ERROR: Could not create directory (" . $self->{'path'}{'downloads-dir'} . "/$channel)";
-		warn "ERROR: Skipping download for $channel";
-		next;
-	    }
-	}
-
 	my $directory = $self->{'path'}{'downloads-dir'};
-	my $filename = "$channel/$channel.$date_time." . $self->{'channels'}{$channel}{'args'}{'file-type'};
+	my $filename = "$directory/$channel.$date_time." . $self->{'channels'}{$channel}{'args'}{'file-type'};
 
-	$self->{'channels'}{$channel}{'args'}{'dumpfile'} = "$directory/$filename";
+	$self->{'channels'}{$channel}{'args'}{'dumpfile'} = $filename;
 
 	foreach my $key (keys %{$self->{'channels'}{$channel}{'args'}}) {
 	    if ($key eq 'stream' || $key eq 'file-type') {
@@ -193,24 +196,23 @@ sub fetch_video {
 	my $program = $self->{'path'}{'fetch-program'};
 	my $program_args = join (' ',@program_args);
 	my $command = "$program $program_args";
-#	warn "INFO: running $program $program_args";
+	$self->debug("running: $program $program_args");
 
 	# send mplayer STDOUT output to /dev/null
 
 	my $child_pid = open(PROCESS, "|exec $command > /dev/null");
 
-	# create a reference to PROCESS, just to suppress the
-	# "only-used once" warning
+	# create a reference to PROCESS (required only to suppress the
+	# "only-used once" warning)
 
 	my $process_ref = *PROCESS{IO};
 	
-	# WARNING: DO NOT CLOSE PROCESS!!! If you close PROCESS, the
-	# script will never kill mplayer.
+	# WARNING: do not close() the PROCESS filehandle!!! If you close PROCESS, the
+	# script will never kill mplayer, which is a Bad Thing.
 
-#	warn "INFO: started new mplayer process (pid is $child_pid)";
+	$self->debug("started new mplayer process (pid is $child_pid)");
 
 	$self->{'pids'}{$child_pid}{'command'} = $command;
-	$self->{'pids'}{$child_pid}{'directory'} = $directory;
 	$self->{'pids'}{$child_pid}{'filename'} = $filename;
 
     }
@@ -221,18 +223,18 @@ sub reap_processes {
     my ($self) = @_;
 
     my $duration = $self->{'constants'}{'download-sleep'};
-
-#    warn "INFO: Sleeping for $duration seconds";
+    
+    $self->debug("Sleeping for $duration seconds");
 
     sleep ($duration);
 
-# go through the pids in @child_pids and kill each of them
+    # go through the pids in @child_pids and kill each of them
 
     foreach my $pid (keys %{$self->{'pids'}}) {
 
 	# kill the mplayer process
 
-#	warn "INFO: trying to kill mplayer process (pid is $pid)";
+	$self->debug("trying to kill mplayer process (pid is $pid)");
 	my $count = kill(9,$pid);
 	if ($count < 1) {
 	    warn "ERROR: did not send signal to mplayer process (pid was $pid) - probably died early?";
@@ -243,17 +245,15 @@ sub reap_processes {
 	
 	# work out what files need to be processed
 
-	my $directory = $self->{'pids'}{$pid}{'directory'};
 	my $filename = $self->{'pids'}{$pid}{'filename'};
 
-	unless (-e "$directory/$filename") {
-	    warn "ERROR: Cannot find download file ($directory/$filename) - skipping";
+	unless (-e "$filename") {
+	    warn "ERROR: Cannot find download file ($filename) - skipping";
 	    next;
 	}
 
 	$self->debug("adding $filename to \$self->{'files-to-process'}{$pid}{'filename'}");
 
-	$self->{'files-to-process'}{$pid}{'directory'} = $directory;
 	$self->{'files-to-process'}{$pid}{'filename'} = $filename;
 	$self->{'files-to-process'}{$pid}{'end-date-time'} = $date_time;
 
@@ -266,42 +266,47 @@ sub process_raw_files {
 
     foreach my $pid (sort keys %{$self->{'files-to-process'}}) {
 
-	my $directory = $self->{'files-to-process'}{$pid}{'directory'};
 	my $output_directory = $self->{'path'}{'mpeg-output-dir'};
 	my $filename = $self->{'files-to-process'}{$pid}{'filename'};
 	my $date_time = $self->{'files-to-process'}{$pid}{'end-date-time'};
 
-	my $ffmpeg = $self->{'path'}{'ffmpeg'};
+	my $process_program = $self->{'path'}{'process-program'};
+
+	my $dimensions = $self->{'constants'}{'output-dimensions'};
 
 	# add end-time to output_filename, change extension to .mpeg
 
-	if ($filename =~ /^(.+Z)\.(.+?)$/) {
+	if ($filename =~ /([^\/]+Z)\.(.+?)$/) {
 
-	    my $input_filename = "$directory/$filename";
+	    my $input_filename = $filename;
 	    my $output_filename = "$output_directory/$1$date_time.mpeg";
 
 	    $self->debug("Encoding $input_filename to MPEG format as $output_filename");
 
-	    # convert to MPEG video, 320x180
+	    # convert to MPEG video, 320x180, STDERR to STDOUT
 
-	    my $convert_command = "$ffmpeg -v quiet -async 2 -i $input_filename -s 320x180 $output_filename 2>&1";
-	    $self->debug("$convert_command");
+	    my $convert_command = "$process_program -v quiet -async 2 -i $input_filename -s $dimensions $output_filename 2>&1";
+	    $self->debug("running: $convert_command");
 
+	    $self->debug("DEBUG: starting MPEG encoding at " . `date`);
 	    my $ffmpeg_output = `$convert_command`;
+	    $self->debug("DEBUG: finished MPEG encoding at " . `date`);
+
+	    $self->debug("Output from ffmpeg was: $ffmpeg_output");
 
 	    unless (-e $output_filename) {
 		warn "ERROR: Output file from mpeg conversion not found ($output_filename)";
 		warn "ERROR: Not deleting input file ($input_filename)";
-		warn "ERROR: Output from ffmpeg was: $ffmpeg_output";
 	    } else {
-		$self->{'files-to-upload'}{$output_filename} = 1;
-		unlink ($input_filename);
+		$self->{'database-updates'}{$output_filename} = 1;
+		$self->debug("TEMP ERROR: Not deleting input file ($input_filename)");
+		#unlink ($input_filename);
 	    }
 
 	} else {
 
 	    warn "ERROR: Wrong filename format ($filename)";
-	    warn "ERROR: Skipping processing and upload ($filename)";
+	    warn "ERROR: Skipping processing ($filename)";
 	    next;
 
 	}
@@ -309,54 +314,61 @@ sub process_raw_files {
 
 }
 
-sub upload_processed_files {
+sub update_database {
     my ($self) = @_;
 
-    unless (defined($self->{'files-to-upload'})) {
-	warn "ERROR: Nothing to upload to S3, skipping upload step";
+    unless (defined($self->{'database-updates'})) {
+	warn "ERROR: no database updates required.";
 	return 1;
     }
 
-    my $bucket = $self->{'constants'}{'raw-footage-bucket'};
+    foreach my $filename (sort keys %{$self->{'database-updates'}}) {
+	
+	$self->debug("TODO: update database on bitter with $filename");
 
-    my $store = BBCParl::S3->new();
+	# TODO update raw-footage table
 
-#    use Data::Dumper; warn Dumper $self;
+	# return true unless error
 
-    foreach my $local_filename (sort keys %{$self->{'files-to-upload'}}) {
+	# TODO replace the SQS notifications system with a direct
+	# database update - therefore move this code to Fetch.pm
+	# wholesale (having removed the SQS references) and tweak
+	# accordingly?
 
-	my $remote_filename;
-
-	if ($local_filename =~ /^(.+)\/(.+)$/) {
-	    $remote_filename = "$bucket/$2";
+	# foreach filename, insert its details into db bbcparlvid
+	# table raw-footage (status = not-yet-processed)
+	
+	if (dbh()->selectrow_array('SELECT filename FROM raw_footage WHERE filename = ?',  {}, $filename)) {
+	    warn "ERROR: raw footage $filename is already registered in the database";
+	    next;
 	}
 	
-	my $q = BBCParl::SQS->new();
-	
-	my $token = $remote_filename;
-	my $queue_name = $self->{'constants'}{'raw-footage-queue'};
-	
-	my $retries = 5;
+	$self->debug("updating raw_footage db table to include channel name (derived from filename)");
 
-	while ($retries > 0) {
-
-	    if ($q->send($queue_name, $token)) {
-		$self->debug("Sent footage update message to queue $queue_name");
-		last;
-	    } else {
-		$retries -= 1;
-		sleep 10;
-	    }
-		
-	    if ($retries == 0) {
-		warn "ERROR: Could not send message to raw-footage-queue $queue_name";
-	    }
+	my ($start, $end) = BBCParl::Common::extract_start_end($filename);
 	
+	my $channel = 'unknown';
+	if ($filename =~ /bbcparliament/) {
+	    $channel = 'BBCParl';
 	}
 
+	if ($start && $end) {
+	    $self->debug("Adding raw footage $filename to database");
+	    {
+		dbh()->do(
+			  "INSERT INTO raw_footage (filename, start_dt, end_dt, status, channel_id)
+                       VALUES(?, ?, ?, 'not-yet-processed', ?)",
+			  {},
+			  $filename, $start, $end, $channel);
+	    }
+	} else {
+	    warn "ERROR: $filename is not correct format";
+	    warn "ERROR: Cannot add $filename to database for processing";
+	}
+	
     }
-    
-    return 1;
+
+    dbh()->commit();
 
 }
 
