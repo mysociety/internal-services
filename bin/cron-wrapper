@@ -10,14 +10,15 @@ use lib "$FindBin::Bin/../lib";
 use lib "$FindBin::Bin/../../perllib";
 
 use mySociety::Config;
-use mySociety::EmailUtil qw (is_valid_email send_email);
+use mySociety::Util;
+use mySociety::EmailUtil qw(is_valid_email send_email); 
 
-my $debug = 1;
+my $debug = 0;
 
 sub debug {
     my ($line) = @_;
     if ($debug) {
-	print "DEBUG: $line";
+	print "DEBUG: $line\n";
     }
 }
 
@@ -68,7 +69,7 @@ if ($script_output) {
 	warn "ERROR: $script_name had errors:\n$script_output";
 	die;
     }
-    my $email = "To: $send_to_email\nFrom: $send_from_email\nSubject: [bbcparlvid] error: $script_name\n\n$script_output";
+    my $email = "To: $send_to_email\nFrom: $send_from_email\nSubject: [bbcparlvid] $output_label: $script_name\n\n$script_output";
     my $send_email_return = send_email($email, $send_from_email, $send_to_email);
     if ($send_email_return) {
 	warn "ERROR: could not send email using mySociety::EmailUtil::send_email (error code: $send_email_return)";
