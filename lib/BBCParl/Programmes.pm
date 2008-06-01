@@ -16,7 +16,7 @@ use DateTime;
 use DateTime::TimeZone;
 
 use mySociety::DBHandle qw (dbh);
-use BBCParl::SQS;
+use BBCParl::Common;
 
 use mySociety::Config;
 
@@ -27,6 +27,10 @@ sub debug {
     }
     return undef;
 }
+
+# TODO make this load channels.conf, check that for channel_ids, and
+# then process footage one channel at a time - needs to update across
+# multiple subroutines
 
 sub new {
     my ($class, %args) = @_;
@@ -40,13 +44,6 @@ sub new {
     foreach my $key (keys %args) {
 	$self->{'args'}{$key} = $args{$key};
     }
-
-    # raw-footage is ec2->bitter
-    $self->{'constants'}{'raw-footage-queue'} = mySociety::Config::get('BBC_QUEUE_RAW_FOOTAGE');
-    # processing-requests is bitter->ec2
-    $self->{'constants'}{'processing-requests-queue'} = mySociety::Config::get('BBC_QUEUE_PROCESSING_REQUESTS');
-    # available-programmes is ec2->bitter
-    $self->{'constants'}{'available-programmes-queue'} = mySociety::Config::get('BBC_QUEUE_AVAILABLE_PROGRAMMES');
 
     $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
 
@@ -73,74 +70,7 @@ sub new {
     return $self;
 }
 
-sub update_raw_footage_table {
-    my ($self) = @_;
-
-    # TODO - replace this with an SQS-based system of raw-footage
-    # notifications
-
-    my $q = BBCParl::SQS->new();
-    
-    my $requests_queue = $self->{'constants'}{'raw-footage-queue'};
-    my $num_requests = 0;
-
-    # start off by checking the queue for new footage files that have
-    # been added to S3
-
-    while (1) {
-#        warn "DEBUG: Getting a message from the queue";
-        my ($message_body, $queue_url, $message_id) = $q->receive($requests_queue);
-        if ($message_id) {
-	    $self->{'raw-footage-to-add'}{$message_body} = $message_id;
-	    $self->{'raw-footage-queue-url'} = $queue_url;
-	    $num_requests += 1;
-        } else {
-#            warn "DEBUG: No more messages in queue";
-            last;
-        }
-    }
-
-    # foreach filename, insert its details into db bbcparlvid
-    # table raw-footage (status = not-yet-processed)
-
-    foreach my $filename (keys %{$self->{'raw-footage-to-add'}}) {
-	if (dbh()->selectrow_array('SELECT filename FROM raw_footage WHERE filename = ?',  {}, $filename)) {
-	    #warn "DEBUG: raw footage $filename is already registered in the database";
-	    next;
-	}
-	my ($start, $end) = extract_start_end($filename);
-	if ($start && $end) {
-	    warn "DEBUG: Adding raw footage $filename to database";
-	    {
-		dbh()->do(
-			  "INSERT INTO raw_footage (filename, start_dt, end_dt, status)
-                       VALUES(?, ?, ?, 'not-yet-processed')",
-			  {},
-			  $filename, $start, $end);
-	    }
-	} else {
-	    warn "ERROR: $filename is not correct format";
-	    warn "ERROR: Cannot add to database for processing";
-	}
-	$q->delete($self->{'raw-footage-queue-url'}, # queue_url
-		   $self->{'raw-footage-to-add'}{$filename}); # message_id
-	
-    }
-
-    dbh()->commit();
-
-    return $num_requests;
-
-}
-
-sub extract_start_end {
-    my ($filename) = @_;
-    if ($filename =~ /.+?(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})Z(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})Z/) {
-	return ("$1 $2", "$3 $4");
-    } else {
-	return undef;
-    }
-}
+# TODO move the following to Process.pm (connecting from sponge to bitter directly)
 
 sub get_raw_footage_to_process {
     my ($self) = @_;
@@ -166,7 +96,7 @@ sub update_footage_status {
     my ($self) = @_;
 
     foreach my $filename (keys %{$self->{'raw-footage-to-process'}}) {
-	warn "DEBUG: setting status = 'processed' for $filename";
+	$self->debug("setting status = 'processed' for $filename");
 
 	dbh()->do(
 		  "UPDATE raw_footage SET status = 'processed' WHERE filename = ?",
@@ -188,7 +118,7 @@ sub calculate_date_time_range {
     my $end = '';
 
     foreach my $filename (sort keys %{$self->{'raw-footage-to-process'}}) {
-	warn "DEBUG: Calculating date-range with $filename";
+	$self->debug("Calculating date-range with $filename");
 	if ($filename =~ /.+?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z/) {
 	    if ($start eq '' || $start gt $1) {
 		$start = $1;
@@ -202,7 +132,7 @@ sub calculate_date_time_range {
     if ($start && $end) {
 	$self->{'params'}{'start'} = $start;
 	$self->{'params'}{'end'} = $end;
-	warn "DEBUG: Files range from $start to $end";
+	$self->debug("Files range from $start to $end");
 	return ($start, $end);
     } else {
 	warn "ERROR: Did not calculate a date-range.";
@@ -213,14 +143,6 @@ sub calculate_date_time_range {
 
 sub update_programmes_from_footage {
     my ($self) = @_;
-
-    # connect to bbcparlvid database
-
-    my $dbh = mySociety::DBHandle->new_dbh();
-    unless ($dbh) {
-	warn "FATAL: Cannot connect to database.";
-	return undef;
-    }
 
     # call the BBC TV web api
 
@@ -392,7 +314,7 @@ sub update_programmes_from_footage {
 				   $prog_start,
 				   $self->{'programmes'}{$prog_start}{'channel_id'},
 				   )) {
-	    #warn "DEBUG: $prog_start is already in the database; skipping duplicate database insert.";
+	    $self->debug("$prog_start is already in the database; skipping duplicate database insert.");
 	    next;
 	}
 
@@ -404,7 +326,7 @@ sub update_programmes_from_footage {
 	}
 
 	{
-	    #warn "INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")";
+	    $self->debug("INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")");
 	    dbh->do("INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")",
 		    {},
 		    map {
@@ -418,170 +340,5 @@ sub update_programmes_from_footage {
 
 }
 
-sub enqueue_processing_requests {
-    my ($self) = @_;
-
-    my $queue = BBCParl::SQS->new();
-    my $queue_name = $self->{'constants'}{'processing-requests-queue'};
-    my $message_count = 0;
-
-    my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' AND rights != 'none' ORDER BY id");
-    $st->execute();
-
-    # TODO - fetch all programmes, filter by rights; for "internet"
-    # process as normal; for all others, update status to
-    # "will-not-process" (since we don't have the rights)
-
-    while (my @row = $st->fetchrow_array()) {
-
-	my %data = ( 'id' => $row[0],
-		     'location' => $row[1],
-		     'broadcast_start' => $row[2],
-		     'broadcast_end' => $row[3],
-		     'channel_id' => $row[4],
-		     'action' => 'process-raw-footage',
-		     'formats' => 'flash,mp4');
-	
-	if (lc($data{'channel_id'}) eq 'bbcparl') {
-	    $data{'channel_id'} = 'parliament';
-	}
-	
-	my $token = '';
-	
-	foreach my $key (keys %data) {
-	    $token .= "$key=" . $data{$key} . "\n";
-	}
-	
-	# warn Dumper %data;
-	
-	my @filenames = ();
-	foreach my $filename (sort keys %{$self->{'raw-footage-to-process'}}) {
-	    my ($start, $end) = extract_start_end($filename);
-	    warn "DEBUG: check between $start and $end ($filename)";
-	    
-	    if ($data{'broadcast_start'} gt $end && $data{'broadcast_end'} gt $end) {
-		$self->debug("Skipping $filename");
-	    } elsif ($data{'broadcast_start'} lt $end && $data{'broadcast_end'} gt $end) {
-		warn "DEBUG: hit on $filename";
-		push @filenames, $filename;
-	    } elsif ($data{'broadcast_start'} lt $end && $data{'broadcast_end'} lt $end) {
-		warn "DEBUG: final hit on $filename";
-		push @filenames, $filename;
-		last;
-	    }
-	}
-
-	if (@filenames) {
-	    $token .= "footage=" . join (',',@filenames) . "\n";
-	} else {
-	    warn "DEBUG: No footage files found - skipping this one";
-	    dbh()->do(
-		      "UPDATE programmes SET status = 'footage-not-available' WHERE id = ?",
-		      {},
-		      $data{'id'});
-	    next;
-	}
-	
-	# TODO - need to include thumbnails
-
-	# TODO - re-use the gid-getting code from Captions.pm - move
-	# it into BBCParl::Util, and have something that can return
-	# all gids in a given time-frame. I think this should work.
-
-	# TODO - foreach token - work out all gids on $date that fall
-	# within start/end times, get the htime (TWFY API) for each of
-	# them, convert htime to UTC, and add them to the token
-	# (i.e. these are the date-times for PNG image capture)
-
-	# NOTE: mplayer $inputFilename -ss $timeOffsetInSeconds
-	# -nosound -vo jpeg:outdir=$outDir -frames 1 will always
-	# generate two thumbnails (from
-	# http://gallery.menalto.com/node/40548)
-
-	# foreach token, add to the Amazon SQS queue
-	# 'bbcparlvid-processing-requests'
-
-	warn "DEBUG: Adding programme $data{'id'} to the processing queue $queue_name";
-
-	warn Dumper $token;
-
-	if ($queue->send($queue_name, $token)) {
-	    $message_count += 1;
-	} else {
-	    warn "ERROR: Failed to send Amazon SQS message ($queue_name)";
-	}
-
-	warn "DEBUG: Updating status of programme (id=$data{'id'})";
-
-	dbh()->do(
-		  "UPDATE programmes SET status = 'added-to-processing-queue' WHERE id = ?",
-		  {},
-		  $data{'id'});
-
-    }
-
-#    dbh()->commit();
-
-    warn "DEBUG: Sent $message_count processing requests to EC2";
-
-    return 1;
-
-}
-
-sub update_programmes_from_processing {
-    my ($self) = @_;
-
-    # connect to bbcparlvid database
-
-    my $dbh = mySociety::DBHandle->new_dbh();
-    unless ($dbh) {
-	warn "FATAL: Cannot connect to database.";
-	return undef;
-    }
-
-    my $updates_queue = $self->{'constants'}{'available-programmes-queue'};
-
-    my $q = BBCParl::SQS->new();
-
-    while (1) {
-#        warn "DEBUG: Getting a message from the queue $updates_queue";
-        my ($message_body, $queue_url, $message_id) = $q->receive($updates_queue);
-        if ($message_id) {
-#            warn "DEBUG: Got $message_id";
-	    $self->{'new-programmes'}{$message_id} = $message_body;
-	    $self->{'new-programmes-queue-url'} = $queue_url;
-        } else {
-#            warn "DEBUG: No more messages in queue $updates_queue";
-            last;
-        }
-    }
-
-    foreach my $message_id (keys %{$self->{'new-programmes'}}) {
-	if ($self->{'new-programmes'}{$message_id} =~ /(\d+).flv,(.+)/i) {
-	    warn "DEBUG: programme $1 status $2";
-	    dbh()->do(
-		      "UPDATE programmes SET status = ? WHERE id = ?",
-		      {},
-		      $2,
-		      $1);
-	    $q->delete($self->{'new-programmes-queue-url'},
-		       $message_id);
-	} elsif ($self->{'new-programmes'}{$message_id} =~ /(\d+).flv/i) {
-	    dbh()->do(
-		      "UPDATE programmes SET status = 'available' WHERE id = ?",
-		      {},
-		      $1);
-	    $q->delete($self->{'new-programmes-queue-url'},
-		       $message_id);
-	} else {
-	    warn "ERROR: Incorrect message format ($self->{'new-programmes'}{$message_id})";
-	}
-    }
-
-    dbh()->commit();
-
-    return 0;
-
-}
 
 1;
