@@ -1,0 +1,66 @@
+--- yamdi-1.4/yamdi.c	2008-05-24 17:09:15.000000000 +0100
++++ yamdi.c	2008-06-09 17:50:00.000000000 +0100
+@@ -531,6 +531,7 @@
+ void readFLVSecondPass(char *flv, size_t streampos, size_t filesize) {
+ 	int i, tagcount, afterlastsecond;
+ 	double lastsecond, currenttimestamp;
++	int timestamp_ex = 0;
+ 	size_t datasize, datapos;
+ 	FLVTag_t *flvtag;
+ 	FLVVideoData_t *flvvideo;
+@@ -563,7 +564,12 @@
+ 			// Keyframes
+ 			if(((flvvideo->flags >> 4) & 1) == 1) {
+ 				flvmetadata.filepositions[i] = (double)datapos;
+-				flvmetadata.times[i] = (double)((flvtag->timestamp_ex << 24) + (flvtag->timestamp[0] << 16) + (flvtag->timestamp[1] << 8) + flvtag->timestamp[2]) / 1000.0;
++				currenttimestamp = (double)((timestamp_ex << 24) + (flvtag->timestamp[0] << 16) + (flvtag->timestamp[1] << 8) + flvtag->timestamp[2]) / 1000.0;
++				if (i>0 && currenttimestamp < flvmetadata.times[i-1]) {
++					timestamp_ex++;
++					currenttimestamp += (double)(1<<24)/1000.0;
++				}
++				flvmetadata.times[i] = currenttimestamp;
+ 
+ 				i++;
+ 			}
+@@ -593,6 +599,8 @@
+ void readFLVFirstPass(char *flv, size_t streampos, size_t filesize) {
+ 	size_t datasize, videosize = 0, audiosize = 0;
+ 	size_t videotags = 0, audiotags = 0;
++	double currenttimestamp;
++	int timestamp_ex = 0;
+ 	FLVTag_t *flvtag;
+ 	FLVAudioData_t *flvaudio;
+ 	FLVVideoData_t *flvvideo;
+@@ -609,6 +617,12 @@
+ 		if(streampos + datasize > filesize)
+ 			break;
+ 
++		currenttimestamp = (double)((timestamp_ex << 24) + (flvtag->timestamp[0] << 16) + (flvtag->timestamp[1] << 8) + flvtag->timestamp[2]) / 1000.0;
++		if (currenttimestamp < flvmetadata.lasttimestamp-1) {
++			timestamp_ex++;
++			currenttimestamp += (double)(1<<24)/1000.0;
++		}
++
+ 		if(flvtag->type == FLV_AUDIODATA) {
+ 			flvmetadata.datasize += (double)datasize;
+ 			// datasize - PreviousTagSize
+@@ -700,15 +714,16 @@
+ 			if(((flvvideo->flags >> 4) & 1) == 1) {
+ 				flvmetadata.canSeekToEnd = 1;
+ 				flvmetadata.keyframes++;
+-				flvmetadata.lastkeyframetimestamp = (double)((flvtag->timestamp_ex << 24) + (flvtag->timestamp[0] << 16) + (flvtag->timestamp[1] << 8) + flvtag->timestamp[2]) / 1000.0;
++				flvmetadata.lastkeyframetimestamp = currenttimestamp;
+ 			}
+ 			else
+ 				flvmetadata.canSeekToEnd = 0;
+ 
+-			flvmetadata.lastvideoframetimestamp = (double)((flvtag->timestamp_ex << 24) + (flvtag->timestamp[0] << 16) + (flvtag->timestamp[1] << 8) + flvtag->timestamp[2]) / 1000.0;
++			flvmetadata.lastvideoframetimestamp = currenttimestamp;
+ 		}
+ 
+-		flvmetadata.lasttimestamp = (double)((flvtag->timestamp_ex << 24) + (flvtag->timestamp[0] << 16) + (flvtag->timestamp[1] << 8) + flvtag->timestamp[2]) / 1000.0;
++		flvmetadata.lasttimestamp = currenttimestamp;
++		//lasttimestamp = currenttimestamp;
+ 
+ 		streampos += datasize;
+ 	}
