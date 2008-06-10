@@ -34,8 +34,8 @@ sub new {
 
     $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
     $self->{'path'}{'ffmpeg'} = '/usr/bin/ffmpeg';
-    $self->{'path'}{'mencoder'} = '/usr/bin/mencoder';
-    $self->{'path'}{'yamdi'} = $self->{'path'}{'home-dir'} . mySociety::Config::get('YAMDI_BIN');
+    $self->{'path'}{'mencoder'} = $self->{'path'}{'home-dir'} . '/mysociety/bbcparlvid/bin/mencoder';
+    $self->{'path'}{'yamdi'} = '/usr/bin/yamdi';
 
     $self->{'path'}{'footage-cache-dir'} = mySociety::Config::get('FOOTAGE_DIR');
     $self->{'path'}{'output-dir'} = mySociety::Config::get('OUTPUT_DIR');
@@ -708,7 +708,7 @@ sub process_requests {
 	   # TODO - should the audio codec be mp3 (rather than copy)?
 	   # TODO - check for errors in $mencoder_output
 
-	   my $mencoder_command = "$mencoder $input_filenames -o $output_dir_filename -of lavf -oac copy -ovc lavc -lavcopts vcodec=flv -lavfopts i_certify_that_my_video_stream_does_not_use_b_frames";
+	   my $mencoder_command = "$mencoder $input_filenames -o $output_dir_filename -of lavf -oac copy -ovc lavc -lavcopts vcodec=flv";
 
 	   $self->debug("DEBUG: $mencoder_command");
 
