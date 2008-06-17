@@ -351,7 +351,6 @@ sub get_processing_requests {
 	}
 	
 	foreach my $key (keys %data) {
-	    $self->debug("$key = $data{$key}");
 	    $self->{'requests'}{$request_id}{$key} = $data{$key};
 	}
 
