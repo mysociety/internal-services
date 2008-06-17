@@ -59,18 +59,19 @@ if ($script_output) {
 	$output_label = 'error';
     }
 
-    unless (is_valid_email($send_to_email)) {
-	warn "ERROR: invalid send_to_email address $send_to_email";
-	warn "ERROR: $script_name had errors:\n$script_output";
-	die;
-    }
+    #unless (is_valid_email($send_to_email)) {
+#	warn "ERROR: invalid send_to_email address $send_to_email";
+#	warn "ERROR: $script_name had errors:\n$script_output";
+#	die;
+    #}
     unless (is_valid_email($send_from_email)) {
 	warn "ERROR: invalid send_from_email address $send_from_email";
 	warn "ERROR: $script_name had errors:\n$script_output";
 	die;
     }
     my $email = "To: $send_to_email\nFrom: $send_from_email\nSubject: [bbcparlvid] $output_label: $script_name\n\n$script_output";
-    my $send_email_return = send_email($email, $send_from_email, $send_to_email);
+    my @send_to_email = split /,/, $send_to_email;
+    my $send_email_return = send_email($email, $send_from_email, @send_to_email);
     if ($send_email_return) {
 	warn "ERROR: could not send email using mySociety::EmailUtil::send_email (error code: $send_email_return)";
 	warn "ERROR: $script_name had output:\n$script_output";

@@ -287,7 +287,6 @@ sub update_programmes_from_footage {
 	}
 
 	{
-	    $self->debug("INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")");
 	    dbh->do("INSERT INTO programmes (" . join (',', @params) . ") VALUES (" . join (',', map {'?'} @params) . ")",
 		    {},
 		    map {
