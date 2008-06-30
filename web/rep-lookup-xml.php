@@ -6,7 +6,7 @@
  * Copyright (c) 2008 UK Citizens Online Democracy. All rights reserved.
  * Email: matthew@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: rep-lookup-xml.php,v 1.2 2008-06-30 15:14:27 matthew Exp $
+ * $Id: rep-lookup-xml.php,v 1.3 2008-06-30 16:34:42 matthew Exp $
  * 
  */
 require_once "../conf/general";
@@ -31,7 +31,7 @@ if (rabx_is_error($va_info))
 
 $out = '';
 foreach ($va_info as $id => $data) {
-    $out .= '<name type="' . $data['type'] . '">' . $data['name'] . "</name>\n";
+    $out .= '<name type="' . $data['type'] . '">' . htmlspecialchars($data['name']) . "</name>\n";
 }
 output($out);
 
