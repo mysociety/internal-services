@@ -1,0 +1,385 @@
+Aberdeen City
+	Dyce/Bucksburn/Danestone
+	Bridge of Don
+	Kingswells/Sheddocksley
+	Northfield
+	Hilton/Stockethill
+	Tillydrone/Seaton/Old Aberdeen
+	Midstocket/Rosemount
+	George St/Harbour
+	Lower Deeside
+	Hazlehead/Ashley/Queens Cross
+	Airyhall/Broomhill/Garthdee
+	Torry/Ferryhill
+	Kincorth/Loirston
+Aberdeenshire
+	Banff and District
+	Troup
+	Fraserburgh and District
+	Central Buchan
+	Peterhead North and Rattray
+	Peterhead South and Cruden
+	Turriff and District
+	Mid Formartine
+	Ellon and District
+	West Garioch
+	Inverurie and District
+	East Garioch
+	Westhill and District
+	Huntly, Strathbogie and Howe of Alford
+	Aboyne, Upper Deeside and Donside
+	Banchory and Mid Deeside
+	North Kincardine
+	Stonehaven and Lower Deeside
+	Mearns
+Angus
+	Kirriemuir and Dean
+	Brechin and Edzell
+	Forfar and District
+	Monifeith and Sidlaw
+	Carnoustie and District
+	Arbroath West and Letham
+	Arbroath East and Lunan
+	Montrose and District
+Argyll and Bute
+	South Kintyre
+	Kintyre and the Islands
+	Mid Argyll
+	Oban South and the Isles
+	Oban North and Lorn
+	Cowal
+	Dunoon
+	Isle of Bute
+	Lomond North
+	Helensburgh Central
+	Helensburgh and Lomond South
+Clackmannanshire
+	Clackmannanshire West
+	Clackmannanshire North
+	Clackmannanshire Central
+	Clackmannanshire South
+	Clackmannanshire East
+Dumfries and Galloway
+	Stranraer and North Rhins
+	Wigtown West
+	Mid Galloway
+	Dee
+	Castle Douglas and Glenkens
+	Abbey
+	North West Dumfries
+	Mid and Upper Nithsdale
+	Lochar
+	Nith
+	Annandale South
+	Annandale North
+	Annandale East
+Dundee City
+	Strathmartine
+	Lochee
+	West End
+	Coldside
+	Maryfield
+	North East
+	East End
+	The Ferry
+East Ayrshire
+	Annick
+	Kilmarnock North
+	Kilmarnock West and Crosshouse
+	Kilmarnock East and Hurlford
+	Kilmarnock South
+	Irvine Valley
+	Ballochmyle
+	Cumnock and New Cumnock
+	Doon Valley
+East Dunbartonshire
+	Milngavie
+	Bearsden North
+	Bearsden South
+	Campsie and Kirkintilloch North
+	Bishopbriggs North and Torrance
+	Bishopbriggs South
+	Lenzie and Kirkintilloch South
+	Kirkintilloch East and Twechar
+East Lothian
+	Musselburgh West
+	Musselburgh East and Carberry
+	Preston/Seton/Gosford
+	Fa'side
+	North Berwick Coastal
+	Haddington and Lammermuir
+	Dunbar and East Linton
+East Renfrewshire
+	Neilston, Uplawmoor and Newton Mearns North
+	Barrhead
+	Giffnock and Thornliebank
+	Netherlee, Stamperland and Williamwood
+	Newton Mearns South
+	Busby, Clarkston and Eaglesham
+City of Edinburgh
+	Almond
+	Pentland Hills
+	Drum Brae/Gyle
+	Forth
+	Inverleith
+	Corstorphine/Murrayfield
+	Sighthill/Gorgie
+	Colinton/Fairmilehead
+	Fountainbridge/Craiglockhart
+	Meadows/Morningside
+	City Centre
+	Leith Walk
+	Leith
+	Craigentinny/Duddingston
+	Southside/Newington
+	Liberton/Gilmerton
+	Portobello/Craigmillar
+Falkirk
+	Bo'ness and Blackness
+	Grangemouth
+	Denny and Banknock
+	Carse, Kinnaird and Tryst
+	Bonnybridge and Larbert
+	Falkirk North
+	Falkirk South
+	Lower Braes
+	Upper Braes
+Fife
+	West Fife and Coastal Villages
+	Dunfermline North
+	Dunfermline Central
+	Dunfermline South
+	Rosyth
+	Inverkeithing and Dalgety Bay
+	The Lochs
+	Cowdenbeath
+	Lochgelly and Cardenden
+	Burntisland, Kinghorn and Western Kirkcaldy
+	Kirkcaldy North
+	Kirkcaldy Central
+	Kirkcaldy East
+	Glenrothes West and Kinglassie
+	Glenrothes North, Leslie and Markinch
+	Glenrothes Central and Thornton
+	Howe of Fife and Tay Coast
+	Tay Bridgehead
+	St Andrews
+	East Neuk and Landward
+	Cupar
+	Leven, Kennoway and Largo
+	Buckhaven, Methil and Wemyss Villages
+Glasgow City
+	Linn
+	Newlands/Auldburn
+	Greater Pollok
+	Craigton
+	Govan
+	Pollokshields
+	Langside
+	Southside Central
+	Calton
+	Anderston/City
+	Hillhead
+	Partick West
+	Garscadden/Scotstounhill
+	Drumchapel/Anniesland
+	Maryhill/Kelvin
+	Canal
+	Springburn
+	East Centre
+	Shettleston
+	Baillieston
+	North East
+Highland
+	North, West and Central Sutherland
+	Thurso
+	Wick
+	Landward Caithness
+	East Sutherland and Edderton
+	Wester Ross, Strathpeffer and Lochalsh
+	Cromarty Firth
+	Tain and Easter Ross
+	Dingwall and Seaforth
+	Black Isle
+	Eilean a'Chèo
+	Caol and Mallaig
+	Aird and Loch Ness
+	Inverness West
+	Inverness Central
+	Inverness Ness-Side
+	Inverness Millburn
+	Culloden and Ardersier
+	Nairn
+	Inverness South
+	Badenoch and Strathspey
+	Fort William and Ardnamurchan
+Inverclyde
+	Inverclyde East
+	Inverclyde East Central
+	Inverclyde North
+	Inverclyde South
+	Inverclyde West
+	Inverclyde South West
+Midlothian
+	Penicuik
+	Bonnyrigg
+	Dalkeith
+	Midlothian West
+	Midlothian East
+	Midlothian South
+Moray
+	Speyside Glenlivet
+	Keith and Cullen
+	Buckie
+	Fochabers Lhanbryde
+	Heldon and Laich
+	Elgin City North
+	Elgin City South
+	Forres
+North Ayrshire
+	Irvine West
+	Irvine East
+	Kilwinning
+	Saltcoats and Stevenston
+	Ardrossan and Arran
+	Dalry and West Kilbride
+	Kilbirnie and Beith
+	North Coast and Cumbraes
+North Lanarkshire
+	Kilsyth
+	Cumbernauld North
+	Cumbernauld South
+	Abronhill, Kildrum and the Village
+	Strathkelvin
+	Coatbridge North and Glenboig
+	Airdrie North
+	Airdrie Central
+	Coatbridge West
+	Coatbridge South
+	Airdrie South
+	Fortissat
+	Thorniewood
+	Bellshill
+	Mossend and Holytown
+	Motherwell West
+	Motherwell North
+	Motherwell South East and Ravenscraig
+	Murdostoun
+	Wishaw
+Perth and Kinross
+	Carse of Gowrie
+	Strathmore
+	Blairgowrie and Glens
+	Highland
+	Strathtay
+	Strathearn
+	Strathallan
+	Kinross-shire
+	Almond and Earn
+	Perth City South
+	Perth City North
+	Perth City Centre
+Renfrewshire
+	Renfrew North
+	Renfrew South & Gallowhill
+	Paisley East & Ralston
+	Paisley North West
+	Paisley South
+	Paisley South West
+	Johnstone South, Elderslie & Howwood
+	Johnstone North, Kilbarchan & Lochwinnoch
+	Houston, Crosslee & Linwood
+	Bishopton, Bridge of Weir & Langbank
+	Erskine & Inchinnan
+Scottish Borders
+	Tweeddale West
+	Tweeddale East
+	Galashiels and District
+	Selkirkshire
+	Leaderdale and Melrose
+	Mid Berwickshire
+	East Berwickshire
+	Kelso and District
+	Jedburgh and District
+	Hawick and Denholm
+	Hawick and Hermitage
+South Ayrshire
+	Troon
+	Prestwick
+	Ayr North
+	Ayr East
+	Ayr West
+	Kyle
+	Maybole, North Carrick and Coylton
+	Girvan and South Carrick
+South Lanarkshire
+	Clydesdale West
+	Clydesdale North
+	Clydesdale East
+	Clydesdale South
+	Avondale and Stonehouse
+	East Kilbride South
+	East Kilbride Central South
+	East Kilbride Central North
+	East Kilbride West
+	East Kilbride East
+	Rutherglen South
+	Rutherglen Central and North
+	Cambuslang West
+	Cambuslang East
+	Blantyre
+	Bothwell and Uddingston
+	Hamilton North and East
+	Hamilton West and Earnock
+	Hamilton South
+	Larkhall
+Stirling
+	Trossachs and Teith
+	Forth and Endrick
+	Dunblane and Bridge of Allan
+	Castle
+	Stirling West
+	Stirling East
+	Bannockburn
+West Dunbartonshire
+	Lomond
+	Leven
+	Dumbarton
+	Kilpatrick
+	Clydebank Central
+	Clydebank Waterfront
+West Lothian
+	Linlithgow
+	Broxburn, Uphall and Winchburgh
+	Livingston North
+	Livingston South
+	East Livingston and East Calder
+	Fauldhouse and the Breich Valley
+	Whitburn and Blackburn
+	Bathgate
+	Armadale and Blackridge
+Na H-Eileanan an Iar
+	Barraigh, Bhatarsaigh, Eirisgeigh agus Uibhist a Deas
+	Beinn na Foghla agus Uibhist a Tuath
+	Na Hearadh agus Ceann a Deas nan Loch
+	Sgir'Uige agus Ceann a Tuath nan Loch
+	Sgire an Rubha
+	Steòrnabhagh a Deas
+	Steòrnabhagh a Tuath
+	Loch a Tuath
+	An Taobh Siar agus Nis
+Orkney Islands
+	Kirkwall East
+	Kirkwall West and Orphir
+	Stromness and South Isles
+	West Mainland
+	East Mainland, South Ronaldsay and Burray
+	North Isles
+Shetland Islands
+	North Isles
+	Shetland North
+	Shetland West
+	Shetland Central
+	Shetland South
+	Lerwick North
+	Lerwick South

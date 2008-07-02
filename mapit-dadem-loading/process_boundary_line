@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.37 2007-07-18 09:26:43 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.38 2008-07-02 17:13:04 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -577,6 +577,7 @@ $total_shape_tests = $total_queries = 0;
 {
     local $/ = "\r\n";
     my $n = 0;
+    my $starttime = time();
 
     # Cache area result between postcode tests for speed.
     my %areas = map { $_ => undef } @interesting_areas;
@@ -592,6 +593,9 @@ $total_shape_tests = $total_queries = 0;
                 || $qual == 90);        # no coordinates
         
         %areas = find_containing_areas($E, $N, \%areas);
+	if (exists(&control_function_postcode)) {
+	    control_function_postcode($pc, \%areas, \%area_type_to_shape);
+	}
 
         # Sanity checks.
         foreach my $musthave (qw(WMC EUR)) {
@@ -622,8 +626,8 @@ $total_shape_tests = $total_queries = 0;
         ++$n;
         if (0 == ($n % 100)) {
             # Put this commit in to see what is happening while it runs, but lose rollback if it goes wrong            
-            # $dbh->commit();
-            STDERR->printf("\r%d postcodes (%s); total p-in-p tests: %d; average tests/query = %f", $n, $pc, $total_shape_tests, $total_shape_tests / $total_queries) if (0 == ($n % 100));
+            $dbh->commit();
+            STDERR->printf("\r%d postcodes (%s); total p-in-p tests: %d; average tests/query = %f, time/query = %f", $n, $pc, $total_shape_tests, $total_shape_tests / $total_queries, (time()-$starttime) / $n) if (0 == ($n % 100));
         }
     }
     STDERR->printf("\r[2K%d postcodes\n", $n);

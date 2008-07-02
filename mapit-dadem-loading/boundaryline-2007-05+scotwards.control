@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+#
+# boundaryline-2007-05+scotwards.control:
+# Control file for import of May 2007 Boundary Line, with manual Scottish council wards.
+#
+# Copyright (c) 2008 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: boundaryline-2007-05+scotwards.control,v 1.1 2008-07-02 17:13:04 matthew Exp $
+
+sub find_best_match ($$) {
+    my ($name, $list) = @_;
+    return (sort { Text::LevenshteinXS::distance($name, $a->name()) <=> Text::LevenshteinXS::distance($name, $b->name()) } @$list)[0];
+}
+
+# control_function SHAPES ONSCODE AREATYPE
+# Function called to fix up BL.
+sub control_function ($$$) {
+    my ($shapes, $onscode_idx, $area_type_idx) = @_;
+
+    # New Boundary Line codes the Isles of Scilly as a county. We don't,
+    # instead treating them as a special case, which is what they are.
+    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
+    # Remove those areas from the type index.
+    $ios->deleted(1);
+    foreach ($ios->children()) {
+        $_->deleted(1);
+    }
+
+    # All Scottish councils have had boundary changes, we're constructing them manually
+    foreach (@{$area_type_idx->{UTA}}) {
+        next unless $_->country() eq 'S';
+        foreach my $utw ($_->children()) {
+            $utw->deleted(1);
+        }
+    }
+
+    open(C, "new-scottish-wards-2007.txt") or die "can't read Scottish wards file: $!";
+
+    #my %utwscreated;
+    my ($uta, $council);
+    while (<C>) {
+        chomp;
+	unless (/^\t/) {
+	    $council = $_;
+            ($uta) = grep { $_->name() eq $council } @{$area_type_idx->{UTA}};
+            die "can't find shape for council '$council'" unless $uta;
+	    next;
+	}
+	die "Need a council by here!" unless $council;
+	(my $utw = $_) =~ s/^\t+//;
+        #if (!exists($utwscreated{$council}->{$utw})) {
+            my $a = new Area(area_type => 'UTW', name => "$utw Ward", devolved => 'S', country => 'S', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 0, parts => [ ], parent => $uta);
+            $uta->children($a);
+            push(@$shapes, $a);
+            push(@{$area_type_idx->{UTW}}, $a);
+            #$utwscreated{$council}->{$utw} = $a;
+
+            print STDERR "Creating new UTW: ", $a->name(), " in $council\n";
+        #}
+        #my $shape = $utwscreated{$council}->{$utw};
+    }
+    close(C);
+}
+
+my %postcodes;
+open(C, 'scot-postcodes-to-wards.tsv') or die "can't read Scottish postcodes file: $!";
+while (<C>) {
+    chomp;
+    /^(.*?)\t(.*)$/;
+    $postcodes{uc $1} = $2;
+}
+close C;
+
+# control_function_postcode AREAS AREATYPE
+# To manually slip in some postcode matches
+sub control_function_postcode($$) {
+    my ($pc, $areas, $area_type_idx) = @_;
+
+    return unless $areas->{EUR}->country() eq 'S';
+    
+    if ($areas->{UTW}) {
+        warn "Already has a UTW! pc=$pc, utw=" . $areas->{UTW};
+	return;
+    }
+
+    $pc =~ s/ //g;
+    my $ward = $postcodes{uc $pc};
+    unless ($ward) {
+        warn "No ward for $pc!";
+	return;
+    }
+
+    my $shape = find_best_match($ward, [ grep { $_->country() eq 'S' } @{$area_type_idx->{UTW}} ] );
+    $areas->{UTW} = $shape;
+}
+
+1;
