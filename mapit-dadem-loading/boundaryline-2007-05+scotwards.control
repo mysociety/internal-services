@@ -6,7 +6,7 @@
 # Copyright (c) 2008 UK Citizens Online Democracy. All rights reserved.
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2007-05+scotwards.control,v 1.2 2008-07-02 20:06:52 matthew Exp $
+# $Id: boundaryline-2007-05+scotwards.control,v 1.3 2008-07-03 20:29:46 matthew Exp $
 
 sub find_best_match ($$) {
     my ($name, $list) = @_;
@@ -84,7 +84,6 @@ close C;
 # To manually slip in some postcode matches
 sub control_function_postcode($$) {
     my ($pc, $areas, $area_type_idx) = @_;
-    return;
 
     return unless $areas->{EUR}->country() eq 'S';
     
