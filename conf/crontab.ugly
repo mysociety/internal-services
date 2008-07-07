@@ -1,0 +1,13 @@
+# crontab.ugly:
+# Timed tasks for BBCParlVid. Template file.
+#
+# Copyright (c) 2008 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org. WWW: http://www.mysociety.org/
+#
+# $Id: crontab.ugly,v 1.1 2008-07-07 16:06:01 matthew Exp $
+
+# MAILTO=???
+
+59      *       *       *       *       perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=download_video
+30      0       *       *       *       perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=check_footage
+0       1       *       *       *       perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=convert_footage
