@@ -1,12 +1,14 @@
 <?php
 /*
  * admin-ratty.php:
- * Administration pages for rate limiter.
+ * Administration pages for rate limiter. This object is used as part of our
+ * admin interface, see admin_page_display() in phplib/abuse.php for how to
+ * include it.
  * 
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-ratty.php,v 1.2 2006-05-04 12:14:13 chris Exp $
+ * $Id: admin-ratty.php,v 1.3 2008-07-08 09:33:31 matthew Exp $
  * 
  */
 
