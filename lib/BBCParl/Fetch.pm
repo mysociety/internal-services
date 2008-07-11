@@ -299,8 +299,7 @@ sub process_raw_files {
 		warn "ERROR: Not deleting input file ($input_filename)";
 	    } else {
 		$self->{'database-updates'}{$output_filename} = 1;
-		$self->debug("TEMP ERROR: Not deleting input file ($input_filename)");
-		#unlink ($input_filename);
+		unlink ($input_filename);
 	    }
 
 	} else {
