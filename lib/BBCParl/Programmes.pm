@@ -53,8 +53,8 @@ sub new {
     $self->{'params'}{'detail'} = 'schedule';
     $self->{'params'}{'format'} = 'simple';
 
-    $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
-    $self->{'path'}{'aws'} = $self->{'path'}{'home-dir'} . "/aws/aws";
+    #$self->{'path'}{'home-dir'} = (getpwuid($<))[7];
+    #$self->{'path'}{'aws'} = $self->{'path'}{'home-dir'} . "/aws/aws";
 
     # TODO - use the same value for westminster hall $location in all files
 

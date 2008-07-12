@@ -37,8 +37,6 @@ sub new {
         $self->{'debug'} = 'true';
     }
 
-    $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
-
     $self->{'path'}{'config-dir'} = "$FindBin::Bin/../conf/";
 
     $self->load_config(); # work out what we need to download

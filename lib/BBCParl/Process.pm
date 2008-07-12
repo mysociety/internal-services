@@ -32,9 +32,8 @@ sub new {
 
     mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
-    $self->{'path'}{'home-dir'} = (getpwuid($<))[7];
     $self->{'path'}{'ffmpeg'} = '/usr/bin/ffmpeg';
-    $self->{'path'}{'mencoder'} = $self->{'path'}{'home-dir'} . '/mysociety/bbcparlvid/bin/mencoder';
+    $self->{'path'}{'mencoder'} = mySociety::Config::get('MENCODER');
     $self->{'path'}{'yamdi'} = '/usr/bin/yamdi';
 
     $self->{'path'}{'footage-cache-dir'} = mySociety::Config::get('FOOTAGE_DIR');
@@ -625,8 +624,6 @@ sub process_requests {
 	   }
 
 	   my $input_dir_filename = $self->{'path'}{'footage-cache-dir'} . $filename;
-	   $self->debug("input filename is now $input_dir_filename");
-
 	   my $output_dir_filename = "$output_dir/$prog_id.slice.$intermediate.flv";
 
 	   unless ($input_dir_filename) {
@@ -650,9 +647,9 @@ sub process_requests {
 	   #$flash_args .= "$output_dir_filename -ovc lavc -oac lavc";
 
 	   $self->debug("DEBUG: Create FLV slice: $ffmpeg -v quiet $flash_args 2>&1");
-	   $self->debug("DEBUG: starting FLV encoding at " . `date`);
+	   my $start_time = time();
 	   my $ffmpeg_output = `$ffmpeg -v quiet $flash_args 2>&1`;
-	   $self->debug("DEBUG: finished FLV encoding at " . `date`);
+	   $self->debug("DEBUG: FLV encoding took " . (time()-$start_time) . 's');
 	   #warn $ffmpeg_output;
 
 	   # TODO - the following error-catching code doesn't seem to
