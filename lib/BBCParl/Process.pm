@@ -16,7 +16,7 @@ use BBCParl::Common;
 sub debug {
     my ($self, $message) = @_;
     if ($self->{'debug'}) {
-        warn "DEBUG: $message";
+        warn "DEBUG: $message\n";
     }
     return undef;
 }
@@ -321,16 +321,12 @@ sub update_footage_status {
 sub get_processing_requests {
     my ($self) = @_;
 
-    $self->debug("look for programmes to process");
-
     my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' AND rights != 'none' ORDER BY broadcast_start asc");
     $st->execute();
 
     # TODO - fetch all programmes, filter by rights; for "internet"
     # process as normal; for all others, update status to
     # "will-not-process" (since we don't have the rights)
-
-    my $request_id = 0;
 
     while (my @row = $st->fetchrow_array()) {
 
@@ -349,25 +345,16 @@ sub get_processing_requests {
 	    $data{'channel_id'} = 'parliament';
 	}
 	
-	foreach my $key (keys %data) {
-	    $self->{'requests'}{$request_id}{$key} = $data{$key};
-	}
+	push @{$self->{requests}}, { %data };
 
 	# TODO - need to include thumbnails
-
 	# NOTE: mplayer $inputFilename -ss $timeOffsetInSeconds
 	# -nosound -vo jpeg:outdir=$outDir -frames 1 will always
 	# generate two thumbnails (from
 	# http://gallery.menalto.com/node/40548)
-
-	$request_id += 1;
-
     }
 
-    $self->debug("done getting processing requests");
-
-    return ($request_id + 1);
-
+    return scalar @{$self->{requests}};
 }
 
 sub get_footage_for_programmes {
@@ -375,16 +362,9 @@ sub get_footage_for_programmes {
 
     my $progs_to_process = 0;
 
-    foreach my $request_id (sort {$a <=> $b} %{$self->{'requests'}}) {
-    
-	unless(defined($self->{'requests'}{$request_id})) {
-	    next;
-	}
-
-	$self->debug(Dumper $self->{'requests'}{$request_id});
-
-	my $start_p = $self->{'requests'}{$request_id}{'broadcast_start'};
-	my $end_p = $self->{'requests'}{$request_id}{'broadcast_end'};
+    foreach my $request (@{$self->{requests}}) {
+	my $start_p = $request->{broadcast_start};
+	my $end_p = $request->{broadcast_end};
 	
 	my $sql = "select filename, start_dt, end_dt from raw_footage where channel_id = ? and "
 	    . "( "
@@ -414,79 +394,52 @@ sub get_footage_for_programmes {
 	    my $start_dt = $row[1];
 	    my $end_dt = $row[2];
 
-	    $self->debug("adding $filename");
-
 	    push @filenames, $filename;
 	    next;
 
-	    $self->debug("check between $start_dt and $end_dt ($filename)");
-
-	    if ($start_p gt $end_dt && $end_p gt $end_dt) {
-		$self->debug("Skipping $filename");
-	    } elsif ($start_p lt $end_dt && $end_p gt $start_dt) {
-		$self->debug("hit on $filename");
-		push @filenames, $filename;
-	    } elsif ($start_p lt $end_dt && $end_p lt $end_dt) {
-		$self->debug("final hit on $filename");
-		push @filenames, $filename;
-		last;
-	    }
+#	    $self->debug("check between $start_dt and $end_dt ($filename)");
+#	    if ($start_p gt $end_dt && $end_p gt $end_dt) {
+#		$self->debug("Skipping $filename");
+#	    } elsif ($start_p lt $end_dt && $end_p gt $start_dt) {
+#		$self->debug("hit on $filename");
+#		push @filenames, $filename;
+#	    } elsif ($start_p lt $end_dt && $end_p lt $end_dt) {
+#		$self->debug("final hit on $filename");
+#		push @filenames, $filename;
+#		last;
+#	    }
 	}
 
 	if (@filenames) {
-	    $self->{'requests'}{$request_id}{'footage'} = join (',',@filenames);
+	    $request->{footage} = [ @filenames ];
 	    $progs_to_process += 1;
-	} else {
-	    $self->debug("No footage files found for this programme - marking as footage-not-available and skipping.");
-	    $self->debug("TODO - not updating status of programme - remove the next line!");
-	    next;
-
-	    dbh()->do(
-		      "UPDATE programmes SET status = 'footage-not-available' WHERE id = ?",
-		      {},
-		      $self->{'requests'}{$request_id}{'id'});
-	    next;
 	}
-
     }
 
     return $progs_to_process;
-
 }
 
 sub process_requests { 
    my ($self) = @_;
 
-   $self->debug("DEBUG: starting to process requests");
+   foreach my $request (@{$self->{requests}}) {
 
-   my $skip_request = undef;
+       my $prog_id = $request->{id};
+       my ($start, $end) = map { $request->{$_} } qw (broadcast_start broadcast_end);
 
-   foreach my $request_id (sort {$a <=> $b} keys %{$self->{'requests'}}) {
-
-       $self->debug("processing request $request_id");
-
-       $skip_request = undef;
-
-       my $encoding_args = ();
-
-       unless (defined($self->{'requests'}{$request_id}{'footage'})) {
-	   warn "ERROR: No footage was defined for request $request_id; skipping processing for this request.";
-	   $skip_request = 1;
+       unless (defined($request->{footage})) {
+	   warn 'ERROR: No footage was defined for request ' . $prog_id . '; skipping processing for this request.';
+	   $self->set_prog_status($prog_id, "footage-not-available");
+	   next;
        }
 
+       $self->debug("\nProcessing request for ID $prog_id, $start - $end");
+
        # calculate the offset(s) for each file of raw footage
-
-       $self->debug("DEBUG: Calculating offsets within each raw footage file where video encoding should start");
-
-       my ($start,$end) = map { $self->{'requests'}{$request_id}{$_}; } qw (broadcast_start broadcast_end);
-
+       my $encoding_args = ();
        my @files_used = ();
-       my @filenames = sort split (',', $self->{'requests'}{$request_id}{'footage'});
+       my @filenames = sort @{$request->{footage}};
        for (my $i = 0; $i < @filenames; $i++) {
-
-	   if ($skip_request) {
-	       last;
-	   }
 
 	   my $last_file = undef;
 	   my $filename = $filenames[$i];
@@ -496,8 +449,6 @@ sub process_requests {
 	   if ($filename =~ /^(.+?)([^\/]+)$/) {
 	       $filename = $2;
 	   }
-
-	   $self->debug("Calculating offset for $filename");
 
 	   my ($file_start, $file_end) = BBCParl::Common::extract_start_end($filename);
 	   map { s/Z//; } ($file_start, $file_end);
@@ -523,8 +474,6 @@ sub process_requests {
 	   } else {
 	       $slice_start = $file_start;
 	   }
-	   
-	   $self->debug("offset is $offset seconds ($start and $file_start)");
 	   
 	   # do we need to use footage from the next file?
 
@@ -554,6 +503,7 @@ sub process_requests {
 		   # use that footage, so skip the current file
 
 		   if ($next_start lt $start) {
+		       $self->debug("Not using $filename, as next file starts before start of needed footage");
 		       next;
 		   } else {
 		       $duration = calculate_offset($slice_start, $next_start);
@@ -570,7 +520,7 @@ sub process_requests {
 
 	   }
 
-	   $self->debug("duration of video encoding in this raw footage file is $duration");
+	   $self->debug("$filename, offset ${offset}s, duration ${duration}s");
 
 	   $encoding_args->{$filename}{'duration'} = $duration;
 	   $encoding_args->{$filename}{'offset'} = $offset;
@@ -584,14 +534,11 @@ sub process_requests {
        }
 
        unless (@files_used) {
-	   warn "ERROR: No files were marked as being of use for this request; skipping this request.";
-	   $skip_request = 1;
+	   warn "ERROR: No files were marked as being of use for request $prog_id; skipping this request.";
+	   $self->set_prog_status($prog_id, "footage-not-available");
+	   next;
        }
    
-       $self->debug("Encoding args are:");
-
-       $self->debug(Dumper $encoding_args);
-
        # TODO - make this a loop that operates on each encoding type
        # in turn (e.g. flv, mp4, thumbnails)
 
@@ -600,7 +547,6 @@ sub process_requests {
 
        my $mencoder = $self->{'path'}{'mencoder'};
        my $ffmpeg = $self->{'path'}{'ffmpeg'};
-       my $prog_id = $self->{'requests'}{$request_id}{'id'};
        my $output_dir = $self->{'path'}{'output-dir'};
    
        my $avi_args = undef;
@@ -610,14 +556,9 @@ sub process_requests {
 
        my @video_slices = ();
        $intermediate = 0;
+       my $skip_request = undef;
 
        foreach my $filename (@files_used) {
-
-	   if ($skip_request) {
-	       last;
-	   }
-
-	   $self->debug("DEBUG: Using part of $filename");
 
 	   if ($filename =~ /^(.+?)([^\/]+)$/) {
 	       $filename = $2;
@@ -646,11 +587,9 @@ sub process_requests {
 	   my $flash_args = " -ss $offset -t $duration -i $input_dir_filename $output_dir_filename";
 	   #$flash_args .= "$output_dir_filename -ovc lavc -oac lavc";
 
-	   $self->debug("DEBUG: Create FLV slice: $ffmpeg -v quiet $flash_args 2>&1");
 	   my $start_time = time();
 	   my $ffmpeg_output = `$ffmpeg -v quiet $flash_args 2>&1`;
-	   $self->debug("DEBUG: FLV encoding took " . (time()-$start_time) . 's');
-	   #warn $ffmpeg_output;
+	   $self->debug("Creating FLV slice $intermediate, encoding took " . (time()-$start_time) . 's');
 
 	   # TODO - the following error-catching code doesn't seem to
 	   # work (reliably)
@@ -681,12 +620,9 @@ sub process_requests {
        }
 
        if ($skip_request) {
-	   warn "ERROR: Unrecoverable error; skipping request $request_id and marking as footage-not-available";
-
+	   warn "ERROR: Unrecoverable error; skipping request $prog_id and marking as footage-not-available";
 	   $self->set_prog_status($prog_id, "footage-not-available");
-	   
 	   next;
-
        }
 
        # if there is more than one slice, concatenate them all using
@@ -694,19 +630,12 @@ sub process_requests {
 
 	   if (@video_slices > 1) {
 
-	   $self->debug("DEBUG: Joining slices together");
-
 	   my $input_filenames = join (' ', @video_slices);
-
 	   my $output_dir_filename = "$output_dir/$prog_id.flv";
 
 	   # TODO - should the audio codec be mp3 (rather than copy)?
 	   # TODO - check for errors in $mencoder_output
-
-	   my $mencoder_command = "$mencoder $input_filenames -o $output_dir_filename -of lavf -oac copy -ovc lavc -lavcopts vcodec=flv";
-
-	   $self->debug("DEBUG: $mencoder_command");
-
+	   my $mencoder_command = "$mencoder $input_filenames -o $output_dir_filename -of lavf -oac copy -ovc lavc -lavcopts vcodec=flv 2>&1";
 	   `$mencoder_command`;
 
 	   # remove the incremental slice files
@@ -720,11 +649,7 @@ sub process_requests {
 	   }
 	   
        } else {
-	   
-	   my $mv_command = "mv $output_dir/$prog_id.slice.0.flv $output_dir/$prog_id.flv";
-	   $self->debug("DEBUG: $mv_command");
-	   `$mv_command`;
-
+	   rename "$output_dir/$prog_id.slice.0.flv", "$output_dir/$prog_id.flv";
        }
 
        my $final_output_filename = "$output_dir/$prog_id.flv";
@@ -735,27 +660,18 @@ sub process_requests {
        my $yamdi_input = $final_output_filename;
        my $yamdi_output = "$yamdi_input.yamdi";
 
-       $self->debug("DEBUG: adding FLV metadata (using $yamdi on $yamdi_input)");
+       $self->debug("adding FLV metadata (using $yamdi on $yamdi_input)");
 
-       if (-e $yamdi) {
-	   
-	   my $yamdi_command = "$yamdi -i $yamdi_input -o $yamdi_output";
-	   $self->debug($yamdi_command);
-	   my $yamdi_command_output =`$yamdi_command`;
+	my $yamdi_command = "$yamdi -i $yamdi_input -o $yamdi_output";
+	my $yamdi_command_output =`$yamdi_command`;
 
-	   if (-e $yamdi_output) {
-	       unlink($yamdi_input);
-	       `mv $yamdi_output $yamdi_input`;
-	   } else {
-	       warn "ERROR: could not find $yamdi_output";
-	       warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
-	       warn "ERROR: yamdi said: $yamdi_command_output";
-	   }
-
-       } else {
-	   warn "ERROR: Could not find yamdi ($yamdi does not exist)";
-	   warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
-       }
+	if (-e $yamdi_output) {
+	    rename $yamdi_output, $yamdi_input;
+	} else {
+	    warn "ERROR: could not find $yamdi_output";
+	    warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
+	    warn "ERROR: yamdi said: $yamdi_command_output";
+	}
 
        my $status = 'available';
 
@@ -766,7 +682,6 @@ sub process_requests {
        }
 
        if ($file_size) {
-	   $self->debug("DEBUG: file size is $file_size");
 	   if ($file_size eq '4.0K') {
 	       warn "ERROR: Empty file, footage-not-available";
 	       $status = "footage-not-available";
@@ -777,27 +692,18 @@ sub process_requests {
 
    }
 
-   $self->debug("DEBUG: end processing of requests");
-
    return 1;
-
 }
 
 sub set_prog_status {
     my ($self, $prog_id, $status) = @_;
-
-    $self->debug("programme $prog_id status $status");
-
+    $self->debug("setting programme $prog_id to status $status");
     dbh()->do(
 	      "UPDATE programmes SET status = ? WHERE id = ?",
 	      {},
 	      $status,
 	      $prog_id);
-    
     dbh()->commit();
-
-    $self->debug("updated status $prog_id $status");
-
 }
 
 sub cache_cleanup {
@@ -808,7 +714,7 @@ sub cache_cleanup {
     # Once we've done all the requests in the queue, remove all mpeg
     # files from the local raw-footage cache more than 3 days old
 
-    my $days_to_keep = 7;
+    my $days_to_keep = 3;
     
     my $cutoff_dt = DateTime->now();
     $cutoff_dt->subtract( days => $days_to_keep );
@@ -862,6 +768,7 @@ sub mirror_footage_locally {
     my $bucket = $self->{'constants'}{'raw-footage-bucket'};
     my $dir = $self->{'path'}{'footage-cache-dir'};
 
+    # XXX
     foreach my $request_id (sort keys %{$self->{'requests'}}) {
 	my @filenames = split (',', $self->{'requests'}{$request_id}{'footage'});
 	foreach my $filename (@filenames) {

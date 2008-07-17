@@ -36,20 +36,18 @@ sub convert_footage {
     my ($object) = @_;
 
     unless ($object->get_processing_requests()) {
-	$object->debug("No programmes to process. Exiting.");
+	warn "No programmes to process. Exiting.";
 	return 0;
     }
 
     unless ($object->get_footage_for_programmes()) {
-	$object->debug("No programmes with any available footage. Exiting.");
+	warn "No programmes with any available footage. Exiting.";
 	return 0;
     }
 
     unless ($object->process_requests()) {
 	return 0;
     }
-
-    die;
 
     unless ($object->cache_cleanup()) {
 	return 0;
