@@ -49,11 +49,10 @@ sub convert_footage {
 	return 0;
     }
 
-    unless ($object->cache_cleanup()) {
-	return 0;
-    }
-
+    # No deleting of MPEGs for now, might make more Flash later!
+    #unless ($object->cache_cleanup()) {
+    #    return 0;
+    #}
 
     return 0;
-
 }

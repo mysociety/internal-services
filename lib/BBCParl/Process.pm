@@ -328,6 +328,7 @@ sub get_processing_requests {
     # process as normal; for all others, update status to
     # "will-not-process" (since we don't have the rights)
 
+    $self->{requests} = [];
     while (my @row = $st->fetchrow_array()) {
 
 	my %data = ( 'id' => $row[0],
@@ -433,7 +434,7 @@ sub process_requests {
 	   next;
        }
 
-       $self->debug("\nProcessing request for ID $prog_id, $start - $end");
+       $self->debug("Processing request for ID $prog_id, $start - $end");
 
        # calculate the offset(s) for each file of raw footage
        my $encoding_args = ();
@@ -735,7 +736,7 @@ sub cache_cleanup {
     foreach my $filename (sort @filenames) {
 	if ($filename =~ /.+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z.mpeg/) {
 	    if ($1 lt $cutoff) {
-		$self->debug("unlinking $filename");
+		#$self->debug("unlinking $filename");
 		unlink "$raw_footage_dir/$filename";
 	    }
 	}
