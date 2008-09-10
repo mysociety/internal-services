@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.7 2008-09-10 01:21:53 root Exp $
+# $Id: setup-dademcron,v 1.8 2008-09-10 02:00:57 root Exp $
 #
 
 set -e
@@ -57,7 +57,7 @@ then
     cd parlparse
     su dademcron -c "svn -q update"
 else
-    su dademcron -c "svn -q co https://scm.kforge.net/svn/ukparse/trunk/parlparse"
+    su dademcron -c "svn -q co https://projects.knowledgeforge.net/ukparse/svn/trunk/parlparse"
 fi
 
 cd $DADEMHOME
