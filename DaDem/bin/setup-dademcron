@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.5 2008-09-09 23:55:54 root Exp $
+# $Id: setup-dademcron,v 1.6 2008-09-10 01:15:46 root Exp $
 #
 
 set -e
@@ -25,18 +25,18 @@ cd $DADEMHOME
 if [ -e "mysociety/CVS/Root" ]
 then 
     cd mysociety
-    cd services && su dademcron "cvs -Q update -dP" && cd ..
-    cd perllib && su dademcron "cvs -Q update -dP" && cd ..
-    cd phplib && su dademcron "cvs -Q update -dP" && cd ..
-    cd shlib && su dademcron "cvs -Q update -dP" && cd ..
-    cd fyr && su dademcron "cvs -Q update -dP" && cd ..
+    cd services && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd perllib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd phplib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd shlib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd fyr && su dademcron -c "cvs -Q update -dP" && cd ..
 else 
     export CVSROOT=cvs.mysociety.org:/usr/local/cvs
-    su dademcron "cvs -Q co mysociety/services"
-    su dademcron "cvs -Q co mysociety/perllib"
-    su dademcron "cvs -Q co mysociety/phplib"
-    su dademcron "cvs -Q co mysociety/shlib"
-    su dademcron "cvs -Q co mysociety/fyr"
+    su dademcron -c "cvs -Q co mysociety/services"
+    su dademcron -c "cvs -Q co mysociety/perllib"
+    su dademcron -c "cvs -Q co mysociety/phplib"
+    su dademcron -c "cvs -Q co mysociety/shlib"
+    su dademcron -c "cvs -Q co mysociety/fyr"
 fi
 
 # Checkout or update the representative data module
@@ -44,10 +44,10 @@ cd $DADEMHOME
 if [ -e "repdata/CVS/Root" ]
 then
     cd repdata
-    su dademcron "cvs -Q update -dP"
+    su dademcron -c "cvs -Q update -dP"
 else
     export CVSROOT=cvs.mysociety.org:/usr/local/privatecvs
-    su dademcron "cvs -Q co repdata"
+    su dademcron -c "cvs -Q co repdata"
 fi
 
 # Checkout or update parlparse
