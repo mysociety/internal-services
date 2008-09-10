@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.6 2008-09-10 01:15:46 root Exp $
+# $Id: setup-dademcron,v 1.7 2008-09-10 01:21:53 root Exp $
 #
 
 set -e
@@ -55,22 +55,22 @@ cd $DADEMHOME
 if [ -e "parlparse/.svn/README.txt" ]
 then
     cd parlparse
-    su dademcron "svn -q update"
+    su dademcron -c "svn -q update"
 else
-    su dademcron "svn -q co https://scm.kforge.net/svn/ukparse/trunk/parlparse"
+    su dademcron -c "svn -q co https://scm.kforge.net/svn/ukparse/trunk/parlparse"
 fi
 
 cd $DADEMHOME
 
 # Copy conifguration files
-cat /data/vhost/services.mysociety.org/mysociety/services/conf/general | su dademcron "cat >mysociety/services/conf/general"
-cat /data/vhost/www.writetothem.com/mysociety/fyr/conf/general | su dademcron "cat >mysociety/fyr/conf/general"
+cat /data/vhost/services.mysociety.org/mysociety/services/conf/general | su dademcron -c "cat >mysociety/services/conf/general"
+cat /data/vhost/www.writetothem.com/mysociety/fyr/conf/general | su dademcron -c "cat >mysociety/fyr/conf/general"
 
 # Install .forward
-su - dademcron "echo \"team@mysociety.org\" >~dademcron/.forward"
+su - dademcron -c "echo \"team@mysociety.org\" >~dademcron/.forward"
 
 # Install crontab
-su dademcron crontab repdata/bin/crontab
+su dademcron -c "crontab repdata/bin/crontab"
 
 
 
