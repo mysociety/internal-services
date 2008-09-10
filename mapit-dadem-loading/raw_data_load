@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.29 2007-11-13 11:42:21 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.30 2008-09-10 00:07:55 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -144,7 +144,9 @@ while (my $line = <STDIN>) {
     $line =~ s/\x0B//g; # appears after some email addresse
     $line =~ s/\x14ina/Tina/g; # strangely broken "T"
     $line =~ s/\x00//g; # appears on the last line
-    $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|)ch/fach/g; # ward in Powys
+    $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|\xe2|)ch/fach/g; # ward in Powys
+    $line =~ s/Eilean a' Ch[^eo]*o/Eilean a' Cheo/g; # Skye
+    $line =~ s/Ste[^or]*rnabhagh/Steornabhagh/g; # Somewhere in W. Isles
     next if $line =~ m/^\s*$/;
 
     # Extract good stuff
