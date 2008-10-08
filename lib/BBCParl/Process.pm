@@ -321,7 +321,7 @@ sub update_footage_status {
 sub get_processing_requests {
     my ($self) = @_;
 
-    my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' AND rights != 'none' ORDER BY broadcast_start asc");
+    my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' ORDER BY broadcast_start asc");
     $st->execute();
 
     # TODO - fetch all programmes, filter by rights; for "internet"
@@ -628,8 +628,7 @@ sub process_requests {
 
        # if there is more than one slice, concatenate them all using
        # mencoder
-
-	   if (@video_slices > 1) {
+       if (@video_slices > 1) {
 
 	   my $input_filenames = join (' ', @video_slices);
 	   my $output_dir_filename = "$output_dir/$prog_id.flv";
@@ -640,12 +639,10 @@ sub process_requests {
 	   `$mencoder_command`;
 
 	   # remove the incremental slice files
-
-	   for (my $i = 0; $i < @files_used; $i++) {
-	       my $file_to_unlink = "$output_dir/$prog_id.slice.$i.flv";
-	       my $unlink_ret_value = unlink ("$file_to_unlink");
+	   foreach (@video_slices) {
+	       my $unlink_ret_value = unlink $_;
 	       unless ($unlink_ret_value == 1) {
-		   warn "ERROR: Did not delete $file_to_unlink; unlink return value was $unlink_ret_value";
+		   warn "ERROR: Did not delete $_; unlink return value was $unlink_ret_value";
 	       }
 	   }
 	   
@@ -653,10 +650,8 @@ sub process_requests {
 	   rename "$output_dir/$prog_id.slice.0.flv", "$output_dir/$prog_id.flv";
        }
 
-       my $final_output_filename = "$output_dir/$prog_id.flv";
-       
        # update FLV file cue-points using yamdi
-
+       my $final_output_filename = "$output_dir/$prog_id.flv";
        my $yamdi = $self->{'path'}{'yamdi'};
        my $yamdi_input = $final_output_filename;
        my $yamdi_output = "$yamdi_input.yamdi";

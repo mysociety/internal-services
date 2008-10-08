@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Page.pm,v 1.3 2008-02-04 23:25:27 matthew Exp $
+# $Id: Page.pm,v 1.4 2008-10-08 07:59:03 matthew Exp $
 #
 
 package BBCParl::Page;
@@ -22,7 +22,7 @@ use mySociety::Config;
 use mySociety::DBHandle qw/select_all/;
 use mySociety::EvEl;
 use mySociety::WatchUpdate;
-use mySociety::Web qw(ent NewURL);
+use mySociety::Web qw(ent);
 BEGIN {
     mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 }
