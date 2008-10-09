@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.59 2007-08-13 17:34:10 matthew Exp $
+# $Id: EvEl.pm,v 1.60 2008-10-09 15:51:00 matthew Exp $
 #
 
 package EvEl::Error;
@@ -429,7 +429,7 @@ sub construct_email ($) {
                         );
     $p->{'Message-ID'} ||= sprintf('<%s%s@%s>',
                             mySociety::Config::get('EVEL_VERP_PREFIX'),
-                            unpack('h*', random_bytes(5)),
+                            unpack('h*', random_bytes(5, 1)),
                             mySociety::Config::get('EVEL_VERP_DOMAIN')
                         );
 
