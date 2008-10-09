@@ -321,7 +321,7 @@ sub update_footage_status {
 sub get_processing_requests {
     my ($self) = @_;
 
-    my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' ORDER BY broadcast_start asc");
+    my $st = dbh()->prepare("SELECT id, location, broadcast_start, broadcast_end, channel_id FROM programmes WHERE status = 'not-yet-processed' AND rights != 'none' ORDER BY broadcast_start asc");
     $st->execute();
 
     # TODO - fetch all programmes, filter by rights; for "internet"
