@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.20 2008-05-27 15:31:58 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.21 2008-10-14 09:46:57 matthew Exp $';
 
 use strict;
 
@@ -45,6 +45,7 @@ sub friendly_from_os ($) {
     s# Burgh Constituency$##;
 
     # Scottish Constituency/Electoral Region
+    s# Islands P Const$##;
     s# P Const$##;
     s# PER$##;
 
