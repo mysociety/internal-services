@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.30 2008-09-10 00:07:55 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.31 2008-10-15 15:27:37 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -147,6 +147,7 @@ while (my $line = <STDIN>) {
     $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|\xe2|)ch/fach/g; # ward in Powys
     $line =~ s/Eilean a' Ch[^eo]*o/Eilean a' Cheo/g; # Skye
     $line =~ s/Ste[^or]*rnabhagh/Steornabhagh/g; # Somewhere in W. Isles
+    $line =~ s/301224a/301224/; # ID has a superfluous "a" in it
     next if $line =~ m/^\s*$/;
 
     # Extract good stuff
