@@ -4,10 +4,10 @@
 # Copyright (c) 2008 UK Citizens Online Democracy. All rights reserved.
 # Email: matthew@mysociety.org. WWW: http://www.mysociety.org/
 #
-# $Id: crontab.ugly,v 1.2 2008-07-11 14:48:16 matthew Exp $
+# $Id: crontab.ugly,v 1.3 2008-10-27 08:04:22 matthew Exp $
 
 # MAILTO=???
 
 59 * * * * bbcparlvid perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=download_video
 30 0 * * * bbcparlvid perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=check_footage
-0  1 * * * bbcparlvid perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=convert_footage
+15 1 * * * bbcparlvid perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=convert_footage
