@@ -37,7 +37,11 @@ sub new {
     $self->{'path'}{'yamdi'} = '/usr/bin/yamdi';
 
     $self->{'path'}{'footage-cache-dir'} = mySociety::Config::get('FOOTAGE_DIR');
+    $self->{'path'}{'footage-cache-dir'} .= '/'
+        unless $self->{'path'}{'footage-cache-dir'} =~ m{/$};
     $self->{'path'}{'output-dir'} = mySociety::Config::get('OUTPUT_DIR');
+    $self->{'path'}{'output-dir'} .= '/'
+        unless $self->{'path'}{'output-dir'} =~ m{/$};
 
     $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
 
@@ -176,10 +180,9 @@ sub update_programmes_from_footage {
 	} elsif ($title_synopsis =~ /^Mayor/i) {
 	    $location = 'gla';
 	    $rights = 'internet';
-	} elsif ($title_synopsis =~ /^House of Commons/i ||
-		 $title_synopsis =~ /^Live House of Commons/i ||
+	} elsif ($title_synopsis =~ /^(Live )?House of Commons/i ||
 		 $title_synopsis =~ /^Commons/i ||
-		 $title_synopsis =~ /in the House of Commons /i ||
+		 $title_synopsis =~ /(in|to) the (House of )?Commons /i ||
 		 $title_synopsis =~ /^.+? Bill/i ||
 		 $title_synopsis =~ /^.+? Committee/i ||
 		 $title_synopsis =~ /^.+? Questions/i ||
@@ -548,7 +551,7 @@ sub process_requests {
 
        my $mencoder = $self->{'path'}{'mencoder'};
        my $ffmpeg = $self->{'path'}{'ffmpeg'};
-       my $output_dir = $self->{'path'}{'output-dir'};
+       my $output_dir = $self->{'path'}{'footage-cache-dir'};
    
        my $avi_args = undef;
        my $intermediate = 0;
@@ -566,7 +569,7 @@ sub process_requests {
 	   }
 
 	   my $input_dir_filename = $self->{'path'}{'footage-cache-dir'} . $filename;
-	   my $output_dir_filename = "$output_dir/$prog_id.slice.$intermediate.flv";
+	   my $output_dir_filename = "$output_dir$prog_id.slice.$intermediate.flv";
 
 	   unless ($input_dir_filename) {
 	       warn "ERROR: No filename specified, cannot perform conversion on an empty file";
@@ -631,7 +634,7 @@ sub process_requests {
        if (@video_slices > 1) {
 
 	   my $input_filenames = join (' ', @video_slices);
-	   my $output_dir_filename = "$output_dir/$prog_id.flv";
+	   my $output_dir_filename = "$output_dir$prog_id.flv";
 
 	   # TODO - should the audio codec be mp3 (rather than copy)?
 	   # TODO - check for errors in $mencoder_output
@@ -647,13 +650,12 @@ sub process_requests {
 	   }
 	   
        } else {
-	   rename "$output_dir/$prog_id.slice.0.flv", "$output_dir/$prog_id.flv";
+	   rename "$output_dir$prog_id.slice.0.flv", "$output_dir$prog_id.flv";
        }
 
        # update FLV file cue-points using yamdi
-       my $final_output_filename = "$output_dir/$prog_id.flv";
        my $yamdi = $self->{'path'}{'yamdi'};
-       my $yamdi_input = $final_output_filename;
+       my $yamdi_input = "$output_dir$prog_id.flv";
        my $yamdi_output = "$yamdi_input.yamdi";
 
        $self->debug("adding FLV metadata (using $yamdi on $yamdi_input)");
@@ -661,30 +663,25 @@ sub process_requests {
 	my $yamdi_command = "$yamdi -i $yamdi_input -o $yamdi_output";
 	my $yamdi_command_output =`$yamdi_command`;
 
+	my $status = "footage-not-available";
+
 	if (-e $yamdi_output) {
-	    rename $yamdi_output, $yamdi_input;
+            my $file_size = (stat $yamdi_output)[7];
+            if ($file_size <= 4096) {
+                warn "ERROR: Empty file ($file_size), footage-not-available";
+            } else {
+                my $final_output_filename = $self->{'path'}{'output-dir'} . "$prog_id.flv";
+                system("mv $yamdi_output $final_output_filename"); # cross domain
+                $status = 'available';
+            }
+
 	} else {
 	    warn "ERROR: could not find $yamdi_output";
 	    warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
 	    warn "ERROR: yamdi said: $yamdi_command_output";
 	}
 
-       my $status = 'available';
-
-       my $file_size = `ls -sh $final_output_filename`;
-
-       unless ($file_size) {
-	   $status = "footage-not-available";
-       }
-
-       if ($file_size) {
-	   if ($file_size eq '4.0K') {
-	       warn "ERROR: Empty file, footage-not-available";
-	       $status = "footage-not-available";
-	   }
-       }
-	   
-       $self->set_prog_status($prog_id, $status);
+        $self->set_prog_status($prog_id, $status);
 
    }
 
