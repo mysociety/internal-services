@@ -671,8 +671,13 @@ sub process_requests {
                 warn "ERROR: Empty file ($file_size), footage-not-available";
             } else {
                 my $final_output_filename = $self->{'path'}{'output-dir'} . "$prog_id.flv";
-                system("mv $yamdi_output $final_output_filename"); # cross domain
-                $status = 'available';
+                my $move = system("mv $yamdi_output $final_output_filename"); # cross domain
+                if ($move) {
+                    warn "ERROR: Could not move $yamdi_output to $final_output_filename: $move";
+                } else {
+                    unlink $yamdi_input;
+                    $status = 'available';
+                }
             }
 
 	} else {
