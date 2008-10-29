@@ -292,8 +292,8 @@ sub process_raw_files {
 
 	    $self->debug("Output from ffmpeg was: $ffmpeg_output");
 
-	    unless (-e $output_filename) {
-		warn "ERROR: Output file from mpeg conversion not found ($output_filename)";
+	    unless (-s $output_filename) {
+		warn "ERROR: Output file from mpeg conversion not found or empty ($output_filename)";
 		warn "ERROR: Not deleting input file ($input_filename)";
 	    } else {
 		$self->{'database-updates'}{$output_filename} = 1;

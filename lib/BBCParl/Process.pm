@@ -577,8 +577,8 @@ sub process_requests {
 	       last;
 	   }
 
-	   unless (-e $input_dir_filename) {
-	       warn "ERROR: Cannot find $input_dir_filename";
+	   unless (-s $input_dir_filename) {
+	       warn "ERROR: Cannot find $input_dir_filename or is empty";
 	       $skip_request = 1;
 	       last;
 	   }
@@ -602,23 +602,15 @@ sub process_requests {
 	       warn "ERROR: Error in converting $filename";
 	       warn "ERROR: Error was: $1";
 	       $skip_request = 1;
-	   }
-
-	   unless (-e $output_dir_filename) {
-	       warn "ERROR: Cannot find file $output_dir_filename";
-	       warn "ERROR: ffmpeg output was:";
-	       warn $ffmpeg_output;
-	       $skip_request = 1;
-	   }
-
-	   my $file_size = `ls -sh $output_dir_filename`;
-
-	   if ($file_size eq '4.0K') {
-	       warn "ERROR: Fragment is empty (4.0k file size), skipping rest of the fragments ($output_dir_filename)";
-	       $skip_request = 1;
 	       last;
 	   }
-	   
+
+           if (-s $output_dir_filename <= 4096) {
+	       warn "ERROR: File does not exist or is <4k in size ($output_dir_filename)";
+	       $skip_request = 1;
+               last;
+	   }
+
 	   push @video_slices, $output_dir_filename;
 	   $intermediate += 1;
        }
