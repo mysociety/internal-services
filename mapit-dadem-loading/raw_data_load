@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.31 2008-10-15 15:27:37 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.32 2008-12-09 12:08:27 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -140,14 +140,16 @@ while (my $line = <STDIN>) {
 
     # Remove bad control characteres
     chomp($line);
-    $line =~ s/\xA0//g; # appears twice after "Castle Baynard"
-    $line =~ s/\x0B//g; # appears after some email addresse
-    $line =~ s/\x14ina/Tina/g; # strangely broken "T"
-    $line =~ s/\x00//g; # appears on the last line
-    $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|\xe2|)ch/fach/g; # ward in Powys
+    #$line =~ s/\xA0//g; # appears twice after "Castle Baynard"
+    #$line =~ s/\x0B//g; # appears after some email addresse
+    #$line =~ s/\x14ina/Tina/g; # strangely broken "T"
+    #$line =~ s/\x00//g; # appears on the last line
+    $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|\xe2|)ch/fach/g; # ward in Powys, Felin-fach
     $line =~ s/Eilean a' Ch[^eo]*o/Eilean a' Cheo/g; # Skye
     $line =~ s/Ste[^or]*rnabhagh/Steornabhagh/g; # Somewhere in W. Isles
     $line =~ s/301224a/301224/; # ID has a superfluous "a" in it
+    $line =~ s/317169n\/a/317169/; # ID has a superfluous "n/a" in it
+    $line =~ s/Ruair[^"]*/Ruairi/; # Really need to cope with accents soon
     next if $line =~ m/^\s*$/;
 
     # Extract good stuff
