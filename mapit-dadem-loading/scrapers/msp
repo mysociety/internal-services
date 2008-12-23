@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.9 2007-07-18 13:29:30 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.10 2008-12-23 12:40:53 matthew Exp $';
 
 use strict;
 
@@ -28,7 +28,7 @@ my $m = new WWW::Mechanize;
 # of all MSPs, not distinguishing list and constituency members. Each member
 # has various pages including a general information page and a contacts page.
 #
-$m->get('http://www.scottish.parliament.uk/msp/membersPages/');
+$m->get('http://www.scottish.parliament.uk/apps2/MSP/MSPHome/Default.aspx');
 
 my $csv_out = new Text::CSV_XS();
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
@@ -44,7 +44,10 @@ while ($m->follow_link(n => $n, url_regex => qr#^.*_.*/index.htm$#)) {
     # Extract data from MSP's main page.
     #
 
-    my $t = HTML::TreeBuilder->new_from_content($m->content())
+    # First, remove horrible <table> in a <span> guff
+    my $content = $m->content();
+    $content =~ s{<span class="largeHeading".*?<table class="greyTable.*?</table></span>}{};
+    my $t = HTML::TreeBuilder->new_from_content($content)
         or die "unable to parse $url";
 
     my $anch = $t->look_down('_tag', 'a', 'name', 'mainContent')
