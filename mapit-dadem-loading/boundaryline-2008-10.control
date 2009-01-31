@@ -6,7 +6,7 @@
 # Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2008-10.control,v 1.1 2009-01-31 22:59:04 matthew Exp $
+# $Id: boundaryline-2008-10.control,v 1.2 2009-01-31 23:01:33 matthew Exp $
 
 sub find_best_match ($$) {
     my ($name, $list) = @_;
@@ -22,29 +22,29 @@ sub control_function ($$$) {
 
     # New Boundary Line codes the Isles of Scilly as a county. We don't,
     # instead treating them as a special case, which is what they are.
-#    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
-#    # Remove those areas from the type index.
-#    $ios->deleted(1);
-#    foreach ($ios->children()) {
-#        $_->deleted(1);
-#    }
-#
-#    # Some English councils have had boundary changes
-#    # Bradford, S Lakeland, Welwyn Hatfield, Basingstoke&Deane, Barrow, S Cambs, Stroud
-#    foreach (@{$area_type_idx->{MTD}}) {
-#        if ($_->name() eq 'Bradford') {
-#	    foreach ($_->children()) {
-#                $_->alreadyexists(0);
-#	    }
-#	}
-#    }
-#    foreach (@{$area_type_idx->{DIS}}) {
-#        if ($_->name() =~ /^(South Lakeland|Welwyn Hatfield|Barrow-in-Furness|Basingstoke and Deane|South Cambridgeshire|Stroud) District$/) {
-#	    foreach ($_->children()) {
-#                $_->alreadyexists(0);
-#	    }
-#	}
-#    }
+    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
+    # Remove those areas from the type index.
+    $ios->deleted(1);
+    foreach ($ios->children()) {
+        $_->deleted(1);
+    }
+
+    # Some English councils have had boundary changes
+    # Bradford, S Lakeland, Welwyn Hatfield, Basingstoke&Deane, Barrow, S Cambs, Stroud
+    foreach (@{$area_type_idx->{MTD}}) {
+        if ($_->name() eq 'Bradford') {
+            foreach ($_->children()) {
+                $_->alreadyexists(0);
+            }
+        }
+    }
+    foreach (@{$area_type_idx->{DIS}}) {
+        if ($_->name() =~ /^(South Lakeland|Welwyn Hatfield|Barrow-in-Furness|Basingstoke and Deane|South Cambridgeshire|Stroud) District$/) {
+            foreach ($_->children()) {
+                $_->alreadyexists(0);
+            }
+        }
+    }
 
     # All Scottish councils have had boundary changes, we're constructing them manually
     foreach (@{$area_type_idx->{UTA}}) {
