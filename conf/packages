@@ -1,3 +1,11 @@
 libwww-mechanize-perl
 libxml-twig-perl
 python-egenix-mxdatetime
+
+# Boundary-Line
+libtext-levenshteinxs-perl
+libgeo-shapefile-perl
+libinline-perl
+libwww-perl
+libtext-csv-perl
+libstring-ediff-perl

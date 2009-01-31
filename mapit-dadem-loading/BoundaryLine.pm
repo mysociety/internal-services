@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.8 2007-08-23 22:58:51 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.9 2009-01-31 22:59:04 matthew Exp $
 #
 
 use strict;
@@ -274,6 +274,138 @@ sub load_ntf_file {
     }
 
     undef $ntf;
+}
+
+sub load_shapefile {
+    my ($filename, $shapes, $onscode_to_shape, $area_type_to_shape, $aaid_to_shape) = @_;
+
+    printf STDERR "\r%s (%.2fMB) ", $filename, stat($filename)->size() / (1024.*1024);
+    (my $base = $filename) =~ s/\.shp$//;
+    return if $base =~ /parish|high_water/;
+    my $shapefile = new Geo::OSBoundaryLine::ShapeFile($base);
+    print STDERR "loaded.\n";
+
+    foreach my $C (values %{$shapefile->{areas}}) {
+        my ($area_type, $ons_code, $aaid, $name, $non_inland_area, $hectares) = map { $C->{$_} } qw(area_type ons_code admin_area_id name non_inland_area hectares);
+
+        next unless (defined($area_type) && exists($interesting_areas{$area_type}));
+
+        # Detached subparts of administrative areas are named with a
+        # suffix "(DET NO n)". Remove it.
+        $name =~ s#\(DET( NO \d+|)\)\s*##gi;
+        # Says which districts are boroughs, like we care
+        $name =~ s#\(B\)$##;
+        $name =~ s#\s+$##;
+
+        # Bounding rectangle of this shape.
+        my ($minx, $miny, $maxx, $maxy) = ($C->{x_min}, $C->{y_min}, $C->{x_max}, $C->{y_max});
+
+        # List of [sense, packed polygon data].
+        my @parts = ( );
+
+        # For each part, obtain a list of vertices and update the bounding
+        # rectangle.
+        my ($vx, $vy);
+        foreach my $part (@{$C->{parts}}) {
+            my ($poly, $sense) = @$part;
+
+            # save a vertex coordinate
+            ($vx, $vy) = ($poly->[0]->X, $poly->[0]->Y) unless (defined($vx));
+            my $polydata = pack('d*', map { $_->X, $_->Y } @$poly);
+            push(@parts, [$sense, $polydata]);
+            $poly = undef;
+        }
+
+        # Determine whether this is a new shape or a new part of a previous
+        # shape.
+        my $row;
+        if (defined($ons_code) && exists($onscode_to_shape->{$ons_code})) {
+            $row = $onscode_to_shape->{$ons_code};
+            if ($name ne $row->name()) {
+                print STDERR "\rONS code $ons_code is used for '", $row->name(), "' and for '$name'\n";
+                undef $row;
+            } else {
+                print STDERR "\rsecond shape for ONS code $ons_code; combining\n";
+            }
+        }
+
+        if (!defined($row) && exists($aaid_to_shape->{$area_type . $aaid})) {
+            $row = $aaid_to_shape->{$area_type . $aaid};
+            if ($name ne $row->name()) {
+                print STDERR "\radmin area id $aaid is used for ${area_type}s '", $row->name(), "' and for '$name'\n";
+                undef $row;
+            } else {
+                print STDERR "\rsecond shape for admin area id $aaid; combining\n";
+            }
+        }
+
+        if (!defined($row)) {
+            # New shape. Compute once-only values and save the thing.
+
+            # We need to identify a single point inside the polygon. This
+            # is used to find the areas which enclose this area in the case
+            # where that cannot be computed by other means (e.g. ONS code).
+            # XXX finding the centroid would be better!
+            # XXX this is actually broken, since a point inside this
+            # polygon might actually lie in a hole. In principle we should
+            # move this to later, when all the parts for this shape have
+            # been assembled.
+            my ($cx, $cy);
+            do {
+                $cx = $vx + rand(20) - 10;
+                $cy = $vy + rand(20) - 10;
+            } while (!mySociety::Polygon::is_point_in_poly($cx, $cy, length($parts[0]->[1]) / (2 * $doublesize), $parts[0]->[1]));
+
+            # Determine areas covered by devolved assemblies using
+            # Euro-regions, which are coterminous with them.
+            my $devolved;
+            if ($area_type eq 'EUR') {
+                $devolved = 'E';
+                if ($name =~ /London/) {
+                    $devolved = 'L';
+                } elsif ($name =~ /Scotland/) {
+                    $devolved = 'S';
+                } elsif ($name =~ /Wales/) {
+                    $devolved = 'W';
+                }
+            }
+
+            $row = new Area(
+                            filename => $filename,
+                            area_type => $area_type,
+                            ons_code => $ons_code,
+                            devolved => $devolved,
+                            aaid => $aaid,
+                            name => $name,
+                            parts => \@parts,
+                            minx => $minx,
+                            miny => $miny,
+                            maxx => $maxx,
+                            maxy => $maxy,
+                            cx => $cx,
+                            cy => $cy,
+                            non_inland_area => $non_inland_area,
+                            hectares => $hectares
+                        );
+            
+            $onscode_to_shape->{$ons_code} = $row if (defined($ons_code));
+            $aaid_to_shape->{$area_type . $aaid} = $row;
+            push(@{$area_type_to_shape->{$area_type}}, $row);
+
+            push(@$shapes, $row);
+        } else {
+            # Shape already exists. Form union of its parts and ours.
+            push(@{$row->parts()}, @parts);
+            $row->minx($minx) if ($minx < $row->minx());
+            $row->maxx($maxx) if ($maxx > $row->maxx());
+            $row->miny($miny) if ($miny < $row->miny());
+            $row->maxy($maxy) if ($maxy > $row->maxy());
+            $row->non_inland_area($row->non_inland_area() + $non_inland_area);
+            $row->hectares($row->hectares() + $hectares);
+        }
+    }
+
+    undef $shapefile;
 }
 
 1;

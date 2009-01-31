@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.14 2006-08-23 11:47:35 francis Exp $
+# $Id: OSBoundaryLine.pm,v 1.15 2009-01-31 22:59:04 matthew Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -457,6 +457,142 @@ sub attributes ($) {
     my $self = shift;
     return $self->{ntf}->{attributes}->{$self->{attrid}};
 }
+
+package Geo::OSBoundaryLine::ShapeFileArea;
+
+%Geo::OSBoundaryLine::ShapeFileArea::area_types = (
+        CED => ['County electoral division', 'VA'],
+        CPC => ['Civil parish or community', 'AA'],
+        CTY => ['County', 'AA'],
+        DIS => ['District', 'AA'],
+        DIW => ['District ward', 'VA'],
+        EUR => ['European region', 'VA'],
+        GLA => ['Greater London Authority', 'AA'],
+        LAC => ['Greater London Authority Assembly constituency', 'VA'],
+        LBO => ['London borough', 'AA'],
+        LBW => ['London borough ward', 'VA'],
+        MTC => ['Scotland Metropolitan county', 'AA'],
+        MTD => ['Description AC TY Metropolitan district', 'AA'],
+        MTW => ['Metropolitan district ward', 'VA'],
+        NCP => ['Non-civil parish or community', 'FA'],
+        SPC => ['Scottish Parliament constituency', 'VA'],
+        SPE => ['Scottish Parliament electoral region', 'AA'],
+        UTA => ['Unitary authority', 'AA'],
+        UTE => ['Unitary authority electoral division', 'VA'],
+        UTW => ['Unitary authority ward', 'VA'],
+        WAC => ['Welsh Assembly constituency', 'VA'],
+        WAE => ['Welsh Assembly electoral region', 'AA'],
+        WMC => ['Westminster constituency', 'VA']
+    );
+
+use fields qw(id admin_area_id ons_code area_type hectares non_inland_area name file_name type x_min x_max y_min y_max parts);
+
+my %sf_checks = (
+        id => qr/^\d+$/,
+        admin_area_id => qr/^\d+$/,
+        hectares => qr/^[\.\d]+$/,
+        non_inland_area => qr/^[\.\d]+$/,
+        x_min => qr/^[\.\d]+$/,
+        x_max => qr/^[\.\d]+$/,
+        y_min => qr/^[\.\d]+$/,
+        y_max => qr/^[\.\d]+$/,
+        ons_code => sub { return !defined($_[0]) || $_[0] =~ /^[0-9A-Z]+$/ },
+        area_type => sub { return defined($_[0]) && exists($area_types{$_[0]}) },
+        name => qr/.+/,
+        file_name => qr/.+/,
+        type => qr/^[AFTV]A$/,
+);
+
+sub new ($%) {
+    my ($class, %a) = @_;
+    my $self = fields::new($class);
+    foreach (keys %a) {
+        my $v = $a{$_};
+        next unless (defined($v));
+        $v =~ s# +$##;
+        next if ($v eq '');
+        if (!exists($sf_checks{$_})) {
+            die "unknown field '$_' in constructor for Geo::OSBoundaryLine::ShapeFileArea";
+        } elsif ((ref($sf_checks{$_}) eq 'Regexp' && $v !~ $sf_checks{$_})
+                 || (ref($sf_checks{$_}) eq 'CODE' && !&{$sf_checks{$_}}($v))) {
+            throw Geo::OSBoundaryLine::Error("Bad value '$a{$_}' ['$v'] for field '$_' in constructor for Geo::OSBoundaryLine::ShapeFileArea");
+        } else {
+            $self->{$_} = $v;
+        }
+    }
+    return $self;
+}
+
+# accessor methods
+foreach (keys %sf_checks) {
+    eval 'sub ' . $_ . ' ($) { my $self = shift; return $self->{' . $_ . '} }';
+}
+
+package Geo::OSBoundaryLine::ShapeFile;
+
+# The DBF files have the following keys:
+# NAME                Name of area
+# AREA_CODE        Type of area (CTY, DIW, etc.)
+# DESCRIPTIO        English type of area (County, etc.)
+# FILE_NAME        
+# NUMBER        Feature Serial Number
+# NUMBER0        Collection Serial Number
+# POLYGON_ID        Global Polygon ID
+# UNIT_ID        Admin Unit ID
+# CODE                ONS/Census Code
+# HECTARES        Area
+# AREA                Non Inland Area
+# TYPE_CODE        Type Code (AA, FA, etc.)
+# DESCRIPT0        Description of Type Code ("Civil Administration Area", etc.)
+# TYPE_COD0        Non Area Type Code
+# DESCRIPT1        Description of above
+
+use strict;
+use Geo::ShapeFile;
+use fields qw(areas);
+
+sub new ($$) {
+    my ($class, $file) = @_;
+ 
+    my $shapefile = new Geo::ShapeFile($file);
+    my $self = fields::new($class);
+
+    for (1 .. $shapefile->shapes) {
+        my $shape = $shapefile->get_shp_record($_);
+        my $dbf = $shapefile->get_dbf_record($_);
+        # print "$_ $dbf->{NAME}\n";
+        $self->{areas}->{$_} = new Geo::OSBoundaryLine::ShapeFileArea(
+            id => $_,
+            name => $dbf->{NAME},
+            area_type => $dbf->{AREA_CODE},
+            hectares => $dbf->{HECTARES},
+            non_inland_area => $dbf->{AREA},
+            file_name => $dbf->{FILE_NAME},
+            admin_area_id => $dbf->{UNIT_ID},
+            ons_code => ($dbf->{CODE} eq '999999' ? undef : $dbf->{CODE}),
+            type => $dbf->{TYPE_CODE},
+            x_min => $shape->x_min,
+            x_max => $shape->x_max,
+            y_min => $shape->y_min,
+            y_max => $shape->y_max,
+        );
+    
+        foreach my $p (1 .. $shape->num_parts) {
+            my @part = $shape->get_part($p);
+            my $vv = '';
+            for (@part) {
+                $vv .= pack('d*', $_->X, $_->Y);
+            }
+            my $area = mySociety::Polygon::poly_area(scalar @part, $vv);
+            my $sense = ($area <= 0) ? 1 : -1;
+            push @{$self->{areas}->{$_}->{parts}}, [ \@part, $sense ];
+        }
+
+    }
+
+    return bless($self, $class);
+}
+
 
 package Geo::OSBoundaryLine::NTFFile;
 

@@ -6,7 +6,7 @@
 #
 # The strategy here is as follows: 
 #
-# a. For each area, we read each polygon from the OS-supplied NTF files. We
+# a. For each area, we read each polygon from the OS-supplied NTF/ShapeFile files. We
 #    represent these in memory as packed arrays of doubles (otherwise the
 #    memory requirement exceeded poor caesious's little mind). This also makes
 #    use of the C pnpoly function (see below) more convenient, which speeds
@@ -31,7 +31,7 @@
 # Call with two or more arguments; 
 # - the first should be the name of a .control file with BoundaryLine version
 # specific instructions in it
-# - the remainder being directories containing .NTF files from Boundary-Line.
+# - the remainder being directories containing .NTF/ShapeFile files from Boundary-Line.
 # Feed postcodes from codepoint in on a pipe. Specify database to
 # connect to in ../conf/general.
 #
@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.38 2008-07-02 17:13:04 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.39 2009-01-31 22:59:04 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -76,7 +76,7 @@ my %area_type_to_shape;
 # amalgamate them before writing them to the database.
 my %aaid_to_shape;
 
-die "arguments are control file, and directories containing NTF files" unless (@ARGV > 1);
+die "arguments are control file, and directories containing NTF or ShapeFile files" unless (@ARGV > 1);
 my $controlfile = shift(@ARGV);
 if ($controlfile eq '/dev/null') {
     # debugging special case
@@ -95,12 +95,15 @@ my $generation = $dbh->selectrow_array('select id from new_generation');
 die "no new generation available" if (!defined($generation));
 
 # Pass 1:
-# Process all the directories of NTF files, saving their coordinates and
+# Process all the directories of NTF/ShapeFile files, saving their coordinates and
 # recording area names etc. in memory.
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
     foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
         BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+    }
+    foreach (glob("$dir/*.shp")) {
+        BoundaryLine::load_shapefile($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
     }
 }
 
@@ -568,6 +571,7 @@ foreach my $S ((grep { !defined($_->parent()) } @shapes), (grep { defined($_->pa
     printf STDERR "\rUpdating database: %d/%d shapes", $n, scalar(@shapes) if (($n % 100) == 0);
 }
 printf STDERR "\rUpdating database: %d/%d shapes\n", $n, scalar(@shapes);
+$dbh->commit();
 
 # Reset statistics.
 $total_shape_tests = $total_queries = 0;
@@ -633,6 +637,6 @@ $total_shape_tests = $total_queries = 0;
     STDERR->printf("\r[2K%d postcodes\n", $n);
 }
 
-print STDERR "dbh->commit disabled, rolling back\n";
+# print STDERR "dbh->commit disabled, rolling back\n";
 $dbh->commit();
 

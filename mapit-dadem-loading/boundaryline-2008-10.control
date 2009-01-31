@@ -1,0 +1,127 @@
+#!/usr/bin/perl
+#
+# boundaryline-2008-10.control:
+# Control file for import of October 2008 Boundary Line, with manual Scottish council wards.
+#
+# Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: boundaryline-2008-10.control,v 1.1 2009-01-31 22:59:04 matthew Exp $
+
+sub find_best_match ($$) {
+    my ($name, $list) = @_;
+    return (sort { Text::LevenshteinXS::distance($name, $a->name()) <=> Text::LevenshteinXS::distance($name, $b->name()) } @$list)[0];
+}
+
+my %scot_wards;
+
+# control_function SHAPES ONSCODE AREATYPE
+# Function called to fix up BL.
+sub control_function ($$$) {
+    my ($shapes, $onscode_idx, $area_type_idx) = @_;
+
+    # New Boundary Line codes the Isles of Scilly as a county. We don't,
+    # instead treating them as a special case, which is what they are.
+#    my $ios = find_best_match('Isles of Scilly', $area_type_idx->{CTY});
+#    # Remove those areas from the type index.
+#    $ios->deleted(1);
+#    foreach ($ios->children()) {
+#        $_->deleted(1);
+#    }
+#
+#    # Some English councils have had boundary changes
+#    # Bradford, S Lakeland, Welwyn Hatfield, Basingstoke&Deane, Barrow, S Cambs, Stroud
+#    foreach (@{$area_type_idx->{MTD}}) {
+#        if ($_->name() eq 'Bradford') {
+#	    foreach ($_->children()) {
+#                $_->alreadyexists(0);
+#	    }
+#	}
+#    }
+#    foreach (@{$area_type_idx->{DIS}}) {
+#        if ($_->name() =~ /^(South Lakeland|Welwyn Hatfield|Barrow-in-Furness|Basingstoke and Deane|South Cambridgeshire|Stroud) District$/) {
+#	    foreach ($_->children()) {
+#                $_->alreadyexists(0);
+#	    }
+#	}
+#    }
+
+    # All Scottish councils have had boundary changes, we're constructing them manually
+    foreach (@{$area_type_idx->{UTA}}) {
+        next unless $_->country() eq 'S';
+        foreach my $utw ($_->children()) {
+            $utw->deleted(1);
+        }
+    }
+
+    open(C, "new-scottish-wards-2007.txt") or die "can't read Scottish wards file: $!";
+
+    my ($uta, $council);
+    while (<C>) {
+        chomp;
+        unless (/^\t/) {
+            $council = $_;
+            ($uta) = grep { $_->name() eq $council } @{$area_type_idx->{UTA}};
+            die "can't find shape for council '$council'" unless $uta;
+            next;
+        }
+        die "Need a council by here!" unless $council;
+        (my $utw = $_) =~ s/^\t+//;
+        my $a = new Area(area_type => 'UTW', name => "$utw Ward", devolved => 'S', country => 'S', minx => 10000000, maxx => 0, miny => 10000000, maxy => 0, alreadyexists => 1, parts => [ ], parent => $uta);
+        $uta->children($a);
+        push(@$shapes, $a);
+        push(@{$area_type_idx->{UTW}}, $a);
+        if ($utw eq 'North East' || $utw eq 'North Isles') {
+            # Deal with dupe ward titles
+            $utw .= " $council";
+        }
+        $scot_wards{$utw} = $a;
+        print STDERR "Creating new UTW: ", $a->name(), " in $council\n";
+    }
+    close(C);
+}
+
+my %postcodes;
+open(C, 'scot-postcodes-to-wards.tsv') or die "can't read Scottish postcodes file: $!";
+while (<C>) {
+    chomp;
+    /^(.*?)\t(.*)$/;
+    my $pc = uc $1;
+    my $ward = $2;
+    # Deal with dupe ward titles
+    $ward .= ' Dundee City' if $pc =~ /^DD/ && $ward eq 'North East';
+    $ward .= ' Glasgow City' if $pc =~ /^G/ && $ward eq 'North East';
+    $ward .= ' Orkney Islands' if $pc =~ /^KW/ && $ward eq 'North Isles';
+    $ward .= ' Shetland Islands' if $pc =~ /^ZE/ && $ward eq 'North Isles';
+    $postcodes{$pc} = $ward;
+}
+close C;
+
+# control_function_postcode AREAS AREATYPE
+# To manually slip in some postcode matches
+sub control_function_postcode($$) {
+    my ($pc, $areas, $area_type_idx) = @_;
+
+    return unless $areas->{EUR}->country() eq 'S';
+    
+    if ($areas->{UTW}) {
+        warn "Already has a UTW! pc=$pc, utw=" . $areas->{UTW};
+        return;
+    }
+
+    $pc =~ s/ //g;
+    my $ward = $postcodes{uc $pc};
+    unless ($ward) {
+        warn "No ward for $pc!";
+        return;
+    }
+
+    my $shape = $scot_wards{$ward};
+    unless ($shape) {
+        warn "No shape for $ward (from $pc)!";
+        return;
+    }
+    $areas->{UTW} = $shape;
+}
+
+1;
