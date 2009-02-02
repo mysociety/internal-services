@@ -6,7 +6,7 @@
 # Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: boundaryline-2008-10.control,v 1.2 2009-01-31 23:01:33 matthew Exp $
+# $Id: boundaryline-2008-10.control,v 1.3 2009-02-02 21:05:37 matthew Exp $
 
 sub find_best_match ($$) {
     my ($name, $list) = @_;
@@ -38,8 +38,9 @@ sub control_function ($$$) {
             }
         }
     }
+    # Stroud/ S Cambs only small boundary changes, no name changes
     foreach (@{$area_type_idx->{DIS}}) {
-        if ($_->name() =~ /^(South Lakeland|Welwyn Hatfield|Barrow-in-Furness|Basingstoke and Deane|South Cambridgeshire|Stroud) District$/) {
+        if ($_->name() =~ /^(South Lakeland|Welwyn Hatfield|Barrow-in-Furness|Basingstoke and Deane) District$/) {
             foreach ($_->children()) {
                 $_->alreadyexists(0);
             }
