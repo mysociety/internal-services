@@ -1,13 +1,13 @@
 #!/usr/bin/perl -w -I../perllib -I ../../perllib
 #
 # add_boundaryline_geodata:
-# Add geographical information about boundaries to MaPit, from BoundaryLine NTF files.
+# Add geographical information about boundaries to MaPit, from BoundaryLine NTF/ShapeFile files.
 #
-# Specify a directory containing BoundaryLine NTF files as the only parameter. Existing
-# data in area_geometry for each area found in the NTF files is replaced.
+# Specify directories containing BoundaryLine NTF/ShapeFile files as the parameters. Existing
+# data in area_geometry for each area found in the NTF/ShapeFile files is replaced.
 #
 
-my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.8 2007-08-23 22:58:51 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.9 2009-02-05 19:07:02 matthew Exp $';
 
 use strict;
 
@@ -25,8 +25,7 @@ use Common;
 use Area;
 use BoundaryLine qw(%interesting_areas @interesting_areas %childmap %parentmap doublesize);
 
-my $boundaryline_directory = shift(@ARGV);
-die "argument is directory containing boundaryline NTF files" unless $boundaryline_directory;
+die "arguments are directories containing boundaryline NTF/ShapeFile files" unless @ARGV;
 
 # @shapes
 # List of Area objects for each area we're interested in.
@@ -52,12 +51,17 @@ foreach (@$s) {
 }
 
 # Recursively scan for NTF files and load them all in
-find(\&wanted, $boundaryline_directory);
+find(\&wanted, @ARGV);
 sub wanted {
-    BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+    if (/\.ntf$/i) {
+        BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+    } elsif (/\.shp$/) {
+        BoundaryLine::load_shapefile($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+    }
 }
 
 # Loop through shapes
+my %manually_done;
 foreach my $A (@shapes) {
     print STDERR $A->name() . " " . $A->area_type() . "\n";
 
@@ -68,28 +72,14 @@ foreach my $A (@shapes) {
     my ($centre_lat, $centre_lon) = mySociety::GeoUtil::national_grid_to_wgs84($centre_e, $centre_n, 'G');
 
     my $db_id;
-    $db_id = $os_name_to_db_info{$A->name()}{$A->ons_code()} if $A->ons_code(); 
-    if (!$db_id) {
-        my $db_ids = $os_name_to_db_info{$A->name()}{$A->area_type()};
-	if (@$db_ids == 1) {
-	    $db_id = $db_ids->[0];
-	} elsif (@$db_ids) {
-	    print "Choices for " . $A->name() . ', ' . $A->area_type()
-	        . ', file ' . $A->filename() . ' are ' . join(',',@$db_ids).' ? ';
-	    $db_id = <>;
-	    chomp($db_id);
-	}
+    if ($A->ons_code()) {
+        $db_id = $os_name_to_db_info{$A->name()}{$A->ons_code()};
     }
     if (!$db_id) {
-        my $db_ids = $os_name_to_db_info{$A->name()}{id};
-	if (@$db_ids == 1) {
-	    $db_id = $db_ids->[0];
-	} elsif (@$db_ids) {
-	    print "Choices for " . $A->name() . ', ' . $A->area_type()
-	        . ', file ' . $A->filename() . ' are ' . join(',',@$db_ids).' ? ';
-	    $db_id = <>;
-	    chomp($db_id);
-	}
+        $db_id = dedupe($os_name_to_db_info{$A->name()}{$A->area_type()});
+    }
+    if (!$db_id) {
+        $db_id = dedupe($os_name_to_db_info{$A->name()}{id});
     }
     if (!$db_id) {
         print "couldn't find exact name match ". $A->name() . " in database\n";
@@ -168,3 +158,20 @@ foreach my $A (@shapes) {
 $dbh->commit();
 
 
+sub dedupe {
+    my $db_ids = shift;
+    $db_ids = [] unless $db_ids;
+    @$db_ids = grep { !$manually_done{$_} } @$db_ids;
+    return undef unless @$db_ids;
+    return $db_ids->[0] if @$db_ids == 1;
+
+    my $ids = join(',', @$db_ids);
+    my $s = $dbh->selectall_arrayref("select id, parent_area_id,name from area,area_name where parent_area_id=area_id and name_type='F' and id in ($ids)", { Slice => {} });
+    print map { "* $_->{id} $_->{name}\n" } @$s;
+    print "Choices for " . $A->name() . ', ' . $A->area_type()
+        . ', file ' . $A->filename() . ' are ' . $ids . ' ? ';
+    $db_id = <>;
+    chomp($db_id);
+    $manually_done{$db_id} = 1;
+    return $db_id;
+}

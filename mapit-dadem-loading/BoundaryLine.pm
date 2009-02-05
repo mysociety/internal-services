@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.9 2009-01-31 22:59:04 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.10 2009-02-05 19:07:02 matthew Exp $
 #
 
 use strict;
@@ -286,7 +286,7 @@ sub load_shapefile {
     print STDERR "loaded.\n";
 
     foreach my $C (values %{$shapefile->{areas}}) {
-        my ($area_type, $ons_code, $aaid, $name, $non_inland_area, $hectares) = map { $C->{$_} } qw(area_type ons_code admin_area_id name non_inland_area hectares);
+        my ($area_type, $ons_code, $aaid, $name, $non_inland_area, $hectares, $file_name) = map { $C->{$_} } qw(area_type ons_code admin_area_id name non_inland_area hectares file_name);
 
         next unless (defined($area_type) && exists($interesting_areas{$area_type}));
 
@@ -371,7 +371,7 @@ sub load_shapefile {
             }
 
             $row = new Area(
-                            filename => $filename,
+                            filename => $file_name,
                             area_type => $area_type,
                             ons_code => $ons_code,
                             devolved => $devolved,
