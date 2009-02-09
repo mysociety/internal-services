@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.73 2008-01-28 17:37:38 matthew Exp $
+# $Id: MaPit.pm,v 1.74 2009-02-09 11:29:26 matthew Exp $
 #
 
 package MaPit;
@@ -392,7 +392,7 @@ If POLYGON_TYPE is present, then the hash also contains a member 'polygon'.
 This is an array of parts. Each part is a hash of the following values:
 
 sense - a positive value to include the part, negative to exclude (a hole)
-points - an array of pairs of (eastings, northings) if POLYGON_TYPE is 'ng",
+points - an array of pairs of (eastings, northings) if POLYGON_TYPE is 'ng',
 or (latitude, longitude) if POLYGON_TYPE is 'wgs84'.
 
 If for some reason any of the values above are not known, they will not

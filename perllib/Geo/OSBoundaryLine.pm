@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.15 2009-01-31 22:59:04 matthew Exp $
+# $Id: OSBoundaryLine.pm,v 1.16 2009-02-09 11:29:26 matthew Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -738,7 +738,7 @@ sub parse_14 ($$) {
 
     # Return if we don't have a collection
     if ($rec !~ /^\d{6}AI/) {
-        $debug && print "Attribute Record ignored for non-collection, non-polygon object\n";
+        #$debug && print "Attribute Record ignored for non-collection, non-polygon object\n";
         return;
     }
 
@@ -824,7 +824,7 @@ sub parse_21 ($$) {
                     || length($rec) == 11 + 17 * $num + 8));
 
     my $geomid = int(substr($rec, 0, 6));
-    my $attrid = defined($3) ? int($3) : undef;
+    my $attrid = defined($3) ? int($3) : '';
 
     $obj->{geometries}->{$geomid} = [ ];
     for (my $i = 0; $i < $num; ++$i) {
@@ -860,10 +860,11 @@ sub parse_24 ($$) {
 
     die "Chain Record refers to non-existent polygon" unless (exists($obj->{polygons}->{$chainid}));
 
+    my $foo = join(',', @parts);
     $debug && print <<EOF;
 Chain:
     Chain ID: $chainid
-    Number of parts: $num
+    Number of parts: $num ($foo)
 EOF
 
     $obj->{chains}->{$chainid} = [ ];
@@ -909,10 +910,11 @@ sub parse_33 ($$) {
     die "Complex Polygon Record has odd number (" . scalar(@parts) . ") of parts" if (@parts & 1);
     die "Complex Polygon Record has wrong number of parts (" . scalar(@parts) . " vs. " . 2 * $num . ")" if (@parts != 2 * $num);
 
+    my $foo = join(',', @parts);
     $debug && print <<EOF;
 Complex Polygon:
     Complex Polygon ID: $complexid
-    Number of parts: $num
+    Number of parts: $num ($foo)
 EOF
 
     my @pp = ( );
