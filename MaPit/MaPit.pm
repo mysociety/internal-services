@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.74 2009-02-09 11:29:26 matthew Exp $
+# $Id: MaPit.pm,v 1.75 2009-02-12 14:37:26 matthew Exp $
 #
 
 package MaPit;
@@ -512,7 +512,7 @@ sub get_voting_areas_by_location ($$;$$) {
     my ($e, $n);
     if ($coord->{easting} && $coord->{northing}) {
         ($e, $n) = ($coord->{easting}, $coord->{northing});
-    } elsif ($coord->{latitude} && $coord->{longitude}) {
+    } elsif (defined $coord->{latitude} && defined $coord->{longitude}) {
         ($e, $n) = mySociety::GeoUtil::wgs84_to_national_grid($coord->{latitude}, $coord->{longitude}, 'G');
     } else {
         throw RABX::Error("COORDINATE must be supplied", RABX::Error::INTERFACE);
