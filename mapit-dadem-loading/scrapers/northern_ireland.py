@@ -90,8 +90,8 @@ class NIATableParser( HTMLParser ):
         # if we are in the first <td>, and we see a link,
         # this is a link to the member's homepage. Add the link
         # as member.url.
-        elif self._td_count == 1 and tag == 'a':
-            self._current_member.url = [value for key, value in attrs if key == 'href'][0]
+        elif self._td_count == 1 and tag == 'a' and attrs[0][0] == 'href':
+            self._current_member.url = attrs[0][1]
                     
     #-----------------------------
     def handle_endtag(self, tag):
