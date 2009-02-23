@@ -10,7 +10,7 @@
 $short_opts = '';
 $long_opts = array();
 
-$regions_url='http://www.europarl.org.uk/uk_meps/MembersPrincip.htm';
+$regions_url = 'http://www.europarl.org.uk/section/your-meps/list-region';
 
 require_once '../../../phplib/phpcli.php';
 
@@ -49,15 +49,7 @@ print "First,Last,Constituency,Party,Email,Fax,Image\n";
 
 //Get the base file
 $regions_data=cached_file_get_contents($regions_url);
-
-$regions_data=preg_replace("/\n/",' ',$regions_data);
-$regions_data=preg_replace("/\s+/",' ',$regions_data);
-
-$regions_data=preg_replace('/.*<map /s','',$regions_data);
-$regions_data=preg_replace('/<\/map>.*/s','',$regions_data);
-
-	preg_match_all('/<area[^>]+href\s*=\s*["\']([^"]+)["\'][^>]+alt\s*=\s*["\']([^"]+)["\']/',$regions_data,$matches,PREG_SET_ORDER);
-# 2: URL, 3: DISTRICT
+preg_match_all('#<a href="(/section/list-region/[^"]*)">(.*?)</a>#', $regions_data, $matches, PREG_SET_ORDER);
 
 foreach($matches as $match) {
 	$region=preg_replace('/&amp;/','and',$match[2]);
@@ -68,35 +60,15 @@ foreach($matches as $match) {
 
 foreach($regionurls as $region => $regionurl) {
 	$meplist_data=cached_file_get_contents($regionurl);
-#	$meplist_data=preg_replace("/\n/",' ',$meplist_data);
 	$meplist_data=preg_replace("/\s+/",' ',$meplist_data);
-	preg_match_all('#\d+. <a href="\#([^>]+)"><font[^>]+>([^>]+)</font></a><br>#',$meplist_data,$matches,PREG_SET_ORDER);
     $mepsfound[$region] = 0;
 
-	foreach ($matches as $match) {
-		$mep = $match[2];	
-		$ismep[$mep] = true;
-		$target[$mep] = $match[1];
-	}
-
-	$sections=preg_split('/<a name/',$meplist_data,-1,PREG_SPLIT_NO_EMPTY);
+	$sections=preg_split('/<a(?: title="[^"]*")? name/',$meplist_data,-1,PREG_SPLIT_NO_EMPTY);
 
 	foreach ($sections as $section) {
-		$matched = 0;
-		if(preg_match('#^="([^"]*)".*<img src="([^"]*)".*<b>([^>]*)</b>.*<font [^>]*>([^>]*)<br>([^>]*)</font>.*(Tel: ([^<]*).*)?Fax: ([^<]*).*?mailto:([^"]+)#',$section,$matches)) {
-			$matched = 1;
-		} elseif (preg_match('#^="([^"]*)"().*?<b>([^>]*)</b>.*?<font [^>]*>([^>]*)<br>([^>]*)</font>.*?(Tel: ([^<]*).*?Fax: ([^<]*))?.*?mailto:([^"]+)#',$section,$matches)) {
-			$matched = 1;
-        }
-		if ($matched) {
-
-			$name=trim($matches[3]);
-			
-			foreach($honorifics as $honorific) {
-				$name=preg_replace("/^$honorific/",'',$name);	
-			}
-
-			$name=trim($name);
+		if (preg_match('#^="[^"]*".*?<(?:h2|b)>([^<]*)(?:</b>)?</h2>\s*<(?:p|br /)>\s*([^<]*)<br />\s*([^<]*)<(?:/p|br /)>.*?(Tel\.?(?: */ *Fax)?):([^<]*).*?(?:Fax: ([^<]*).*?)?mailto:([^"]+).*?<img src="([^"]*)"#', $section, $matches)) {
+			$name = trim($matches[1]);
+			$name = preg_replace('/^(' . join('|', $honorifics) . ')\s*/', '', $name);
 
 			preg_match('/^(\S+)\s(.*)/',$name,$nameparts);
 			$members[$name]['firstname']=$nameparts[1];
@@ -105,41 +77,22 @@ foreach($regionurls as $region => $regionurl) {
 			$members[$name]['region']=$region;
 			$mepsfound[$members[$name]['region']]++;
 
-			$members[$name]['image']=trim($matches[2]);
-			$members[$name]['party']=trim($matches[4]);
-			$members[$name]['affiliation']=trim($matches[5]);
-			$members[$name]['phone']=trim($matches[7]);
-			$members[$name]['fax']=trim($matches[8]);
-			$members[$name]['email']=trim($matches[9]);
+			$members[$name]['image'] = trim($matches[7]);
+			$members[$name]['party'] = trim($matches[2]);
+			$members[$name]['affiliation'] = trim($matches[3]);
+			$members[$name]['phone'] = trim($matches[5]);
+			if ($matches[6])
+				$members[$name]['fax'] = trim($matches[6]);
+			elseif (strstr($matches[4], 'Fax'))
+				$members[$name]['fax'] = trim($matches[5]);
+			else
+				$members[$name]['fax'] = '';
+			$members[$name]['email'] = trim($matches[7]);
 		}
 	}
 }
 
-#foreach($members as $mep=>$data) {
-#	$mep_data=cached_file_get_contents($data['url']);
-#	$mep_data=preg_replace("/\n/",' ',$mep_data);
-#	$mep_data=preg_replace("/\s+/",' ',$mep_data);
-#	preg_match('#<td class="mepmail">\s+<a href="mailto:([^"]+)#',$mep_data,$matches);
-#	$members[$mep]['email']=$matches[1];
-#
-#	preg_match('#<!-- national party -->\s*([^<]*)#',$mep_data,$matches);
-#   $members[$mep]['party']=trim($matches[1]);             
-#
-#	preg_match('#<img [^>]*src="([^"]*)"[^>]*class="photoframe" />#',$mep_data,$matches);
-#   $members[$mep]['image']=relativeUrlToAbsolute($data['url'],$matches[1]);             
-#
-#	preg_match_all('#<strong>Fax</strong>\s*:?\s*([^<]*)#',$mep_data,$matches,PREG_SET_ORDER);
-#	foreach($matches as $match) {
-#   	$members[$mep]['fax'][]=$match[1];             
-#	}
-#
-#	$mepsfound[$members[$mep]['region']]++;
-#}
-
 foreach($members as $member) {
-    if(!preg_match("#\d+#",$member['fax'])) {
-        #err("Missing fax data for $member[firstname] $member[surname] ($member[region])\n");
-    }
     if(strlen($member['party'])<4) {
         err("Invalid party info for $member[firstname] $member[surname] ($member[region])\n");
     }
