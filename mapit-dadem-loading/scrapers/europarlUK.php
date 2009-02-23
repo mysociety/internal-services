@@ -77,7 +77,6 @@ foreach($regionurls as $region => $regionurl) {
 			$members[$name]['region']=$region;
 			$mepsfound[$members[$name]['region']]++;
 
-			$members[$name]['image'] = trim($matches[7]);
 			$members[$name]['party'] = trim($matches[2]);
 			$members[$name]['affiliation'] = trim($matches[3]);
 			$members[$name]['phone'] = trim($matches[5]);
@@ -88,6 +87,7 @@ foreach($regionurls as $region => $regionurl) {
 			else
 				$members[$name]['fax'] = '';
 			$members[$name]['email'] = trim($matches[7]);
+			$members[$name]['image'] = trim($matches[8]);
 		}
 	}
 }
@@ -96,11 +96,6 @@ foreach($members as $member) {
     if(strlen($member['party'])<4) {
         err("Invalid party info for $member[firstname] $member[surname] ($member[region])\n");
     }
-
-    foreach(array_keys($member) as $key) {
-        $member[$key] = utf8_encode($member[$key]);
-    }
-
     print("$member[firstname],$member[surname],$member[region],$member[party],$member[email],$member[fax],$member[image]\n");
 }
 
