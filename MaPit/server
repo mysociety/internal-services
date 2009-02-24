@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.25 2008-02-04 19:00:13 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.26 2009-02-24 14:41:48 francis Exp $';
 
 use strict;
 require 5.8.0;
@@ -30,6 +30,9 @@ use MaPit;
 my $req = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%ENV, 0, 1 );
 my $W = new mySociety::WatchUpdate();
 
+# See if we are running in REST/JSON, rather than RABX mode.
+my $rest = $ENV{USE_REST} ? 1 : 0;
+
 # Signal handling, so as to die after current request, not during
 my $exit_requested = 0;
 $SIG{TERM} = $SIG{USR1} = sub {
@@ -40,57 +43,63 @@ use constant cache_age => 3600;
 
 # All the MaPit functions are cacheable.
 
+@::lookup_functions = (
+    'MaPit.get_voting_areas' => [
+        sub { return MaPit::get_voting_areas($_[0]); },
+        cache_age
+    ],
+    'MaPit.get_areas_by_type' => [
+        sub { return MaPit::get_areas_by_type($_[0]); },
+        cache_age
+    ],
+    'MaPit.get_example_postcode' => [
+        sub { return MaPit::get_example_postcode($_[0]); },
+        cache_age
+    ],
+    'MaPit.get_voting_area_info' => [
+        sub { return MaPit::get_voting_area_info($_[0]); },
+        cache_age
+    ],
+    'MaPit.get_voting_areas_info' => [
+        sub { return MaPit::get_voting_areas_info($_[0]); },
+        cache_age
+    ],
+    'MaPit.get_voting_area_by_name' => [
+        sub { return MaPit::get_voting_area_by_name($_[0], $_[1]); },
+        cache_age
+    ],
+    'MaPit.get_voting_area_geometry' => [
+        sub { return MaPit::get_voting_area_geometry($_[0], $_[1]); },
+        cache_age
+    ],
+    'MaPit.get_voting_areas_geometry' => [
+        sub { return MaPit::get_voting_areas_geometry($_[0], $_[1]); },
+        cache_age
+    ],
+    'MaPit.get_voting_areas_by_location' => [
+        sub { return MaPit::get_voting_areas_by_location($_[0], $_[1], $_[2], $_[3]); },
+        cache_age
+    ],
+    'MaPit.get_voting_area_children' => [
+        sub { return MaPit::get_voting_area_children($_[0]); },
+        cache_age
+    ],
+    'MaPit.get_location' => [
+        sub { return MaPit::get_location($_[0], $_[1]); },
+        cache_age
+    ],
+    'MaPit.admin_get_stats' => [
+        sub { return MaPit::admin_get_stats(); },
+        cache_age
+    ]
+);
+
 while ($req->Accept() >= 0) {
-    RABX::Server::CGI::dispatch(
-            'MaPit.get_voting_areas' => [
-                sub { return MaPit::get_voting_areas($_[0]); },
-                cache_age
-            ],
-            'MaPit.get_areas_by_type' => [
-                sub { return MaPit::get_areas_by_type($_[0]); },
-                cache_age
-            ],
-            'MaPit.get_example_postcode' => [
-                sub { return MaPit::get_example_postcode($_[0]); },
-                cache_age
-            ],
-            'MaPit.get_voting_area_info' => [
-                sub { return MaPit::get_voting_area_info($_[0]); },
-                cache_age
-            ],
-            'MaPit.get_voting_areas_info' => [
-                sub { return MaPit::get_voting_areas_info($_[0]); },
-                cache_age
-            ],
-            'MaPit.get_voting_area_by_name' => [
-                sub { return MaPit::get_voting_area_by_name($_[0], $_[1]); },
-                cache_age
-            ],
-            'MaPit.get_voting_area_geometry' => [
-                sub { return MaPit::get_voting_area_geometry($_[0], $_[1]); },
-                cache_age
-            ],
-            'MaPit.get_voting_areas_geometry' => [
-                sub { return MaPit::get_voting_areas_geometry($_[0], $_[1]); },
-                cache_age
-            ],
-            'MaPit.get_voting_areas_by_location' => [
-                sub { return MaPit::get_voting_areas_by_location($_[0], $_[1], $_[2], $_[3]); },
-                cache_age
-            ],
-            'MaPit.get_voting_area_children' => [
-                sub { return MaPit::get_voting_area_children($_[0]); },
-                cache_age
-            ],
-            'MaPit.get_location' => [
-                sub { return MaPit::get_location($_[0], $_[1]); },
-                cache_age
-            ],
-            'MaPit.admin_get_stats' => [
-                sub { return MaPit::admin_get_stats(); },
-                cache_age
-            ]
-        );
+    if ($rest) {
+        RABX::Server::CGI::dispatch_rest(@::lookup_functions);
+    } else {
+        RABX::Server::CGI::dispatch(@::lookup_functions);
+    }
     $W->exit_if_changed();
     last if $exit_requested;
 }
