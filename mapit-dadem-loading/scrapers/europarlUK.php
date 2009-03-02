@@ -77,7 +77,7 @@ foreach($regionurls as $region => $regionurl) {
 			$members[$name]['region']=$region;
 			$mepsfound[$members[$name]['region']]++;
 
-			$members[$name]['party'] = trim($matches[2]);
+			$members[$name]['party'] = html_entity_decode(trim($matches[2]), ENT_COMPAT, 'UTF-8');
 			$members[$name]['affiliation'] = trim($matches[3]);
 			$members[$name]['phone'] = trim($matches[5]);
 			if ($matches[6])
