@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.76 2009-04-01 18:04:11 matthew Exp $
+# $Id: MaPit.pm,v 1.77 2009-04-01 18:22:48 matthew Exp $
 #
 
 package MaPit;
@@ -601,16 +601,17 @@ sub get_voting_areas_by_location ($$;$$) {
    return \%ret;
 }
 
-=item get_areas_by_type TYPE [ALL]
+=item get_areas_by_type TYPE [MIN_GENERATION]
 
 Returns an array of ids of all the voting areas of type TYPE.
 TYPE is the three letter code such as WMC. By default only
-gets active areas in current generation, if ALL is true then
+gets active areas in current generation, if MIN_GENERATION is
+provided then returns from that generation on, or if -1 then
 gets all areas for all generations.
 
 =cut
 sub get_areas_by_type ($;$) {
-    my ($type, $all) = @_;
+    my ($type, $min_generation) = @_;
 
     throw RABX::Error("Please specify type") unless $type;
 
@@ -633,16 +634,17 @@ sub get_areas_by_type ($;$) {
     }
 
     my $ret;
-    if ($all) {
+    if ($min_generation == -1) {
         $ret = dbh()->selectcol_arrayref("
             select id from area where $clause
             ", {}, @args);
     } else {
         my $generation = get_generation();
+	$min_generation = $generation unless $min_generation;
         $ret = dbh()->selectcol_arrayref("
             select id from area 
                 where $clause and generation_low <= ? and ? <= generation_high
-            ", {}, @args, $generation, $generation);
+            ", {}, @args, $generation, $min_generation);
     }
 
     return $ret;

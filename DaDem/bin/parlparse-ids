@@ -9,7 +9,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.7 2007-10-22 15:19:09 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.8 2009-04-01 18:22:48 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -63,7 +63,7 @@ sub process_one_type {
     my $matcher_script = shift;
 
     # Need to obtain a list of MP/constituency names and then pick out messages by those.
-    my $areaids = mySociety::MaPit::get_areas_by_type($area_type, 1); # array of ids of ALL areas (not just current generation)
+    my $areaids = mySociety::MaPit::get_areas_by_type($area_type, -1); # array of ids of ALL areas (not just current generation)
     my %areainfo = %{mySociety::MaPit::get_voting_areas_info($areaids)}; # hash from area id to hash of info about area
     my $repids = mySociety::DaDem::get_representatives([keys %areainfo], 1); # hash from area to reps for that area
     my @allreps;
