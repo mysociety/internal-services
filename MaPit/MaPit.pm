@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.75 2009-02-12 14:37:26 matthew Exp $
+# $Id: MaPit.pm,v 1.76 2009-04-01 18:04:11 matthew Exp $
 #
 
 package MaPit;
@@ -344,23 +344,24 @@ sub get_voting_areas_info ($) {
     return { (map { $_ => get_voting_area_info($_) } grep { defined($_) } @$ary) };
 }
 
-=item get_voting_area_by_name NAME [TYPE]
+=item get_voting_area_by_name NAME [TYPE] [MIN_GENERATION]
 
 Given NAME, return the area IDs (and other info) that begin with that name, or
 undef if none found.  If TYPE is specified (scalar or array ref), only return
-areas of those type(s).
+areas of those type(s). If MIN_GENERATION is given, return all areas since then.
 
 =cut
-sub get_voting_area_by_name ($;$) {
-    my ($name, $type) = @_;
+sub get_voting_area_by_name ($;$$) {
+    my ($name, $type, $min_generation) = @_;
     
     my $generation = get_generation();
+    $min_generation = $generation unless $min_generation;
 
     my $q = "select area_id, name, type, parent_area_id from area_name, area
         where area_id = id and name_type='F'
         and generation_low <= ? and ? <= generation_high
         and name like ? || '%'";
-    my @args = ($generation, $generation, $name);
+    my @args = ($generation, $min_generation, $name);
     if (ref($type) eq 'ARRAY') {
         my $qs = '?,' x @$type;
         chop($qs);
