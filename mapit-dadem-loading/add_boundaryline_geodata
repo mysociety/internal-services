@@ -7,7 +7,7 @@
 # data in area_geometry for each area found in the NTF/ShapeFile files is replaced.
 #
 
-my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.9 2009-02-05 19:07:02 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.10 2009-04-02 17:34:44 matthew Exp $';
 
 use strict;
 
@@ -41,6 +41,7 @@ my $dbh = Common::connect_to_mapit_database();
 
 # Get list of all areas, indexed by OS name
 my $g = current_generation($dbh);
+# my @as = (2428,2402,2381,2341,2393,2429,2472,2399,2470,2414,2608,2398,2396,2385,2383,2392,2345); # XXX Was needed for something at one point, with $g manually set to 6?
 my $s = "select id, parent_area_id, unit_id, ons_code, type, name from area, area_name where area.id = area_name.area_id and name_type = 'O' and ($g >= generation_low and $g <= generation_high)";
 $s = $dbh->selectall_arrayref($s, { Slice => {} });
 my %os_name_to_db_info;
