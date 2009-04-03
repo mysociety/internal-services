@@ -9,7 +9,7 @@
 -- Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
 -- Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: april2009-update.sql,v 1.1 2009-04-02 17:34:44 matthew Exp $
+-- $Id: april2009-update.sql,v 1.2 2009-04-03 11:51:03 matthew Exp $
 --
 
 -- generation is currently *10*
@@ -29,10 +29,10 @@ update area set type='UTA', generation_high=11 where generation_high=10 and id i
 update area set type='UTW', generation_high=11 where generation_high=10 and parent_area_id in (2223, 2238, 2245, 2248, 2250, 2253);
 
 -- Creation of new Chesire unitary authorities
-insert into area (id, parent_area_id, unit_id, ons_code, type, country, generation_low, generation_high) values (21068, null, null, null, 'UTA', 'E', 11, 11);
+insert into area (id, parent_area_id, unit_id, ons_code, type, country, generation_low, generation_high) values (21068, null, null, '00EW', 'UTA', 'E', 11, 11);
 insert into area_name (area_id, name_type, name) values (21068, 'O', 'Cheshire West and Chester');
 insert into area_name (area_id, name_type, name) values (21068, 'F', 'Cheshire West and Chester Council');
-insert into area (id, parent_area_id, unit_id, ons_code, type, country, generation_low, generation_high) values (21069, null, null, null, 'UTA', 'E', 11, 11);
+insert into area (id, parent_area_id, unit_id, ons_code, type, country, generation_low, generation_high) values (21069, null, null, '00EQ', 'UTA', 'E', 11, 11);
 insert into area_name (area_id, name_type, name) values (21069, 'O', 'Cheshire East');
 insert into area_name (area_id, name_type, name) values (21069, 'F', 'Cheshire East Council');
 -- Put all old Cheshire wards in new Cheshire UAs
@@ -40,7 +40,7 @@ update area set type='UTW', generation_high=11, parent_area_id=21068 where id in
 update area set type='UTW', generation_high=11, parent_area_id=21069 where id in ( 14503, 14505, 14553, 14521, 14517, 14513, 14512, 14519, 14534, 14546, 14522, 14531, 14551, 14549, 14527, 14536, 14537, 14514, 14516, 14543, 14509, 14550, 14528, 14510, 14535, 14506, 14533 );
 
 -- Creation of new Central Bedfordshire
-insert into area (id, parent_area_id, unit_id, ons_code, type, country, generation_low, generation_high) values (21070, null, null, null, 'UTA', 'E', 11, 11);
+insert into area (id, parent_area_id, unit_id, ons_code, type, country, generation_low, generation_high) values (21070, null, null, '00KC', 'UTA', 'E', 11, 11);
 insert into area_name (area_id, name_type, name) values (21070, 'O', 'Central Bedfordshire');
 insert into area_name (area_id, name_type, name) values (21070, 'F', 'Central Bedfordshire Council');
 -- Put old Bedfordshire CC wards that are within Central Bedfordshire's boundary (so not ones within Bedford) in new UA
