@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.14 2007-10-08 13:24:15 matthew Exp $
+# $Id: CouncilMatch.pm,v 1.15 2009-04-03 11:54:45 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -342,11 +342,11 @@ sub canonicalise_constituency_name ($) {
 sub canonicalise_council_name ($) {
     $_ = shift;
 
-    if (m/^Durham /) {
+    if (m/Durham /) {
         # Durham County and Durham District both have same name (Durham)
         # so we leave in the type (County/District) as a special case
         s# City Council# District#;
-        s# County Council# County#;
+        s#County Durham Council#Durham County#;
     } else {
         s#\s*\(([A-Z]{2})\)##; # Pendle (BC) => Pendle
         s#(.+) - (.+)#$2#;     # Sir y Fflint - Flintshire => Flintshire
@@ -356,19 +356,28 @@ sub canonicalise_council_name ($) {
         s# City Council$##;    # OS say "District", GovEval say "City Council", we drop both to match
         s# County Council$##;  # OS say "District", GovEval say "City Council", we drop both to match
         s# Borough Council$##; # Stafford Borough Council => Stafford
+        s#^Borough Council of ##;
+        s# and District Council$##; # Armagh City and District Council
         s# Council$##;         # Medway Council => Medway
         s# City$##;            # Liverpool City => Liverpool
         s#^City of ##;         # City of Glasgow => Glasgow
         s#^County of ##;
+        s#^Council of the ##;
         s#^Corp of ##;         # Corp of London => London
+        s# Corporation$##;
         s# District$##;
         s# County$##;
         s# City$##;
+        s# Metropolitan$##;
         s# London Boro$##;
+        s#^(London |Royal |)Borough (of )?##;
 
         s#sh'r$#shire#;       # Renfrewsh'r => Renfrewshire
-        s#W\. Isles#Na H-Eileanan an Iar#;    # Scots Gaelic(?) name for Western Isles
+        s#W(\.|estern) Isles#Na H-Eileanan an Iar#;    # Scots Gaelic(?) name for Western Isles
         s#^Blackburn$#Blackburn with Darwen#;
+        s#^Barrow-in-Furness$#Barrow#;
+        s#^Kingston upon Hull$#Hull#;
+        s#^Rhondda, Cynon, Taff$#Rhondda, Cynon, Taf#;
 
         s#\bN\.\s#North #g;    # N. Warwickshire => North Warwickshire
         s#\bS\.\s#South #g;    # S. Oxfordshire => South Oxfordshire

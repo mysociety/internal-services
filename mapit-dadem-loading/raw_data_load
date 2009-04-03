@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.32 2008-12-09 12:08:27 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.33 2009-04-03 11:54:46 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -140,7 +140,7 @@ while (my $line = <STDIN>) {
 
     # Remove bad control characteres
     chomp($line);
-    #$line =~ s/\xA0//g; # appears twice after "Castle Baynard"
+    $line =~ s/\xA0/ /g; # appears twice after "Castle Baynard"
     #$line =~ s/\x0B//g; # appears after some email addresse
     #$line =~ s/\x14ina/Tina/g; # strangely broken "T"
     #$line =~ s/\x00//g; # appears on the last line
