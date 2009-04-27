@@ -186,6 +186,7 @@ sub update_programmes_from_footage {
 		 $title_synopsis =~ /^.+? Bill/i ||
 		 $title_synopsis =~ /^.+? Committee/i ||
 		 $title_synopsis =~ /^.+? Questions/i ||
+		 $title_synopsis =~ /Budget/i ||
 		 $title_synopsis =~ /recorded coverage of the .+? committee session/i) {
 	    $location = 'commons';
 	    $rights = 'internet';
@@ -704,7 +705,7 @@ sub cache_cleanup {
     # Once we've done all the requests in the queue, remove all mpeg
     # files from the local raw-footage cache more than 3 days old
 
-    my $days_to_keep = 3;
+    my $days_to_keep = 7;
     
     my $cutoff_dt = DateTime->now();
     $cutoff_dt->subtract( days => $days_to_keep );
