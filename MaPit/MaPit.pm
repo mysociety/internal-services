@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.77 2009-04-01 18:22:48 matthew Exp $
+# $Id: MaPit.pm,v 1.78 2009-05-06 15:46:40 francis Exp $
 #
 
 package MaPit;
@@ -652,7 +652,7 @@ sub get_areas_by_type ($;$) {
 
 =item get_example_postcode ID
 
-Given an area ID, returns one postcode that maps to it.
+Given an area ID, returns one random postcode that maps to it.
 
 =cut
 sub get_example_postcode ($);
@@ -681,7 +681,7 @@ sub get_example_postcode ($) {
     
     my $pc = scalar(dbh()->selectrow_array("select postcode from postcode, postcode_area
         where postcode.id = postcode_area.postcode_id and area_id = ?
-        limit 1", {}, $area_id));
+        order by random() limit 1", {}, $area_id));
 
     if (!defined($pc)
         && scalar(dbh()->selectrow_array('select type from area where id = ?',
