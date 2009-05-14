@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.78 2009-05-06 15:46:40 francis Exp $
+# $Id: MaPit.pm,v 1.79 2009-05-14 20:22:09 matthew Exp $
 #
 
 package MaPit;
@@ -612,6 +612,7 @@ gets all areas for all generations.
 =cut
 sub get_areas_by_type ($;$) {
     my ($type, $min_generation) = @_;
+    $min_generation ||= 0;
 
     throw RABX::Error("Please specify type") unless $type;
 
