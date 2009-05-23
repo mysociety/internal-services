@@ -35,19 +35,19 @@ exit(check_footage($object));
 sub check_footage {
     my ($object) = @_;
 
-    unless ($object->get_raw_footage_to_process()) {
-	return 0;
-    }
+    #unless ($object->get_raw_footage_to_process()) {
+    #    return 0;
+    #}
 
-    unless ($object->calculate_date_time_range()) {
-	return 0;
-    }
+    #unless ($object->calculate_date_time_range()) {
+    #    return 0;
+    #}
 
     $object->update_programmes_from_footage();
 
-    unless ($object->update_footage_status()) {
-	return 0;
-    }
+    #unless ($object->update_footage_status()) {
+    #    return 0;
+    #}
 
     return 0;
 

@@ -108,6 +108,9 @@ sub calculate_date_time_range {
 sub update_programmes_from_footage {
     my ($self) = @_;
 
+    $self->{params}{start} = DateTime->now()->subtract( days => 1 )->datetime();
+    $self->{params}{end} = DateTime->now()->datetime();
+
     # call the BBC TV web api
 
     my $ua;
