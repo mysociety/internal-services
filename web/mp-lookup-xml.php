@@ -6,7 +6,7 @@
  * Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
  * Email: matthew@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: mp-lookup-xml.php,v 1.2 2006-06-08 10:15:37 matthew Exp $
+ * $Id: mp-lookup-xml.php,v 1.3 2009-05-25 10:46:10 francis Exp $
  * 
  */
 require_once "../conf/general";
@@ -28,6 +28,7 @@ if ($pc != "") {
     if (!rabx_is_error($voting_areas)) {
         $va_info = mapit_get_voting_areas_info(array_values($voting_areas));
         if (!rabx_is_error($va_info)) {
+            // Wesminster
             $type_reps = array();
             foreach ($va_info as $id => $data) {
                 if ($data['type'] == 'WMC') {
@@ -39,7 +40,28 @@ if ($pc != "") {
                 print $type_reps[0];
                 print "</CONSTITUENCY_NAME>\n";
             }
-        } else {
+            // Scotland
+            $list_msps = array();
+            $cons_msps = array();
+            foreach ($va_info as $id => $data) {
+                if ($data['type'] == 'SPE') {
+                    $list_msps[] = $data['name'];
+                }
+                if ($data['type'] == 'SPC') {
+                    $cons_msps[] = $data['name'];
+                }
+            }
+            if (count($list_msps) == 1) {
+                print "<LIST_NAME_SCOTLAND>";
+                print $list_msps[0];
+                print "</LIST_NAME_SCOTLAND>\n";
+            }
+            if (count($cons_msps) == 1) {
+                print "<CONSTITUENCY_NAME_SCOTLAND>";
+                print $cons_msps[0];
+                print "</CONSTITUENCY_NAME_SCOTLAND>\n";
+            }
+         } else {
             print "<ERROR>";
             print htmlspecialchars($va_info->text);
             print "</ERROR>\n";
