@@ -127,7 +127,7 @@ sub update_programmes{
     foreach my $name (keys %{$self->{'params'}}) {
 	$url .= "$name=" . $self->{'params'}{$name} . '&';
     }
-
+    $self->debug("Requesting $url");
     my $response = $ua->get($url);
 
     unless ($response->is_success) {
@@ -375,7 +375,9 @@ sub login_to_flv_api {
     my %form = ('username' => $self->{'constants'}{'flv-api-username'},
                 'password' => $self->{'constants'}{'flv-api-password'}, 
                 'dologin' => '1');
+
     my $url = $self->{'constants'}{'flv-api-url'};
+    $self->debug("logging into  $url");
     my $response = $ua->post( $url, \%form ); 
     unless ($response->is_success) {
 	    warn "FATAL: Could not fetch $url; error was " . $response->status_line();
@@ -411,8 +413,9 @@ sub find_xml_url{
  
     my $programme_url = $self->{'constants'}{'flv-api-url'} . $self->{'constants'}{'flv-api-programme-path'};
     $programme_url = $programme_url . $broadcast_date . '/' . $broadcast_time;
-    my $response = $ua->get($programme_url);
     $self->debug("requesting $programme_url");
+    my $response = $ua->get($programme_url);
+
     unless ($response->is_success) {
 	    warn "FATAL: Could not fetch $programme_url; error was " . $response->status_line();
 	    return undef;
@@ -448,7 +451,7 @@ sub find_flv_url {
 	    return undef;
     }
     my $content = $response->content();
-    return $self->get_xml_url($content);
+    return $self->get_flv_url($content);
 }
 
 sub get_flv_url{
@@ -519,6 +522,7 @@ sub get_flv_files_for_programmes {
 
     my ($self) = @_;
     my $ua;
+    $self->debug("Setting up user agent");
     unless ($ua = LWP::UserAgent->new(cookie_jar => {})) {
 	    warn "FATAL: Cannot create new LWP::UserAgent object; error was $!";
 	    return undef;
@@ -532,20 +536,20 @@ sub get_flv_files_for_programmes {
         
         my $start_p = $request->{broadcast_start};
         my $prog_id = $request->{id};
-        
+        $self->debug("Getting broadcast date and time");
         my ($broadcast_date, $broadcast_time) = $self->get_broadcast_date_and_time($start_p);
         return undef unless $broadcast_date;
          
         my $xml_url = $self->find_xml_url($ua, $broadcast_date, $broadcast_time);
-        sleep 5;
+        sleep 10;
         next unless $xml_url;
         
         my $flv_url = $self->find_flv_url($ua, $xml_url);
-        sleep 5;
+        sleep 10;
         next unless $flv_url;
         
         my $flv_saved = $self->get_flv_file($ua, $flv_url, $output_dir, $prog_id);
-        sleep 5;
+        sleep 10;
         next unless $flv_saved;       
         
         $self->process_flv_file($output_dir, $prog_id);
