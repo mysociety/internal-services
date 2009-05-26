@@ -43,7 +43,7 @@ sub check_footage {
     #    return 0;
     #}
 
-    $object->update_programmes_from_footage();
+    $object->update_programmes();
 
     #unless ($object->update_footage_status()) {
     #    return 0;

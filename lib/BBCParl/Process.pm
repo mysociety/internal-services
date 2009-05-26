@@ -6,12 +6,12 @@ use LWP::UserAgent;
 use XML::Simple;
 use DateTime;
 use DateTime::TimeZone;
-
 use Data::Dumper;
 
 use mySociety::Config;
 use mySociety::DBHandle qw (dbh);
 use BBCParl::Common;
+use File::Basename;
 
 sub debug {
     my ($self, $message) = @_;
@@ -29,8 +29,8 @@ sub new {
     my ($class) = @_;
     my $self = {};
     bless $self, $class;
-
-    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+    my($filename, $directories, $suffix) = fileparse(__FILE__);
+    mySociety::Config::set_file($directories . "../../conf/general");
 
     $self->{'path'}{'ffmpeg'} = '/usr/bin/ffmpeg';
     $self->{'path'}{'mencoder'} = mySociety::Config::get('MENCODER');
@@ -44,13 +44,17 @@ sub new {
         unless $self->{'path'}{'output-dir'} =~ m{/$};
 
     $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
+    
+    $self->{'constants'}{'flv-api-url'} = mySociety::Config::get('FLV_API_URL');
+    $self->{'constants'}{'flv-api-programme-path'} = mySociety::Config::get('FLV_API_PROGRAMME_PATH');
+    $self->{'constants'}{'flv-api-username'} = mySociety::Config::get('FLV_API_USERNAME');
+    $self->{'constants'}{'flv-api-password'} = mySociety::Config::get('FLV_API_PASSWORD');
 
     $self->{'params'}{'channel_id'} = ',BBCParl';
     $self->{'params'}{'method'} = 'bbc.schedule.getProgrammes';
     $self->{'params'}{'limit'} = '500';
     $self->{'params'}{'detail'} = 'schedule';
     $self->{'params'}{'format'} = 'simple';
-
     return $self;
 }
 
@@ -104,8 +108,7 @@ sub calculate_date_time_range {
 
 }
 
-
-sub update_programmes_from_footage {
+sub update_programmes{
     my ($self) = @_;
 
     $self->{params}{start} = DateTime->now()->subtract( days => 1 )->datetime();
@@ -276,6 +279,7 @@ sub update_programmes_from_footage {
 	# the db, and if yes, then whether already been processed or
 	# flagged for processing (db column processing-status)
 
+    
 	if (dbh()->selectrow_array('SELECT broadcast_start FROM programmes WHERE broadcast_start = ? AND channel_id = ?',
 				   {},
 				   $prog_start,
@@ -363,6 +367,192 @@ sub get_processing_requests {
     }
 
     return scalar @{$self->{requests}};
+}
+
+sub login_to_flv_api {
+    my ($self, $ua) = @_;
+
+    my %form = ('username' => $self->{'constants'}{'flv-api-username'},
+                'password' => $self->{'constants'}{'flv-api-password'}, 
+                'dologin' => '1');
+    my $url = $self->{'constants'}{'flv-api-url'};
+    my $response = $ua->post( $url, \%form ); 
+    unless ($response->is_success) {
+	    warn "FATAL: Could not fetch $url; error was " . $response->status_line();
+	    return undef;
+    }
+    my $content = $response->content();
+    unless ($content =~ /Logged in/){
+        warn "FATAL: Could not log in to flv API";
+        return undef;
+    }    
+    
+    return 1;
+}
+
+sub get_broadcast_date_and_time{
+    my ($self, $broadcast_start) = @_;
+    my $broadcast_date;
+    my $broadcast_time;
+    if ($broadcast_start =~ /(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/){
+        $broadcast_date = $1;
+        $broadcast_time = $2;
+        $broadcast_time =~ s/:/-/g;
+        return ($broadcast_date, $broadcast_time);
+    }else{
+        warn "FATAL: Could not get date and time for programme";
+        return (undef, undef);
+    }    
+    
+}
+
+sub find_xml_url{
+    my ($self, $ua, $broadcast_date, $broadcast_time) = @_;
+ 
+    my $programme_url = $self->{'constants'}{'flv-api-url'} . $self->{'constants'}{'flv-api-programme-path'};
+    $programme_url = $programme_url . $broadcast_date . '/' . $broadcast_time;
+    my $response = $ua->get($programme_url);
+    $self->debug("requesting $programme_url");
+    unless ($response->is_success) {
+	    warn "FATAL: Could not fetch $programme_url; error was " . $response->status_line();
+	    return undef;
+    }
+    my $content = $response->content();
+    unless ($content =~ /Logged in/){
+        warn "FATAL: Logged out of flv API";
+        return undef;
+    } 
+    return $self->get_xml_url($content);
+    
+}
+
+sub get_xml_url(){
+    my ($self, $text) = @_;
+    my $xml_url_string =  '(' . $self->{'constants'}{'flv-api-url'} . 'programme/\d+/pp/flvxml)';
+    if ($text =~ m#$xml_url_string#){
+        my $xml_url = $1;
+        return $xml_url;
+    }else{
+        warn "FATAL: Could not get xml url";
+        return undef;
+    }
+}
+
+sub find_flv_url {
+    
+    my ($self, $ua, $xml_url) = @_;
+    $self->debug("requesting $xml_url");
+    my $response = $ua->get($xml_url);
+    unless ($response->is_success) {
+	    warn "FATAL: Could not fetch $xml_url; error was " . $response->status_line();
+	    return undef;
+    }
+    my $content = $response->content();
+    return $self->get_xml_url($content);
+}
+
+sub get_flv_url{
+    my ($self, $text) = @_;
+    my $flv_string = '<location>/(programme/\d+/download/.*?/flash.flv)</location>';
+    if ($text =~ m#$flv_string#){
+        my $flv_path = $1;
+        return $self->{'constants'}{'flv-api-url'} . $flv_path;
+    }else{
+        warn "FATAL: Could not get flv url";
+        return undef;
+    }
+}
+
+sub get_flv_file{
+    
+    my ($self, $ua, $flv_url, $output_dir, $prog_id) = @_;
+    $self->debug("requesting $flv_url");
+    my $request = HTTP::Request->new(GET => $flv_url);
+    my $response = $ua->request($request, $output_dir . $prog_id . '.flv');
+    unless ($response->is_success) {
+	    warn "FATAL: Could not fetch $flv_url; error was " . $response->status_line();
+	    return undef;
+    }
+    return 1;
+}
+
+sub process_flv_file{
+    
+    my ($self, $output_dir, $prog_id) = @_;
+    # update FLV file cue-points using yamdi
+    my $yamdi = $self->{'path'}{'yamdi'};
+    my $yamdi_input = "$output_dir$prog_id.flv";
+    my $yamdi_output = "$yamdi_input.yamdi";
+
+    $self->debug("adding FLV metadata (using $yamdi on $yamdi_input)");
+
+    my $yamdi_command = "$yamdi -i $yamdi_input -o $yamdi_output";
+    my $yamdi_command_output =`$yamdi_command`;
+
+    my $status = "footage-not-available";
+
+    if (-e $yamdi_output) {
+        my $file_size = (stat $yamdi_output)[7];
+        if ($file_size <= 4096) {
+            warn "ERROR: Empty file ($file_size), footage-not-available";
+        } else {
+            my $final_output_filename = $self->{'path'}{'output-dir'} . "$prog_id.flv";
+            my $move = system("mv $yamdi_output $final_output_filename"); # cross domain
+            if ($move) {
+                warn "ERROR: Could not move $yamdi_output to $final_output_filename: $move";
+            } else {
+                unlink $yamdi_input;
+                $status = 'available';
+            }
+        }
+
+    } else {
+        warn "ERROR: could not find $yamdi_output";
+        warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
+        warn "ERROR: yamdi said: $yamdi_command_output";
+    }
+
+    $self->set_prog_status($prog_id, $status);
+}
+
+sub get_flv_files_for_programmes {
+
+    my ($self) = @_;
+    my $ua;
+    unless ($ua = LWP::UserAgent->new(cookie_jar => {})) {
+	    warn "FATAL: Cannot create new LWP::UserAgent object; error was $!";
+	    return undef;
+    }
+    
+    my $output_dir = $self->{'path'}{'footage-cache-dir'};
+    return undef unless $self->login_to_flv_api($ua);
+
+    
+    foreach my $request (@{$self->{requests}}) {
+        
+        my $start_p = $request->{broadcast_start};
+        my $prog_id = $request->{id};
+        
+        my ($broadcast_date, $broadcast_time) = $self->get_broadcast_date_and_time($start_p);
+        return undef unless $broadcast_date;
+         
+        my $xml_url = $self->find_xml_url($ua, $broadcast_date, $broadcast_time);
+        sleep 5;
+        next unless $xml_url;
+        
+        my $flv_url = $self->find_flv_url($ua, $xml_url);
+        sleep 5;
+        next unless $flv_url;
+        
+        my $flv_saved = $self->get_flv_file($ua, $flv_url, $output_dir, $prog_id);
+        sleep 5;
+        next unless $flv_saved;       
+        
+        $self->process_flv_file($output_dir, $prog_id);
+    }
+    
+    return 1;
+    
 }
 
 sub get_footage_for_programmes {
@@ -648,41 +838,7 @@ sub process_requests {
        } else {
 	   rename "$output_dir$prog_id.slice.0.flv", "$output_dir$prog_id.flv";
        }
-
-       # update FLV file cue-points using yamdi
-       my $yamdi = $self->{'path'}{'yamdi'};
-       my $yamdi_input = "$output_dir$prog_id.flv";
-       my $yamdi_output = "$yamdi_input.yamdi";
-
-       $self->debug("adding FLV metadata (using $yamdi on $yamdi_input)");
-
-	my $yamdi_command = "$yamdi -i $yamdi_input -o $yamdi_output";
-	my $yamdi_command_output =`$yamdi_command`;
-
-	my $status = "footage-not-available";
-
-	if (-e $yamdi_output) {
-            my $file_size = (stat $yamdi_output)[7];
-            if ($file_size <= 4096) {
-                warn "ERROR: Empty file ($file_size), footage-not-available";
-            } else {
-                my $final_output_filename = $self->{'path'}{'output-dir'} . "$prog_id.flv";
-                my $move = system("mv $yamdi_output $final_output_filename"); # cross domain
-                if ($move) {
-                    warn "ERROR: Could not move $yamdi_output to $final_output_filename: $move";
-                } else {
-                    unlink $yamdi_input;
-                    $status = 'available';
-                }
-            }
-
-	} else {
-	    warn "ERROR: could not find $yamdi_output";
-	    warn "ERROR: Need to re-run yamdi on $prog_id.flv to add cue points";
-	    warn "ERROR: yamdi said: $yamdi_command_output";
-	}
-
-        $self->set_prog_status($prog_id, $status);
+       $self->process_flv_file($output_dir, $prog_id);
 
    }
 

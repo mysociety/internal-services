@@ -73,7 +73,7 @@ sub run {
 	return -1;
     }
 
-    unless (defined($object->update_programmes_from_footage())) {
+    unless (defined($object->update_programmes())) {
 	return -1;
     }
 
