@@ -1,0 +1,54 @@
+#!/usr/bin/perl -w
+use strict;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/../../perllib";
+
+use mySociety::Config;
+use mySociety::DBHandle qw (dbh);
+use mySociety::Util qw(print_log);
+
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
+      mySociety::DBHandle::configure(
+				     Name => mySociety::Config::get('BBC_DB_NAME'),
+				     User => mySociety::Config::get('BBC_DB_USER'),
+				     Password => mySociety::Config::get('BBC_DB_PASS'),
+				     Host => mySociety::Config::get('BBC_DB_HOST', undef),
+				     Port => mySociety::Config::get('BBC_DB_PORT', undef)
+				     );
+  }
+
+use Getopt::Long;
+
+# get command line options
+my $verbose = 0;
+
+GetOptions (
+	    'verbose+' => \$verbose,
+	    );
+
+use BBCParl::Process;
+
+my $object = BBCParl::Process->new();
+
+$object->{'debug'} = 1;
+
+exit(get_video($object));
+
+sub get_video{
+    my ($object) = @_;
+    my $get_yesterday = 1;
+    $object->update_programmes();
+
+    unless ($object->get_processing_requests()) {
+	warn "No programmes to process. Exiting.";
+	return 0;
+    }
+
+    $object->get_flv_files_for_programmes();
+    return 0;
+}
