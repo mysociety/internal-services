@@ -41,7 +41,6 @@ exit(get_video($object));
 
 sub get_video{
     my ($object) = @_;
-    my $get_yesterday = 1;
     $object->update_programmes();
 
     unless ($object->get_processing_requests()) {
