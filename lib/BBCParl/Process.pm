@@ -30,8 +30,10 @@ sub new {
     my $self = {};
     bless $self, $class;
     my($filename, $directories, $suffix) = fileparse(__FILE__);
-    mySociety::Config::set_file($directories . "../../conf/general");
-
+    
+    $self->{'path'}{'config-dir'} = $directories . "../../conf/";
+    mySociety::Config::set_file($self->{'path'}{'config-dir'} . "general");
+    
     $self->{'path'}{'ffmpeg'} = '/usr/bin/ffmpeg';
     $self->{'path'}{'mencoder'} = mySociety::Config::get('MENCODER');
     $self->{'path'}{'yamdi'} = '/usr/bin/yamdi';
@@ -45,10 +47,7 @@ sub new {
 
     $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
     
-    $self->{'constants'}{'flv-api-url'} = mySociety::Config::get('FLV_API_URL');
-    $self->{'constants'}{'flv-api-programme-path'} = mySociety::Config::get('FLV_API_PROGRAMME_PATH');
-    $self->{'constants'}{'flv-api-username'} = mySociety::Config::get('FLV_API_USERNAME');
-    $self->{'constants'}{'flv-api-password'} = mySociety::Config::get('FLV_API_PASSWORD');
+    $self->load_flv_api_config();
 
     $self->{'params'}{'channel_id'} = ',BBCParl';
     $self->{'params'}{'method'} = 'bbc.schedule.getProgrammes';
@@ -56,6 +55,34 @@ sub new {
     $self->{'params'}{'detail'} = 'schedule';
     $self->{'params'}{'format'} = 'simple';
     return $self;
+}
+
+sub load_flv_api_config {
+    my ($self) = @_;
+    
+    $self->debug("loading flv api config");
+
+    my $flv_api_config_filename = $self->{'path'}{'config-dir'} . '/flv-api.conf';
+
+    unless (-e $flv_api_config_filename) {
+	warn "FATAL: Cannot find file: $flv_api_config_filename";
+	die;
+    }
+
+    unless(open (FLV_CONFIG, $flv_api_config_filename)) {
+	warn "FATAL: Cannot open file: $flv_api_config_filename ($!)";
+	die;
+    }
+    
+    while (<FLV_CONFIG>) {
+    	if (/^#/) {
+    	    next;
+    	}
+    	if (/(\S+)\s*=\s*(\S+)/) {
+    	    $self->{'constants'}{'flv-api-' . $1} = $2;
+    	}
+    }
+    close (FLV_CONFIG);
 }
 
 sub get_raw_footage_to_process {
