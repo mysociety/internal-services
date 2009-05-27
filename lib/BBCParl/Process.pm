@@ -542,21 +542,39 @@ sub get_flv_files_for_programmes {
          
         my $xml_url = $self->find_xml_url($ua, $broadcast_date, $broadcast_time);
         sleep 10;
-        next unless $xml_url;
+        
+        unless ($xml_url){
+            $self->skip_programme($prog_id);
+            next;
+        }
         
         my $flv_url = $self->find_flv_url($ua, $xml_url);
         sleep 10;
-        next unless $flv_url;
+        
+        unless ($flv_url){
+            $self->skip_programme($prog_id);
+            next; 
+        }
         
         my $flv_saved = $self->get_flv_file($ua, $flv_url, $output_dir, $prog_id);
         sleep 10;
-        next unless $flv_saved;       
+        
+        unless ($flv_saved){
+            $self->skip_programme($prog_id);
+            next; 
+        }       
         
         $self->process_flv_file($output_dir, $prog_id);
     }
     
     return 1;
     
+}
+
+sub skip_programme{
+    my ($self, $prog_id) = @_;
+    warn "ERROR: skipping request $prog_id and marking as footage-not-available";
+    $self->set_prog_status($prog_id, "footage-not-available");
 }
 
 sub get_footage_for_programmes {
