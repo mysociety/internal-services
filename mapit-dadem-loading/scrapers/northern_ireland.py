@@ -87,6 +87,8 @@ class NIATableParser( HTMLParser ):
         elif tag == 'td':
             self._td_count += 1
             self._data = ''
+        elif tag == 'sup':
+            self._state = 'SUP'
         # if we are in the first <td>, and we see a link,
         # this is a link to the member's homepage. Add the link
         # as member.url.
@@ -98,6 +100,8 @@ class NIATableParser( HTMLParser ):
         # We have reached the end of the table - there is nothing else to do.
         if tag == 'table':
             self._state = 'FINISHED'
+        if tag == 'sup':
+            self._state = 'TABLE'
         elif tag == 'tr':
             # add this member to the list (unless there were no <td>s,
             # in which case, it was just the header...

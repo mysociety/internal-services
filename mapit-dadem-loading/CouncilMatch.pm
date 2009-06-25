@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.15 2009-04-03 11:54:45 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.16 2009-06-25 21:55:55 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -366,6 +366,7 @@ sub canonicalise_council_name ($) {
         s#^Corp of ##;         # Corp of London => London
         s# Corporation$##;
         s# District$##;
+        s# Dist$##;
         s# County$##;
         s# City$##;
         s# Metropolitan$##;

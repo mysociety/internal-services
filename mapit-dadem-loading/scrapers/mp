@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: mp,v 1.2 2006-04-10 11:33:34 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp,v 1.3 2009-06-25 21:55:56 dademcron Exp $';
 
 use strict;
 
@@ -46,44 +46,50 @@ if (defined($extra_emails_file)) {
 }
 
 # Load person ids in
-my $twig = new XML::Twig( output_filter => 'safe' );
-$twig->parsefile($people_xml);
-my $peopleroot = $twig->root;
-my @people = $peopleroot->children('person');
 my $membertoperson = {};
-foreach my $person (@people) {
-    my $personid = $person->{'att'}->{'id'};
-    my @offices = $person->children('office');
-    foreach my $office (@offices) {
-        my $officeid = $office->{'att'}->{'id'};
-        $membertoperson->{$officeid} = $personid;
+my $twig = new XML::Twig(
+    output_filter => 'safe',
+    twig_handlers => { person => \&person }
+);
+$twig->parsefile($people_xml);
+
+sub person {
+    my ($twig, $person) = @_;
+    my $personid = $person->att('id');
+    for (my $office = $person->first_child('office'); $office; $office = $office->next_sibling('office')) {
+        $membertoperson->{$office->att('id')} = $personid;
     }
+    $twig->purge;
 }
 
 # Count how many members for each person, and store current members attributes
-$twig = new XML::Twig( output_filter => 'safe' );
-$twig->parsefile($all_members_xml);
-my $memberroot= $twig->root;
-my @members = $memberroot->children('member');
 my $nowc = 0;
 my $personcount;
 my $peoplenow;
+my @members;
 my @membersnow;
-my @membersdeleted;
-foreach my $member (@members) {
-    my $member_id = $member->{'att'}->{'id'};
+$twig = new XML::Twig(
+    output_filter => 'safe',
+    twig_handlers => { member => \&member }
+);
+$twig->parsefile($all_members_xml);
+
+sub member {
+    my ($twig, $member) = @_;
+    my $member_id = $member->att('id');
+    push @members, $member;
     my $person_id = $membertoperson->{$member_id};
     $personcount->{$person_id}++;
-
     # Current parliament after 5th May 2005
-    if ($member->{'att'}->{'fromdate'} le $today 
-        && $member->{'att'}->{'todate'} ge $today) {
+    if ($member->att('fromdate') le $today 
+        && $member->att('todate') ge $today) {
         $nowc++;
-        push @membersnow, $member->{'att'};
+        push @membersnow, $member;
         $peoplenow->{$person_id} = 1;
     }
-
+    $twig->purge;
 }
+
 die "very few MPs!" if $nowc < 640;
 
 # Load in extra emails / fax
@@ -104,11 +110,11 @@ if (defined($extra_emails_file)) {
 my $csv = new Text::CSV_XS({ binary => 1 });
 open(CSV, ">$file_output_all");
 print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
-foreach my $mematt (@membersnow) {
-    my $fullname = $mematt->{'firstname'} . " " . $mematt->{'lastname'};
-    my $party = $mematt->{'party'};
-    my $constituency = $mematt->{'constituency'};
-    my $member_id = $mematt->{'id'};
+foreach my $member (@membersnow) {
+    my $fullname = $member->att('firstname') . " " . $member->att('lastname');
+    my $party = $member->att('party');
+    my $constituency = $member->att('constituency');
+    my $member_id = $member->att('id');
     my $person_id = $membertoperson->{$member_id};
     my $count = $personcount->{$person_id};
     my $email = undef;
@@ -124,6 +130,8 @@ foreach my $mematt (@membersnow) {
     $csv->print(\*CSV, [$fullname, $constituency, $email, $fax, undef, undef, $party]);
     print CSV "\n";
 }
+close CSV;
+
 # Check we used all the extra data
 my $failed = 0;
 foreach my $broken (keys %$extra) {
@@ -137,21 +145,22 @@ open(DELETED, ">$file_output_deleted");
 print DELETED "name, constituency, party\n";
 my $beforec = 0;
 foreach my $member (@members) {
-    my $member_id = $member->{'att'}->{'id'};
+    my $member_id = $member->att('id');
     my $person_id = $membertoperson->{$member_id};
 
     # Parliament before dissolution before 2005 General Election
-    if ($member->{'att'}->{'todate'} eq "2005-04-11") {
+    if ($member->att('todate') eq "2005-04-11") {
         $beforec++;
         if (!defined($peoplenow->{$person_id})) {
-            my $mematt = $member->{'att'};
-            my $fullname = $mematt->{'firstname'} . " " . $mematt->{'lastname'};
-            my $party = $mematt->{'party'};
-            my $constituency = $mematt->{'constituency'};
+            my $fullname = $member->att('firstname') . " " . $member->att('lastname');
+            my $party = $member->att('party');
+            my $constituency = $member->att('constituency');
             $csv->print(\*DELETED, [$fullname, $constituency, $party]);
             print DELETED "\n";
         }
     }
+    undef $member->{att};
 }
 die if $beforec != 659;  
+close DELETED;
 
