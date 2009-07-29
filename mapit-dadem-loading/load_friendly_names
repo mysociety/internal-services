@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.23 2009-07-22 19:44:19 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.24 2009-07-29 14:27:20 dademcron Exp $';
 
 use strict;
 
@@ -94,6 +94,7 @@ sub friendly_from_mysoc ($) {
     s/^Wolverhampton Borough Council$/Wolverhampton City Council/;
     s/^Milton Keynes Borough /Milton Keynes /;
     s/Rhondda Cynon Taff/Rhondda Cynon Taf/;
+    s/^Bracknell Forest Borough /Bracknell Forest /;
 
     return $_;
 
