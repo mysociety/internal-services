@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileset.c,v 1.2 2007-02-06 00:25:16 chris Exp $";
+static const char rcsid[] = "$Id: tileset.c,v 1.3 2009-09-03 14:04:57 francis Exp $";
 
 /*
  * Tile sets are stored in directory trees which contain indices of tile
@@ -163,7 +163,7 @@ bool tileset_get_tileid(tileset T, const unsigned x, const unsigned y,
  * Retrieve the tile identified by ID, writing its length into *LEN and
  * returning a malloced buffer containing its contents on success, or returning
  * NULL on failure. */
-void *tileset_get_tile(tileset T, const uint8_t *id, size_t *len) {
+void *tileset_get_tile(tileset T, const uint8_t *id, unsigned int *len) {
     cdb idx = NULL;
     cdb_datum d = NULL;
     void *ret = NULL;

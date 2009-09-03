@@ -13,7 +13,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: cdb.c,v 1.1 2006-09-22 13:57:01 francis Exp $";
+static const char rcsid[] = "$Id: cdb.c,v 1.2 2009-09-03 14:04:57 francis Exp $";
 
 #include <sys/types.h>
 
@@ -139,7 +139,13 @@ fail:
 
 /* yuk */
 #define ALIGNMENT       4   /* __alignof(long double) on i386 */
-typedef uint32_t ptr_int_t; /* XXX needs changing on 64-bit architectures */
+#ifdef __x86_32__
+    typedef uint32_t ptr_int_t; 
+#elif __x86_64__
+    typedef uint64_t ptr_int_t;
+#else
+    #error "unknown architecture"
+#endif
 
 /* cdb_datum_alloc LEN
  * Allocate space for a single cdb_datum holding up to LEN bytes. Free with

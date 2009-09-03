@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.7 2007-01-30 18:13:01 matthew Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.8 2009-09-03 14:04:57 francis Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -268,7 +268,7 @@ void handle_request(void) {
          * Send a single tile image to the client.
          */
         void *buf;
-        size_t len;
+        unsigned int len;
 
         if ((buf = tileset_get_tile(T, R->r_tileid, &len))) {
             printf(

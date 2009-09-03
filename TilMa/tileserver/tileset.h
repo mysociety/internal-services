@@ -5,7 +5,7 @@
  * Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
  * Email: chris@mysociety.org; WWW: http://www.mysociety.org/
  *
- * $Id: tileset.h,v 1.1 2006-09-22 13:57:01 francis Exp $
+ * $Id: tileset.h,v 1.2 2009-09-03 14:04:57 francis Exp $
  *
  */
 
@@ -27,6 +27,6 @@ tileset tileset_open(const char *path);
 void tileset_close(tileset T);
 bool tileset_get_tileid(tileset T, const unsigned x, const unsigned y,
                             uint8_t *id);
-void *tileset_get_tile(tileset T, const uint8_t *id, size_t *len);
+void *tileset_get_tile(tileset T, const uint8_t *id, unsigned int *len);
 
 #endif /* __TILESET_H_ */
