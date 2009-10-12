@@ -430,7 +430,7 @@ sub process_flv_file {
     # Shrink FLV file to half size
     my $mencoder = $self->{'path'}{'mencoder'};
     my $input = "$output_dir$prog_id.flv";
-    my $output = "$input.small";
+    my $output = "$output_dir$prog_id.small.flv";
     $self->debug("shrinking FLV to half-size");
     `$mencoder $input -vf scale=320:180 -o $output -of lavf -oac copy -ovc lavc -lavcopts vcodec=flv 2>&1`;
 
