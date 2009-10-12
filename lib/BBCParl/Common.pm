@@ -44,37 +44,4 @@ sub extract_datetime_array {
     }
 }
 
-sub old_load_secrets {
-
-    my $secrets_filename = '/home/bbcparlvid/conf/.awssecret';
-
-    unless (-e $secrets_filename) {
-	warn "FATAL: Cannot find file: $secrets_filename";
-	die;
-    }
-
-    unless (open(SECRETS, $secrets_filename)) {
-	# TODO - use a proper logging system
-	warn "FATAL: Cannot open file: $secrets_filename";
-	die;
-    }
-
-    my ($access_id, $secret_key);
-
-    while (<SECRETS>) {
-	chomp;
-	unless (defined($access_id)) {
-	    $access_id = $_;
-	    next;
-	}
-	unless (defined($secret_key)) {
-	    $secret_key = $_;
-	    last;
-	}
-    }
-
-    close SECRETS;
-
-}
-
 1;
