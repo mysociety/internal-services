@@ -454,7 +454,7 @@ sub process_flv_file {
 
     # Generate a thumbnail (from http://gallery.menalto.com/node/40548 )
     my $thumbnail_filename = $self->{'path'}{'output-dir'} . "tn/$prog_id.jpg";
-    `mplayer $yamdi_output -ss 300 -nosound -vo jpeg:outdir=$output_dir -frames 2`;
+    `mplayer $yamdi_output -ss 300 -nosound -vo jpeg:outdir=$output_dir -frames 2 2>/dev/null`;
     system("mv $output_dir/00000002.jpg $thumbnail_filename");
 
     my $file_size = (stat $yamdi_output)[7];
