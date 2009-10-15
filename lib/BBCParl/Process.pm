@@ -472,6 +472,7 @@ sub process_flv_file {
         return;
     }
 
+    unlink $input;
     unlink $output;
     $self->set_prog_status($prog_id, 'available');
 }
