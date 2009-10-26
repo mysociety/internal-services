@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Area.pm,v 1.3 2007-08-23 22:58:51 matthew Exp $
+# $Id: Area.pm,v 1.4 2009-10-26 16:13:29 matthew Exp $
 #
 
 use strict;
@@ -15,8 +15,7 @@ package Area;
 use fields qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent children deleted alreadyexists non_inland_area hectares filename);
 
 # Accessor methods
-my $x = fields::new('Area');
-foreach (keys %$x) {
+foreach (qw(id area_type parts minx maxx miny maxy cx cy ons_code devolved country aaid name parent children deleted alreadyexists non_inland_area hectares filename)) {
     next if ($_ eq 'children');
     eval <<EOF;
 sub $_ (\$;\$) {
@@ -52,7 +51,7 @@ sub new ($%) {
         $self->{$_} = $values{$_};  # syntax checks?
         $self->{$_} = $values{$_};  # syntax checks?
     }
-    return bless($self, $class);
+    return $self;
 }
 
 1;

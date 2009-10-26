@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: OSBoundaryLine.pm,v 1.16 2009-02-09 11:29:26 matthew Exp $
+# $Id: OSBoundaryLine.pm,v 1.17 2009-10-26 16:13:29 matthew Exp $
 #
 
 package Geo::OSBoundaryLine::Error;
@@ -222,7 +222,7 @@ sub new ($$$$) {
     weaken($self->{ntf});
     $self->{id} = $id;
     $self->{attrid} = $attrid;
-    return bless($self, $class);
+    return $self;
 }
 
 =item vertices
@@ -284,7 +284,7 @@ sub new ($$$$$) {
     $self->{id} = $id;
     $self->{parts} = $parts;
     $self->{attrid} = $attrid;
-    return bless($self, $class);
+    return $self;
 }
 
 =item parts
@@ -345,7 +345,7 @@ sub new ($$$$$) {
     $self->{id} = $id;
     $self->{attrid} = $attrid;
     $self->{parts} = $parts;
-    return bless($self, $class);
+    return $self;
 }
 
 =item id
@@ -560,7 +560,7 @@ sub new ($$) {
     for (1 .. $shapefile->shapes) {
         my $shape = $shapefile->get_shp_record($_);
         my $dbf = $shapefile->get_dbf_record($_);
-        # print "$_ $dbf->{NAME}\n";
+        # print STDERR "$_ $dbf->{NAME} $dbf->{AREA_CODE} $dbf->{UNIT_ID} $dbf->{TYPE_CODE} : ";
         $self->{areas}->{$_} = new Geo::OSBoundaryLine::ShapeFileArea(
             id => $_,
             name => $dbf->{NAME},
@@ -569,7 +569,7 @@ sub new ($$) {
             non_inland_area => $dbf->{AREA},
             file_name => $dbf->{FILE_NAME},
             admin_area_id => $dbf->{UNIT_ID},
-            ons_code => ($dbf->{CODE} eq '999999' ? undef : $dbf->{CODE}),
+            ons_code => (!defined($dbf->{CODE}) || $dbf->{CODE} eq '999999' ? undef : $dbf->{CODE}),
             type => $dbf->{TYPE_CODE},
             x_min => $shape->x_min,
             x_max => $shape->x_max,
@@ -590,7 +590,7 @@ sub new ($$) {
 
     }
 
-    return bless($self, $class);
+    return $self;
 }
 
 
@@ -713,7 +713,7 @@ sub new ($$) {
 
     $x->close() if ($closeafter);
 
-    return bless($self, $class);
+    return $self;
 }
 
 # parse_14 OBJECT RECORD

@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.10 2009-02-05 19:07:02 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.11 2009-10-26 16:13:29 matthew Exp $
 #
 
 use strict;
@@ -287,6 +287,8 @@ sub load_shapefile {
 
     foreach my $C (values %{$shapefile->{areas}}) {
         my ($area_type, $ons_code, $aaid, $name, $non_inland_area, $hectares, $file_name) = map { $C->{$_} } qw(area_type ons_code admin_area_id name non_inland_area hectares file_name);
+
+	# $area_type = 'WMC'; # XXX
 
         next unless (defined($area_type) && exists($interesting_areas{$area_type}));
 
