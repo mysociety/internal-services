@@ -65,7 +65,7 @@ foreach($regionurls as $region => $regionurl) {
         <img[ ]src="([^"]*)".*?
         Telephone:</strong>\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?
         Fax:</strong>\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?
-        E-Mail:</strong>\s*<a[ ]href="mailto:([^"]*)">[^<]*</a>\s*<a[ ]href="mailto:([^"]*)">.*?
+        Email:\s*</strong>\s*<a[ ]href="mailto:([^"]*)">[^<]*</a>\s*<a[ ]href="mailto:([^"]*)">.*?
         National[ ]Political[ ]Party:[ ]</strong>(.*?)<br/>\s*
         <strong>European[ ]Group:[ ]</strong>(.*?)</div>#sx',
         $meplist_data, $sections, PREG_SET_ORDER);
