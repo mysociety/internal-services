@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.21 2007-05-08 13:47:53 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.22 2009-10-30 12:56:07 dademcron Exp $';
 
 use strict;
 
@@ -194,7 +194,6 @@ while (my $line = <MAIN>) {
     my @fields;
     foreach ($C->fields()) {
         $_ = trim_spaces($_);
-        utf8::decode($_); # fix broken unicode handling of Text::CSV_XS
         push @fields, $_;
     }
 
