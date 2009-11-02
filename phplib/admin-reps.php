@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.17 2009-11-02 17:14:14 matthew Exp $
+ * $Id: admin-reps.php,v 1.18 2009-11-02 17:32:23 matthew Exp $
  * 
  */
 
@@ -396,9 +396,32 @@ class ADMIN_PAGE_REPS {
  
             $form->addElement('submit', 'vaupdate', 'Update');
             admin_render_form($form);
-        } else if ($search) {
+        } elseif ($search) {
             $form = new HTML_QuickForm('adminRepsSearchResults', 'get', $self_link);
 
+            $areas = mapit_get_voting_area_by_name($search);
+            mapit_check_error($areas);
+            foreach (array_keys($areas) as $va_id) {
+                $area_info = mapit_get_voting_area_info($va_id);
+                mapit_check_error($area_info);
+                $reps = dadem_get_representatives($va_id);
+                dadem_check_error($reps);
+                $reps = array_values($reps);
+                $html = $this->render_area($self_link, $va_id, $area_info, $pc); 
+                $html .= $this->render_reps($self_link, $reps);
+            }
+            $form->addElement('static', 'bytype', null, $html);
+            $form->addElement('hidden', 'page', $this->id);
+            $form->addElement('hidden', 'va_id', $va_id);
+            $form->addElement('select', 'new_status', null, 
+                    array(
+                        'none' => 'No special status', 
+                        'pending_election' => 'Pending election, rep data not valid', 
+                        'recent_election' => 'Recent election, our rep data not yet updated',
+                    ),
+                    array()
+            );
+            print_r($areas);
             // Search reps
             $reps = dadem_search_representatives($search);
             dadem_check_error($reps);
