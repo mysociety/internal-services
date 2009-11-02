@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.21 2009-11-02 17:48:59 matthew Exp $
+ * $Id: admin-reps.php,v 1.22 2009-11-02 17:49:39 matthew Exp $
  * 
  */
 
@@ -438,7 +438,6 @@ class ADMIN_PAGE_REPS {
                 if (!in_array($va_inside[$row[0]], $our_order)) {
                     $our_order[] = $va_inside[$row[0]];
                 }
-                $our_order[] = $va_inside[$row[0]];
                 foreach ($row as $va_type) {
                     $our_order[] = $va_type;
                 }
