@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.19 2009-11-02 17:33:35 matthew Exp $
+ * $Id: admin-reps.php,v 1.20 2009-11-02 17:42:39 matthew Exp $
  * 
  */
 
@@ -402,19 +402,20 @@ class ADMIN_PAGE_REPS {
             $html = '';
             $areas = mapit_get_voting_area_by_name($search);
             mapit_check_error($areas);
+            global $va_inside;
             foreach (array_keys($areas) as $va_id) {
                 $area_info = mapit_get_voting_area_info($va_id);
                 mapit_check_error($area_info);
                 $reps = dadem_get_representatives($va_id);
                 dadem_check_error($reps);
                 $reps = array_values($reps);
-                $html .= $this->render_area($self_link, $va_id, $area_info, $pc); 
+                $html .= $this->render_area($self_link, $va_id, $area_info, $pc, isset($va_inside[$area_info['type']]));
                 $html .= $this->render_reps($self_link, $reps);
             }
             // Search reps
             $reps = dadem_search_representatives($search);
             dadem_check_error($reps);
-            $html .= $this->render_reps($self_link, $reps);
+            $html .= '<hr>' . $this->render_reps($self_link, $reps);
             $form->addElement('static', 'bytype', null, $html);
 
             admin_render_form($form);
