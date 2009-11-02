@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.13 2009-11-02 14:07:35 matthew Exp $
+ * $Id: admin-reps.php,v 1.14 2009-11-02 14:12:58 matthew Exp $
  * 
  */
 
@@ -61,11 +61,12 @@ class ADMIN_PAGE_REPS {
         return $html;
     }
 
-    function render_area($self_link, $area_id, $area_info, $pc) {
+    function render_area($self_link, $area_id, $area_info, $pc, $add_link=false) {
         $url = $self_link . '&pc=' . urlencode($pc);
         $html = "<p><strong><a href='$url&va_id=$area_id'>$area_info[name]</a>";
         $html .= " (" .  $area_info['type_name'] . ")</strong>";
-        $html .= " &ndash; <a href='$url&new_in_va_id=$area_id'>Add new representative</a></p>";
+        if ($add_link) $html .= " &ndash; <a href='$url&new_in_va_id=$area_id'>Add new representative</a>";
+        $html .= '</p>';
         return $html;
     }
 
@@ -432,7 +433,7 @@ class ADMIN_PAGE_REPS {
                     $reps = dadem_get_representatives($va_id);
                     dadem_check_error($reps);
                     $reps = array_values($reps);
-                    $html .= $this->render_area($self_link, $va_id, $area_info, $pc);
+                    $html .= $this->render_area($self_link, $va_id, $area_info, $pc, isset($va_inside[$va_type]));
                     $html .= $this->render_reps($self_link, $reps);
                 }
             }
