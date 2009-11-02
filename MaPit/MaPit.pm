@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.79 2009-05-14 20:22:09 matthew Exp $
+# $Id: MaPit.pm,v 1.80 2009-11-02 17:51:04 matthew Exp $
 #
 
 package MaPit;
@@ -360,7 +360,7 @@ sub get_voting_area_by_name ($;$$) {
     my $q = "select area_id, name, type, parent_area_id from area_name, area
         where area_id = id and name_type='F'
         and generation_low <= ? and ? <= generation_high
-        and name like ? || '%'";
+        and name ilike ? || '%'";
     my @args = ($generation, $min_generation, $name);
     if (ref($type) eq 'ARRAY') {
         my $qs = '?,' x @$type;
