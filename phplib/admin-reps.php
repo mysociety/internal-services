@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.16 2009-11-02 16:01:27 matthew Exp $
+ * $Id: admin-reps.php,v 1.17 2009-11-02 17:14:14 matthew Exp $
  * 
  */
 
@@ -207,8 +207,8 @@ class ADMIN_PAGE_REPS {
                 $pc = mapit_get_example_postcode($va_id);
                 mapit_check_error($pc);
                 $form->addElement('static', 'note1', null, "Example postcode for testing: " .
-                    "<a href=\"http://www.writetothem.com/who?pc=" . htmlspecialchars($pc) . "\">"
-                        . htmlentities($pc) ."</a>");
+                    "<a href='" . OPTION_BASE_URL . '/who?pc=' . urlencode($pc) . "'>"
+                        . htmlentities($pc) ."</a> (<a href='?search=" . urlencode($pc) . "&amp;gos=postcode+or+query&amp;page=reps'>all reps here</a>)");
             }
 
             if ($rep_id) {
