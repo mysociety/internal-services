@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.15 2009-11-02 15:38:35 matthew Exp $
+ * $Id: admin-reps.php,v 1.16 2009-11-02 16:01:27 matthew Exp $
  * 
  */
 
@@ -223,7 +223,7 @@ class ADMIN_PAGE_REPS {
             // Councillor types are not edited here, but in match.cgi interface
             global $va_council_child_types;
             $editable_here = true;
-            if (in_array($vainfo['type'], $va_council_child_types)) {
+            if (OPTION_ADMIN_SERVICES_CGI && in_array($vainfo['type'], $va_council_child_types)) {
                 $editable_here = false;
             }
             $readonly = $editable_here ? null : "readonly";
