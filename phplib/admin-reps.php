@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.12 2008-05-23 11:41:53 matthew Exp $
+ * $Id: admin-reps.php,v 1.13 2009-11-02 14:07:35 matthew Exp $
  * 
  */
 
@@ -61,11 +61,11 @@ class ADMIN_PAGE_REPS {
         return $html;
     }
 
-    function render_area($self_link, $area_id, $area_info) {
-        $html = "<a href=\"$self_link&pc=" .  urlencode(get_http_var('pc')). "&va_id=" . $area_id .  "\">";
-        $html .= $area_info['name'];
-        $html .= "</a>";
-        $html .= " (" .  $area_info['type_name'] . ")";
+    function render_area($self_link, $area_id, $area_info, $pc) {
+        $url = $self_link . '&pc=' . urlencode($pc);
+        $html = "<p><strong><a href='$url&va_id=$area_id'>$area_info[name]</a>";
+        $html .= " (" .  $area_info['type_name'] . ")</strong>";
+        $html .= " &ndash; <a href='$url&new_in_va_id=$area_id'>Add new representative</a></p>";
         return $html;
     }
 
@@ -371,7 +371,7 @@ class ADMIN_PAGE_REPS {
             $reps = dadem_get_representatives($va_id);
             dadem_check_error($reps);
             $reps = array_values($reps);
-            $html = "<p><b>" . $this->render_area($self_link, $va_id, $area_info) . "</b></p>"; 
+            $html = $this->render_area($self_link, $va_id, $area_info, $pc); 
             $html .= $this->render_reps($self_link, $reps);
             $form->addElement('static', 'bytype', null, $html);
             $form->addElement('hidden', 'page', $this->id);
@@ -400,7 +400,7 @@ class ADMIN_PAGE_REPS {
             $form->addElement('static', 'bytype', null, $html);
 
             admin_render_form($form);
-        } else if ($pc) {
+        } elseif ($pc) {
             $form = new HTML_QuickForm('adminRepsSearchResults', 'get', $self_link);
             
             // Postcode search
@@ -432,7 +432,7 @@ class ADMIN_PAGE_REPS {
                     $reps = dadem_get_representatives($va_id);
                     dadem_check_error($reps);
                     $reps = array_values($reps);
-                    $html .= "<p><b>" . $this->render_area($self_link, $va_id, $area_info) . "</b></p>"; 
+                    $html .= $this->render_area($self_link, $va_id, $area_info, $pc);
                     $html .= $this->render_reps($self_link, $reps);
                 }
             }
