@@ -8,7 +8,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-ratty.php,v 1.4 2009-11-19 11:45:21 matthew Exp $
+ * $Id: admin-ratty.php,v 1.5 2009-11-19 12:01:58 matthew Exp $
  * 
  */
 
@@ -189,11 +189,12 @@ class ADMIN_PAGE_RATTY {
             $buttongroup[2] = &HTML_QuickForm::createElement('submit', 'newdistinct', 'Limit number of distinct values of...');
             $form->addGroup($buttongroup, "buttongroup", "Add new rule condition:",' <br> ', false);
 
+            $finalgroup = array();
             if (array_key_exists('rule_id', $ruledata))
-                $form->addElement('hidden', 'rule_id', $ruledata['rule_id']);
-            $form->addElement('hidden', 'page', $this->id);
-            $form->addElement('hidden', 'action', $action);
-            $form->addElement('header', '', 'Submit Changes');
+                $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'rule_id', $ruledata['rule_id']);
+            $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'page', $this->id);
+            $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'action', $action);
+            $finalgroup[] = &HTML_QuickForm::createElement('header', '', 'Submit Changes');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'done', 'Done');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'cancel', 'Cancel');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'deleterule', 'Delete Rule');
@@ -217,7 +218,7 @@ class ADMIN_PAGE_RATTY {
                 admin_render_form($form);
 
                 print "<h2>Help &mdash; What goes in the action box?</h2>";
-                print "<p>" . $this->scope_messageblurb . "</p>";
+                print $this->scope_messageblurb; 
                 print "<h2>Help &mdash; What do all the fields mean?</h2>";
                 print "<p>";
                 foreach ($fieldarray as $row) {
