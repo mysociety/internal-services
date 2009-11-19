@@ -8,7 +8,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-ratty.php,v 1.6 2009-11-19 12:23:51 matthew Exp $
+ * $Id: admin-ratty.php,v 1.7 2009-11-19 12:33:15 matthew Exp $
  * 
  */
 
@@ -102,6 +102,11 @@ class ADMIN_PAGE_RATTY {
             }
             $form->setDefaults(array_merge($ruledata, $cform));
 
+            if (array_key_exists('rule_id', $ruledata))
+                $form->addElement('hidden', 'rule_id', $ruledata['rule_id']);
+            $form->addElement('hidden', 'page', $this->id);
+            $form->addElement('hidden', 'action', $action);
+
             $form->addElement('header', '', $rule = "" ? 'New Rate-Limiting Rule' : 'Edit Rate-Limiting Rule');
 
             $titlegroup = array();
@@ -189,12 +194,8 @@ class ADMIN_PAGE_RATTY {
             $buttongroup[2] = &HTML_QuickForm::createElement('submit', 'newdistinct', 'Limit number of distinct values of...');
             $form->addGroup($buttongroup, "buttongroup", "Add new rule condition:",' <br> ', false);
 
+            $form->addElement('header', '', 'Submit Changes');
             $finalgroup = array();
-            $finalgroup[] = &HTML_QuickForm::createElement('header', '', 'Submit Changes');
-            if (array_key_exists('rule_id', $ruledata))
-                $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'rule_id', $ruledata['rule_id']);
-            $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'page', $this->id);
-            $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'action', $action);
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'done', 'Done');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'cancel', 'Cancel');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'deleterule', 'Delete Rule');
