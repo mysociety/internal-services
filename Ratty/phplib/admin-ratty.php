@@ -8,7 +8,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-ratty.php,v 1.3 2008-07-08 09:33:31 matthew Exp $
+ * $Id: admin-ratty.php,v 1.4 2009-11-19 11:45:21 matthew Exp $
  * 
  */
 
@@ -234,7 +234,7 @@ class ADMIN_PAGE_RATTY {
             $rules = ratty_admin_get_rules($this->scope);
             print <<<EOF
 <h2>$this->scope_title Rules</h2> 
-<p>$this->scope_description</h1></p>
+<p>$this->scope_description</p>
 <table border="1" width="100%">
     <tr>
         <th>Order</th>
@@ -255,7 +255,7 @@ EOF;
                     $rule['note'] = "&lt;unnamed&gt;";
                 print '<tr'.($c==1?' class="v"':'').'>';
                 print "<td>" . $rule['sequence'] . "</td>";
-                print "<td><a href=\"$self_link&action=editrule&rule_id=" .     /* XXX use url_new... */
+                print "<td><a href=\"$self_link&amp;action=editrule&amp;rule_id=" .     /* XXX use url_new... */
                     $rule['id'] . "\">" . $rule['note'] . "</a></td>";
                 if ($rule['requests'] == 0 && $rule['interval'] == 0) {
                     print "<td>blocked</td>";
@@ -265,7 +265,7 @@ EOF;
                 print "<td>" . trim_characters($rule['message'], 0, 40) . "</td>";
                 print "<td>" . $rule['hits'] . "</td>";
                 if ($this->scope == "fyr-abuse") {
-                    print "<td><a href=\"?page=fyrqueue&view=logsearch&query=" .     /* XXX use url_new... */
+                    print "<td><a href=\"?page=fyrqueue&amp;view=logsearch&amp;query=" .     /* XXX use url_new... */
                     urlencode(" rule #" . $rule['id'] . " ") . "\">View</a></td>";
                 }
                 print "</tr>";
@@ -275,7 +275,7 @@ EOF;
 ?>
 </table>
 <?
-            print "<p><a href=\"$self_link&action=editrule\">New rule</a>";
+            print "<p><a href=\"$self_link&amp;action=editrule\">New rule</a>";
 ?>
 <h2>Help &mdash; how do these rules work?</h2>
 <p>
