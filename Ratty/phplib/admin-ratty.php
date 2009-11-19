@@ -8,7 +8,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-ratty.php,v 1.5 2009-11-19 12:01:58 matthew Exp $
+ * $Id: admin-ratty.php,v 1.6 2009-11-19 12:23:51 matthew Exp $
  * 
  */
 
@@ -190,11 +190,11 @@ class ADMIN_PAGE_RATTY {
             $form->addGroup($buttongroup, "buttongroup", "Add new rule condition:",' <br> ', false);
 
             $finalgroup = array();
+            $finalgroup[] = &HTML_QuickForm::createElement('header', '', 'Submit Changes');
             if (array_key_exists('rule_id', $ruledata))
                 $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'rule_id', $ruledata['rule_id']);
             $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'page', $this->id);
             $finalgroup[] = &HTML_QuickForm::createElement('hidden', 'action', $action);
-            $finalgroup[] = &HTML_QuickForm::createElement('header', '', 'Submit Changes');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'done', 'Done');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'cancel', 'Cancel');
             $finalgroup[] = &HTML_QuickForm::createElement('submit', 'deleterule', 'Delete Rule');
