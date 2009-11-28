@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.33 2009-04-03 11:54:46 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.34 2009-11-28 12:59:43 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -250,7 +250,7 @@ foreach my $council_id (keys %$councils) {
     foreach my $rep (@reps_mysociety_mod) {
         $reps_mysociety_mod->{$rep->{key}} = $rep;
 
-        # Revert any unresolved conflits back to before their resolution
+        # Revert any unresolved conflicts back to before their resolution
         my $conflict = 0;
         foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
             my $value = $rep->{$field};
@@ -326,9 +326,10 @@ foreach my $council_id (keys %$councils) {
             my $in_mysociety = defined($mysociety_mod);
             my $in_prev = defined($prev_import);
             if ($in_mysociety && !$in_new) {
+                # In current database, not in new GovEval data.
                 if ($in_prev) {
-                    $out .= "GE deleted:";
-                    $out .= " ".$rep_desc->($reps_prev_import->{$key})."\n";
+                    # Was in previous GovEval data - GovEval have removed it.
+                    $out .= "GE deleted: " . $rep_desc->($reps_prev_import->{$key}) . "\n";
                     $ge_add_del = 1;
                     my $prev_mysociety = $reps_diff->($prev_import, $mysociety_mod);
                     if ($prev_mysociety) {
@@ -344,16 +345,19 @@ foreach my $council_id (keys %$councils) {
                         $ms_change = 1;
                     }
                 } else {
+                    # Wasn't in previous GovEval data - is just a manual mySociety addition.
                     $reps_merged->{$key} = Storable::dclone($reps_mysociety_mod->{$key});
-                    $out .= "MS added:" if $verbose > 1;
-                    $out .= " ".$rep_desc->($reps_mysociety_mod->{$key})."\n";
+                    if ($verbose > 0) {
+                        $out .= "MS added: " . $rep_desc->($reps_mysociety_mod->{$key}) . "\n";
+                    }
                     $ms_add_del = 1;
                 }
             } elsif ($in_new && !$in_mysociety) {
+                # In new GovEval data, not in current database.
                 if ($in_prev) {
+                    # Was in previous GovEval data - so we've manually overridden and deleted that.
                     delete $reps_merged->{$key};
-                    $out .= "MS deleted:" if $verbose > 0;
-                    $out .= " ".$rep_desc->($reps_prev_import->{$key})."\n";
+                    $out .= "MS deleted: " . $rep_desc->($reps_prev_import->{$key}) . "\n";
                     $ms_add_del = 1;
                     my $prev_new = $reps_diff->($prev_import, $new_import);
                     if ($prev_new) {
@@ -369,8 +373,8 @@ foreach my $council_id (keys %$councils) {
                         $ge_change = 1;
                     }
                 } else {
-                    $out .= "GE added:";
-                    $out .= " ".$rep_desc->($reps_new_import->{$key})."\n";
+                    # It's a new addition by GovEval, nothing out of the ordinary.
+                    $out .= "GE added: " . $rep_desc->($reps_new_import->{$key}) . "\n";
                     $ge_add_del = 1;
                 }
             } else {
@@ -418,18 +422,18 @@ foreach my $council_id (keys %$councils) {
         my $prev_new = $reps_diff->($prev_import, $new_import);
 
         if ($mysociety_new) {
-            # Differ
+            # There has been a change from the current database to the new GovEval data.
             if ($prev_mysociety && !$prev_new) {
-                # Pick MS, as GE no change
+                # Pick the same mySociety alternation, GovEval hasn't changed
                 $reps_merged->{$key} = Storable::dclone($reps_mysociety_mod->{$key});
-                $out .= "MS change: $prev_mysociety\n";
+                $out .= "MS change: $prev_mysociety\n" if $verbose > 0;
                 $ms_change = 1;
             } elsif ($prev_new && !$prev_mysociety) {
-                # Pick GE, as MS no change
+                # Pick the GovEval change, as mySociety hasn't made any change
                 $out .= "GE change: $prev_new\n";
                 $ge_change = 1;
             } else {
-                die if (!$prev_new || !$prev_mysociety);
+                die if (!$prev_new || !$prev_mysociety); # We must have both changing to get here
                 foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
                     next if ($mysociety_mod->{$field} eq $new_import->{$field});
                     if ( ($mysociety_mod->{$field} ne $prev_import->{$field})
@@ -438,11 +442,13 @@ foreach my $council_id (keys %$councils) {
                                 " MS: " . $mysociety_mod->{$field} . 
                                 " GE: " . $new_import->{$field};
                     } elsif ($mysociety_mod->{$field} ne $prev_import->{$field}) {
+                        # mySociety has changed, GovEval hasn't - take the mySociety change
                         #$reps_merged->{$key}->{$field} = "CONFLICT" . 
                         #        " MS: " .  $prev_import->{$field} . " ->" . $mysociety_mod->{$field} . 
                         #        " GE: no change";
                         $reps_merged->{$key}->{$field} = $mysociety_mod->{$field};
                     } elsif ($new_import->{$field} ne $prev_import->{$field}) {
+                        # Conversely, take a GovEval change as read if mySociety hasn't changed
                         #$reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
                         #    " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
                     }
