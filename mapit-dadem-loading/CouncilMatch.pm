@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.17 2009-06-29 10:38:15 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.18 2009-12-15 12:51:24 matthew Exp $
 #
 
 package CouncilMatch;
@@ -346,7 +346,7 @@ sub canonicalise_council_name ($) {
         # Durham County and Durham District both have same name (Durham)
         # so we leave in the type (County/District) as a special case
         s# City Council# District#;
-        s#County Durham Council#Durham County#;
+        s#County Durham Council#County Durham#;
     } else {
         s#\s*\(([A-Z]{2})\)##; # Pendle (BC) => Pendle
         s#(.+) - (.+)#$2#;     # Sir y Fflint - Flintshire => Flintshire
