@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.23 2009-12-17 15:50:37 louise Exp $
+ * $Id: admin-reps.php,v 1.24 2009-12-17 17:21:11 louise Exp $
  * 
  */
 
@@ -21,8 +21,9 @@ class ADMIN_PAGE_REPS {
     }
 
     function get_token() {
-        $secret = get_secret();
-        $token = sha1(http_auth_user());
+        $secret = dadem_get_secret();
+        dadem_check_error($secret);
+        $token = sha1(http_auth_user() . $secret);
         return $token;
     }
 
