@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.22 2009-11-02 17:49:39 matthew Exp $
+ * $Id: admin-reps.php,v 1.23 2009-12-17 15:50:37 louise Exp $
  * 
  */
 
@@ -18,6 +18,12 @@ class ADMIN_PAGE_REPS {
     function ADMIN_PAGE_REPS () {
         $this->id = "reps";
         $this->navname= "Representative Data";
+    }
+
+    function get_token() {
+        $secret = get_secret();
+        $token = sha1(http_auth_user());
+        return $token;
     }
 
     function render_reps($self_link, $reps, $bad_link = false) {
@@ -121,41 +127,49 @@ class ADMIN_PAGE_REPS {
         if (get_http_var('cancel') != "") 
             $rep_id = null;
         if (get_http_var('done') != "") {
-            $newdata['name'] = get_http_var('name');
-            $newdata['party'] = get_http_var('party');
-            $newdata['method'] = get_http_var('method');
-            $newdata['email'] = get_http_var('email');
-            $newdata['fax'] = get_http_var('fax');
-            if (!$rep_id) {
-                // Making a new representative, put in type and id
-                $newdata['area_id'] = $new_in_va_id;
-                $vainfo = mapit_get_voting_area_info($new_in_va_id);
-                mapit_check_error($vainfo);
-                $newdata['area_type'] = $vainfo['type'];
-            }
-            $result = dadem_admin_edit_representative($rep_id, $newdata, http_auth_user(), get_http_var('note'));
-            dadem_check_error($result);
-            $rep_id = $result;
-            $new_in_va_id = null;
-            print "<p><i>Successfully updated representative ". htmlspecialchars($rep_id) . "</i></p>";
-
-            if (get_http_var('nextbad')) {
-                $rep_id = get_http_var('nextbad');
-                $url = $self_link . "&nextbad=" . urlencode($this->get_next_bad_contact($rep_id)) . "&just_done_bad=1&rep_id=" . urlencode($rep_id);
-                header("Location: $url");
-                exit;
+            if (get_http_var('token') != $this->get_token()) {
+                print "<p><i>Token not found</i></p>";
             } else {
-                $rep_id = null;
+                $newdata['name'] = get_http_var('name');
+                $newdata['party'] = get_http_var('party');
+                $newdata['method'] = get_http_var('method');
+                $newdata['email'] = get_http_var('email');
+                $newdata['fax'] = get_http_var('fax');
+                if (!$rep_id) {
+                    // Making a new representative, put in type and id
+                    $newdata['area_id'] = $new_in_va_id;
+                    $vainfo = mapit_get_voting_area_info($new_in_va_id);
+                    mapit_check_error($vainfo);
+                    $newdata['area_type'] = $vainfo['type'];
+                }
+                $result = dadem_admin_edit_representative($rep_id, $newdata, http_auth_user(), get_http_var('note'));
+                dadem_check_error($result);
+                $rep_id = $result;
+                $new_in_va_id = null;
+                print "<p><i>Successfully updated representative ". htmlspecialchars($rep_id) . "</i></p>";
+
+                if (get_http_var('nextbad')) {
+                    $rep_id = get_http_var('nextbad');
+                    $url = $self_link . "&nextbad=" . urlencode($this->get_next_bad_contact($rep_id)) . "&just_done_bad=1&rep_id=" . urlencode($rep_id);
+                    header("Location: $url");
+                    exit;
+                } else {
+                    $rep_id = null;
+                }
             }
         }
         if (get_http_var('just_done_bad')) {
             print "<p><i>Moved on to next bad contact</i></p>";
         }
         if (get_http_var('delete') != "") {
-            $result = dadem_admin_edit_representative($rep_id, null, http_auth_user(), get_http_var('note'));
-            dadem_check_error($result);
-            print "<p><i>Successfully deleted representative ". htmlspecialchars($rep_id) . "</i></p>";
-            $rep_id = null;
+            if (get_http_var('token') != $this->get_token()) {
+                print "<p><i>Token not found</i></p>";
+            } else { 
+                $result = dadem_admin_edit_representative($rep_id, null, http_auth_user(), get_http_var('note'));
+                dadem_check_error($result);
+                print "<p><i>Successfully deleted representative ". htmlspecialchars($rep_id) . "</i></p>";
+                $rep_id = null;
+            }
         }
         if (get_http_var('ucclose') != "") {
             $result = dadem_admin_done_user_correction(get_http_var('ucid'));
@@ -181,7 +195,8 @@ class ADMIN_PAGE_REPS {
         if ($rep_id or $new_in_va_id) {
             $form = new HTML_QuickForm('adminRepsEditForm', 'post', $self_link);
             $form->addElement('hidden', 'page', $this->id);
-
+            $form->addElement('hidden', 'token', $this->get_token());
+           
             // Edit representative
             $sameperson = null;
             if ($rep_id) {
@@ -381,6 +396,7 @@ class ADMIN_PAGE_REPS {
             $html .= $this->render_reps($self_link, $reps);
             $form->addElement('static', 'bytype', null, $html);
             $form->addElement('hidden', 'page', $this->id);
+            $form->addElement('hidden', 'token', $this->get_token());
             $form->addElement('hidden', 'va_id', $va_id);
             $form->addElement('select', 'new_status', null, 
                     array(
@@ -475,6 +491,7 @@ class ADMIN_PAGE_REPS {
             $corrections = dadem_get_user_corrections();
             dadem_check_error($corrections);
             $form->addElement('header', '', 'User Submitted Corrections ' . count($corrections));
+            $form->addElement('hidden', 'token', $this->get_token());
             admin_render_form($form);
             // Get all the data for areas and their parents in as few call as possible
             $vaids = array();
