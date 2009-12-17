@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.84 2007-08-22 14:31:49 matthew Exp $
+# $Id: DaDem.pm,v 1.85 2009-12-17 13:02:36 louise Exp $
 #
 
 package DaDem;
@@ -268,6 +268,14 @@ sub check_valid_method($$$) {
             ));
 }
 
+=item get_secret 
+
+Return a generic secret string to be used in generating tokens
+
+=cut
+sub get_secret {
+    return mySociety::Config::get('SECRET');
+}
 
 =item get_representatives ID_or_ARRAY [ALL]
 
