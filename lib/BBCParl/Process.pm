@@ -353,7 +353,7 @@ sub get_broadcast_date_and_time{
     
 }
 
-sub find_xml_url{
+sub find_flv_url {
     my ($self, $ua, $broadcast_date, $broadcast_time) = @_;
  
     my $programme_url = $self->{'constants'}{'flv-api-url'} . $self->{'constants'}{'flv-api-programme-path'};
@@ -370,41 +370,17 @@ sub find_xml_url{
         warn "FATAL: Logged out of flv API";
         return undef;
     } 
-    return $self->get_xml_url($content);
-    
-}
-
-sub get_xml_url(){
-    my ($self, $text) = @_;
-    my $xml_url_string =  '(' . $self->{'constants'}{'flv-api-url'} . 'programme/\d+/pp/flvxml)';
-    if ($text =~ m#$xml_url_string#){
-        my $xml_url = $1;
-        return $xml_url;
-    }else{
-        warn "FATAL: Could not get xml url";
-        return undef;
-    }
-}
-
-sub find_flv_url {
-    
-    my ($self, $ua, $xml_url) = @_;
-    $self->debug("requesting $xml_url");
-    my $response = $ua->get($xml_url);
-    unless ($response->is_success) {
-	    warn "FATAL: Could not fetch $xml_url; error was " . $response->status_line();
-	    return undef;
-    }
-    my $content = $response->content();
     return $self->get_flv_url($content);
+    
 }
 
 sub get_flv_url{
     my ($self, $text) = @_;
-    my $flv_string = '<location>/(programme/\d+/download/.*?/flash.flv)</location>';
-    if ($text =~ m#$flv_string#){
+    my $url = $self->{'constants'}{'flv-api-url'};
+    my $flv_string = qr{file=$url(programme/\d+/download/.*?/flash\.flv)};
+    if ($text =~ $flv_string){
         my $flv_path = $1;
-        return $self->{'constants'}{'flv-api-url'} . $flv_path;
+        return $url . $flv_path;
     }else{
         warn "FATAL: Could not get flv url";
         return undef;
@@ -499,22 +475,13 @@ sub get_flv_files_for_programmes {
         my ($broadcast_date, $broadcast_time) = $self->get_broadcast_date_and_time($start_p);
         return undef unless $broadcast_date;
          
-        my $xml_url = $self->find_xml_url($ua, $broadcast_date, $broadcast_time);
-        sleep 10;
-        
-        unless ($xml_url){
-            $self->skip_programme($prog_id);
-            next;
-        }
-        
-        my $flv_url = $self->find_flv_url($ua, $xml_url);
-        sleep 10;
-        
+        my $flv_url = $self->find_flv_url($ua, $broadcast_date, $broadcast_time);
         unless ($flv_url){
             $self->skip_programme($prog_id);
             next; 
         }
-        
+        sleep 10;
+
         my $flv_saved = $self->get_flv_file($ua, $flv_url, $output_dir, $prog_id);
         sleep 10;
         
