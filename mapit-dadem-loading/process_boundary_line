@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.39 2009-01-31 22:59:04 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.40 2009-12-21 17:34:01 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -99,11 +99,15 @@ die "no new generation available" if (!defined($generation));
 # recording area names etc. in memory.
 foreach my $dir (@ARGV) {
     print STDERR "\r$dir\n";
-    foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
-        BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
-    }
-    foreach (glob("$dir/*.shp")) {
-        BoundaryLine::load_shapefile($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+    if (-d $dir) {
+        foreach (glob("$dir/*.[Nn][Tt][Ff]")) {
+            BoundaryLine::load_ntf_file($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+        }
+        foreach (glob("$dir/*.shp")) {
+            BoundaryLine::load_shapefile($_, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
+        }
+    } else {
+        BoundaryLine::load_shapefile($dir, \@shapes, \%onscode_to_shape, \%area_type_to_shape, \%aaid_to_shape);
     }
 }
 
@@ -242,7 +246,6 @@ sub find_containing_areas ($$;$) {
     foreach my $S (@{$tiles->[int($E / $tilesize)]->[int($N / $tilesize)]}) {
         next if ($S->deleted());
         next if (exists($found{$S->area_type()}));  # only care about one shape of each type.
-        next if ($S->area_type() eq 'CPC');         # don't care about parishes at this stage
         ++$total_shape_tests;
         $found{$S->area_type()} = $S if (is_point_in_shape($S, $E, $N));
     }
@@ -364,7 +367,7 @@ foreach my $S (@shapes) {
         if ($needparent) {
             my $newcode;
             if ($S->area_type() eq 'CPC') {
-                # Parishes may be children of DIS or UTA, and their ONS codes
+                # Parishes may be children of DIS, UTA, MTD, LBO (none at present), and their ONS codes
                 # are three characters longer than their parents'.
                 $newcode = substr($S->ons_code(), 0, length($S->ons_code()) - 3);
                 $parent = $onscode_to_shape{$newcode};
@@ -494,7 +497,7 @@ sub match_db_areas ($$) {
     }
 
     foreach my $A (@$areas) {
-        my @i = sort { Text::LevenshteinXS::distance($A->name(), $a->{name}) cmp Text::LevenshteinXS::distance($A->name(), $b->{name}) } values(%$aa);
+        my @i = sort { Text::LevenshteinXS::distance($A->name(), $a->{name}) <=> Text::LevenshteinXS::distance($A->name(), $b->{name}) } values(%$aa);
         die "closest match for '" . $A->name() . "', '" . $i[0]->{name} . "', is not similar enough"
             if (Text::LevenshteinXS::distance($A->name(), $i[0]->{name}) > length($A->name()) / 10);
         print STDERR $A->name(), " -> $i[0]->{name}\n";
@@ -506,7 +509,7 @@ sub match_db_areas ($$) {
 print STDERR "Finding existing database rows for areas...\n";
 
 # For each area type, associate names.
-foreach my $area_type (grep { !exists($parentmap{$_}) && $_ ne 'CPC' } @interesting_areas) {
+foreach my $area_type (grep { !exists($parentmap{$_}) } @interesting_areas) {
     print STDERR "$area_type...\n";
     my @aa = grep { $_->alreadyexists() && !$_->deleted() } @{$area_type_to_shape{$area_type}};
     match_db_areas(\@aa, 'type = ' . $dbh->quote($area_type));
@@ -515,7 +518,7 @@ foreach my $area_type (grep { !exists($parentmap{$_}) && $_ ne 'CPC' } @interest
     if (exists($childmap{$area_type})) {
         foreach my $S (@aa) {
             print "--- children for ", $S->name(), "\n";
-            my @children = grep { $_->alreadyexists() && !$_->deleted() && $_->area_type() ne 'CPC' } $S->children();
+            my @children = grep { $_->alreadyexists() && !$_->deleted() } $S->children();
             match_db_areas(\@children, 'parent_area_id = ' . $S->id());
         }
     }
@@ -527,7 +530,7 @@ foreach my $area_type (grep { !exists($parentmap{$_}) && $_ ne 'CPC' } @interest
 $n = 0;
 foreach my $S ((grep { !defined($_->parent()) } @shapes), (grep { defined($_->parent()) } @shapes)) {
     ++$n;
-    next if ($S->deleted() || $S->area_type() eq 'CPC');
+    next if ($S->deleted());
     my $id = $S->id();
     if (defined($id)) {
         # existing area
@@ -579,7 +582,6 @@ $total_shape_tests = $total_queries = 0;
 # Read list of postcodes and coordinates, do point-in-polygon tests for each
 # one.
 {
-    local $/ = "\r\n";
     my $n = 0;
     my $starttime = time();
 
@@ -588,18 +590,16 @@ $total_shape_tests = $total_queries = 0;
 
     while (defined(my $line = <STDIN>)) {
         chomp $line;
+        $line =~ s/\r//g; # In case it's using DOS line endings
         my @x = split(/,/, $line);
         
-        my ($pc, $qual, $E, $N) = ($x[0], $x[1], $x[10], $x[11]);
+        my ($pc, $qual, $E, $N) = ($x[0], $x[5], $x[6], $x[7]);
         $pc =~ s/[" ]//g;
 
-        next if ($pc =~ m#^BT#          # NI
-                || $qual == 90);        # no coordinates
-        
         %areas = find_containing_areas($E, $N, \%areas);
-	if (exists(&control_function_postcode)) {
-	    control_function_postcode($pc, \%areas, \%area_type_to_shape);
-	}
+        if (exists(&control_function_postcode)) {
+            control_function_postcode($pc, \%areas, \%area_type_to_shape);
+        }
 
         # Sanity checks.
         foreach my $musthave (qw(WMC EUR)) {
@@ -623,7 +623,7 @@ $total_shape_tests = $total_queries = 0;
         my $pcid = get_postcode_id($dbh, $pc, $E, $N);
         $dbh->do('delete from postcode_area where postcode_id = ?', {}, $pcid);
         foreach my $S (grep { defined($_) } values %areas) {
-            next if ($S->deleted() || $S->area_type() eq 'CPC');
+            next if ($S->deleted());
             $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $S->id());
         }
 

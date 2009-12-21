@@ -7,7 +7,7 @@
 # data in area_geometry for each area found in the NTF/ShapeFile files is replaced.
 #
 
-my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.10 2009-04-02 17:34:44 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: add_boundaryline_geodata,v 1.11 2009-12-21 17:34:01 matthew Exp $';
 
 use strict;
 
@@ -23,7 +23,7 @@ use File::Find;
 
 use Common;
 use Area;
-use BoundaryLine qw(%interesting_areas @interesting_areas %childmap %parentmap doublesize);
+use BoundaryLine qw(doublesize);
 
 die "arguments are directories containing boundaryline NTF/ShapeFile files" unless @ARGV;
 

@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.11 2009-10-26 16:13:29 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.12 2009-12-21 17:34:01 matthew Exp $
 #
 
 use strict;
@@ -69,7 +69,7 @@ sub doublesize { return $doublesize; }
 
  'EUR',   # European Region
 
-# 'CPC'    # Civil Parish
+ 'CPC'    # Civil Parish
     )
 );
 
@@ -83,11 +83,13 @@ sub doublesize { return $doublesize; }
         UTE UTA
     );
 # Can't list CPC (parish) here, because a CPC may have either a DIS or UTA
-# parent.
+# parent. Or an MTD or an LBO in fact.
 
 # But put CPC in here so that we can pick up parents of CPCs at load time.
-#$childmap{DIS}->{CPC} = 1;
-#$childmap{UTA}->{CPC} = 1;
+$childmap{DIS}->{CPC} = 1;
+$childmap{UTA}->{CPC} = 1;
+$childmap{MTD}->{CPC} = 1;
+$childmap{LBO}->{CPC} = 1;
 
 foreach (keys %parentmap) {
     $childmap{$parentmap{$_}}->{$_} = 1;
@@ -281,7 +283,7 @@ sub load_shapefile {
 
     printf STDERR "\r%s (%.2fMB) ", $filename, stat($filename)->size() / (1024.*1024);
     (my $base = $filename) =~ s/\.shp$//;
-    return if $base =~ /parish|high_water/;
+    return if $base =~ /high_water/;
     my $shapefile = new Geo::OSBoundaryLine::ShapeFile($base);
     print STDERR "loaded.\n";
 
