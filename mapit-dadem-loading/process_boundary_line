@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.40 2009-12-21 17:34:01 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.41 2009-12-22 10:44:33 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -66,6 +66,7 @@ use Common;
 use Area;
 use BoundaryLine qw(%interesting_areas @interesting_areas %childmap %parentmap doublesize);
 use mySociety::Polygon;
+use mySociety::GeoUtil;
 
 # @shapes
 # List of Area objects for each area we're interested in.
@@ -536,7 +537,7 @@ foreach my $S ((grep { !defined($_->parent()) } @shapes), (grep { defined($_->pa
         # existing area
         $dbh->do("delete from area_name where area_id = ? and name_type = 'O'", {}, $id);
         $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'O', ?)", {}, $id, $S->name());
-        $dbh->do("update area set generation_high = ? where id = ?", {}, $generation, $id);
+        $dbh->do("update area set generation_high = ?, ons_code = ?, unit_id = ? where id = ?", {}, $generation, $S->ons_code(), $S->aaid(), $id);
     } else {
         # new area
         $id = $dbh->selectrow_array("select nextval('area_id_seq')");
@@ -571,6 +572,7 @@ foreach my $S ((grep { !defined($_->parent()) } @shapes), (grep { defined($_->pa
 
         $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'O', ?)", {}, $S->id(), $S->name());
     }
+    add_geometry($S);
     printf STDERR "\rUpdating database: %d/%d shapes", $n, scalar(@shapes) if (($n % 100) == 0);
 }
 printf STDERR "\rUpdating database: %d/%d shapes\n", $n, scalar(@shapes);
@@ -640,3 +642,65 @@ $total_shape_tests = $total_queries = 0;
 # print STDERR "dbh->commit disabled, rolling back\n";
 $dbh->commit();
 
+# This function adds the row to the geometry table for the shape,
+# which must already have a MaPit ID.
+sub add_geometry {
+    my $A = shift;
+    my ($min_lat, $min_lon) = mySociety::GeoUtil::national_grid_to_wgs84($A->minx(), $A->miny(), 'G');
+    my ($max_lat, $max_lon) = mySociety::GeoUtil::national_grid_to_wgs84($A->maxx(), $A->maxy(), 'G');
+    my $centre_e = ($A->minx() + $A->maxx()) / 2;
+    my $centre_n = ($A->miny() + $A->maxy()) / 2;
+    my ($centre_lat, $centre_lon) = mySociety::GeoUtil::national_grid_to_wgs84($centre_e, $centre_n, 'G');
+    my $db_id = $A->id();
+
+    my $binary_poly; # format as documented in mapit-schema.sql
+    my $parts_count = scalar(@{$A->parts()});
+    my $calculated_surface_area = 0;
+    foreach (@{$A->parts()}) {
+        my ($sense, $vv) = @$_;
+        my $vertices_count = length($vv) / (2 * doublesize());
+        # print STDERR "  ... part $sense sense $vertices_count vertices\n";
+        $binary_poly .= pack('i', $sense);
+        $binary_poly .= pack('i', $vertices_count);
+        $binary_poly .= $vv;
+        
+        # Calculate area from the polygon 
+        my $surface_area = abs(mySociety::Polygon::poly_area($vertices_count, $vv));
+        if ($sense > 0) {  
+            $calculated_surface_area += $surface_area;
+        } elsif ($sense < 0) {
+            $calculated_surface_area -= $surface_area;
+        } else {
+            die "zero sense value for part in " . $A->name();
+        }
+    }
+    die "Calculated surface zero or negative ($calculated_surface_area) for " . $A->name() if ($calculated_surface_area <= 0);
+    my $non_inland_area = $A->non_inland_area();
+    my $square_m = $A->hectares() * 10000;
+    my $area_discrepency = abs($calculated_surface_area - $square_m);
+    die "$db_id (" . $A->ons_code() . "): calculated $calculated_surface_area and from file $square_m areas disagree by lots" if $area_discrepency > 1000;
+
+    $dbh->do("delete from area_geometry where area_id = ?", {}, $db_id);
+
+    $dbh->do("insert into area_geometry (
+            area_id, centre_e, centre_n,
+            min_e, min_n, max_e, max_n,
+            area, parts
+        ) values (
+            ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?
+        ) ", {}, 
+            $db_id, $centre_e, $centre_n,
+            $A->minx(), $A->miny(), $A->maxx(), $A->maxy(),
+            $square_m, $parts_count
+        );
+    #area 
+
+    # Horrid. To insert a value into a BYTEA column we need to do a little
+    # parameter-binding dance:
+    my $s = $dbh->prepare(q#update area_geometry set polygon = ? where area_id = ?#);
+    $s->bind_param(1, $binary_poly, { pg_type => DBD::Pg::PG_BYTEA });
+    $s->bind_param(2, $db_id);
+    $s->execute();
+}
