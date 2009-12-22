@@ -8,7 +8,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.4 2009-12-22 21:17:09 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: create_new_generation,v 1.5 2009-12-22 21:17:38 matthew Exp $';
 
 use strict;
 
@@ -17,8 +17,6 @@ use DBD::Pg;
 
 use Common;
 
-die "only argument should be name of Pg database" unless (@ARGV == 1);
-my $dbname = shift @ARGV;
 my $dbh = Common::connect_to_mapit_database();
 printf "%d\n", new_generation($dbh);
 $dbh->commit();
