@@ -19,7 +19,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.7 2009-12-20 01:05:58 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_codepoint_scilly,v 1.8 2009-12-22 18:37:32 matthew Exp $';
 
 use strict;
 
@@ -47,7 +47,7 @@ my %wid;
 
 # Hack: get local authority, constituency and Euro region, by ONS code in first
 # two cases and name in the third.
-$dbh->do("update area set type = 'COI' where ons_code = '00HF' and type = 'CTY'");
+$dbh->do("update area set type = 'COI' where ons_code = '00HF' and type = 'UTA'");
 my $la_id = $dbh->selectrow_array("select id from area where ons_code = '00HF'");
 my $const_id = $dbh->selectrow_array("select id from area, area_name where area.id = area_name.area_id and name_type = 'O' and name = 'St. Ives Co Const'");
 my $euro_area_id = $dbh->selectrow_array("select id from area, area_name where area.id = area_name.area_id and name_type = 'O' and name = 'South West Euro Region'");
@@ -69,6 +69,7 @@ foreach (read_csv_file($onscodesfile, 1)) {
 
     # load Scilly only
     next if ($wcode !~ m/^15UH/);
+    $wcode =~ s/15UHF/00HFM/;
 
     die "undefined constituency code in '$_'" if (!defined($ccode));
     die "undefined ward code in '$_'" if (!defined($wcode));
@@ -114,6 +115,7 @@ while (defined($_ = $f->getline())) {
 
     # Scilly only
     next unless ($ward =~ m#^15UH#);
+    $ward =~ s/15UHF/00HFM/;
 
     # Skip postcodes which have no positional information (PQ of 90); these are
     # mostly PO boxes and things.
