@@ -49,7 +49,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.41 2009-12-22 10:44:33 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: process_boundary_line,v 1.42 2009-12-22 21:17:10 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -498,6 +498,15 @@ sub match_db_areas ($$) {
     }
 
     foreach my $A (@$areas) {
+        if ($A->ons_code()) {
+            my @i = grep { $A->ons_code() eq $_->{ons_code} } values(%$aa);
+            if (@i) {
+                print STDERR $A->name(), " -> $i[0]->{name}\n";
+                $A->id($i[0]->{id});
+                delete($aa->{$A->id()});
+                next;
+            }
+        }
         my @i = sort { Text::LevenshteinXS::distance($A->name(), $a->{name}) <=> Text::LevenshteinXS::distance($A->name(), $b->{name}) } values(%$aa);
         die "closest match for '" . $A->name() . "', '" . $i[0]->{name} . "', is not similar enough"
             if (Text::LevenshteinXS::distance($A->name(), $i[0]->{name}) > length($A->name()) / 10);
@@ -591,6 +600,7 @@ $total_shape_tests = $total_queries = 0;
     my %areas = map { $_ => undef } @interesting_areas;
 
     while (defined(my $line = <STDIN>)) {
+        next if $line =~ /^"Postcode",/;
         chomp $line;
         $line =~ s/\r//g; # In case it's using DOS line endings
         my @x = split(/,/, $line);

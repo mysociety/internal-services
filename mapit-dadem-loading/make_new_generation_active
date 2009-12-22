@@ -8,7 +8,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: make_new_generation_active,v 1.1 2005-09-30 14:57:02 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: make_new_generation_active,v 1.2 2009-12-22 21:17:10 matthew Exp $';
 
 use strict;
 
@@ -19,7 +19,7 @@ use Common;
 
 die "only argument should be name of Pg database" unless (@ARGV == 1);
 my $dbname = shift @ARGV;
-my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", 'mapit', '', { AutoCommit => 0, RaiseError => 1, PrintWarn => 0, PrintError => 0 });
+my $dbh = Common::connect_to_mapit_database();
 make_new_generation_active($dbh);
 $dbh->commit();
 $dbh->disconnect();
