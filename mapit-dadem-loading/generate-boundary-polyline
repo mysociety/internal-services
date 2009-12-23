@@ -3,7 +3,7 @@
 # generate-boundary-polyline:
 # Given some area IDs, generate GPolylines of them.
 
-my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.5 2009-12-23 11:08:15 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.6 2009-12-23 12:21:11 matthew Exp $';
 
 use strict;
 
@@ -25,7 +25,9 @@ my $s = "select id, name, area_geometry.* from area, area_name, area_geometry
 my $os_name_to_db_info = $dbh->selectall_hashref($s, 'id');
 
 my ($minx, $maxx, $miny, $maxy);
-foreach (values %$os_name_to_db_info) {
+foreach my $id (@area_ids) {
+    local $_ = $os_name_to_db_info->{$id};
+    print STDERR "$_->{name}\n";
     (my $name = $_->{name}) =~ s/[^a-z]/_/ig;
     $minx = $_->{min_e} if !defined($minx) || $_->{min_e} < $minx;
     $maxx = $_->{max_e} if !defined($maxx) || $_->{max_e} > $maxx;
