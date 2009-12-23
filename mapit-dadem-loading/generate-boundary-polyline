@@ -3,7 +3,7 @@
 # generate-boundary-polyline:
 # Given some area IDs, generate GPolylines of them.
 
-my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.6 2009-12-23 12:21:11 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: generate-boundary-polyline,v 1.7 2009-12-23 13:37:18 matthew Exp $';
 
 use strict;
 
@@ -34,18 +34,23 @@ foreach my $id (@area_ids) {
     $miny = $_->{min_n} if !defined($miny) || $_->{min_n} < $miny;
     $maxy = $_->{max_n} if !defined($maxy) || $_->{max_n} > $maxy;
 
-    die "Doesn't work with multipart yet" if $_->{parts} > 1;
     my $binary_poly = $_->{polygon};
-    my ($sense, $vertice_count, @polydata) = unpack('iid*', $binary_poly);
-    die "Doesn't work with holes" if $sense < 0;
-
-    my @out;
-    for (my $i=0; $i<@polydata; $i+=2) {
-        my ($x, $y) = mySociety::GeoUtil::national_grid_to_wgs84($polydata[$i], $polydata[$i+1], 'G');
-        push @out, 'new GLatLng(' . $x . ',' . $y . ')';
+    my $c = 1;
+    while ($binary_poly) {
+        my ($sense, $vertice_count) = unpack('ii', $binary_poly);
+        die "Doesn't work with holes" if $sense < 0;
+        $binary_poly = substr($binary_poly, 2*4); # XXX
+        my @polydata = unpack('d' . ($vertice_count*2), $binary_poly);
+        $binary_poly = substr($binary_poly, $vertice_count*2*8); # XXX
+        my @out;
+        for (my $i=0; $i<@polydata; $i+=2) {
+            my ($x, $y) = mySociety::GeoUtil::national_grid_to_wgs84($polydata[$i], $polydata[$i+1], 'G');
+            push @out, 'new GLatLng(' . $x . ',' . $y . ')';
+        }
+        print "var p$name$c = new GPolygon([" . join(",\n", @out) . '], "#ff0000", 2, 1, "#ff0000", 0.2)' . "\n";
+        print "map.addOverlay(p$name$c)\n";
+        $c++;
     }
-    print "var p$name = new GPolygon([" . join(",\n", @out) . '], "#ff0000", 2, 1, "#ff0000", 0.2)' . "\n";
-    print "map.addOverlay(p$name)\n";
 }
 
 my $centre_x = ($minx + $maxx) / 2;
