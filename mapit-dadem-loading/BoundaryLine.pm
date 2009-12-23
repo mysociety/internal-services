@@ -6,7 +6,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: BoundaryLine.pm,v 1.12 2009-12-21 17:34:01 matthew Exp $
+# $Id: BoundaryLine.pm,v 1.13 2009-12-23 13:38:45 matthew Exp $
 #
 
 use strict;
@@ -290,7 +290,7 @@ sub load_shapefile {
     foreach my $C (values %{$shapefile->{areas}}) {
         my ($area_type, $ons_code, $aaid, $name, $non_inland_area, $hectares, $file_name) = map { $C->{$_} } qw(area_type ons_code admin_area_id name non_inland_area hectares file_name);
 
-	# $area_type = 'WMC'; # XXX
+	    # $area_type = 'WMC' unless $area_type; # XXX For e.g. when importing future constituencies that don't set area_type
 
         next unless (defined($area_type) && exists($interesting_areas{$area_type}));
 
