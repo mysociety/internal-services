@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.28 2009-04-01 18:22:48 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.29 2009-12-23 17:44:35 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -45,7 +45,7 @@ use constant cache_age => 3600;
 
 @::lookup_functions = (
     'MaPit.get_voting_areas' => [
-        sub { return MaPit::get_voting_areas($_[0]); },
+        sub { return MaPit::get_voting_areas($_[0], $_[1]); },
         cache_age
     ],
     'MaPit.get_areas_by_type' => [
