@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.80 2009-11-02 17:51:04 matthew Exp $
+# $Id: MaPit.pm,v 1.81 2009-12-23 17:31:21 matthew Exp $
 #
 
 package MaPit;
@@ -188,16 +188,17 @@ sub get_generation () {
     return scalar(dbh()->selectrow_array('select id from current_generation'));
 }
 
-=item get_voting_areas POSTCODE
+=item get_voting_areas POSTCODE [GENERATION]
 
-Return voting area IDs for POSTCODE.
+Return voting area IDs for POSTCODE. If GENERATION is given,
+use that, otherwise use the current generation.
 
 =cut
-sub get_voting_areas ($) {
-    my ($pc) = @_;
+sub get_voting_areas ($;$) {
+    my ($pc, $generation) = @_;
     
     my $ret = undef;
-    my $generation = get_generation();
+    my $generation ||= get_generation();
     
     $pc =~ s/\s+//g;
     $pc = uc($pc);
