@@ -1,0 +1,218 @@
+#!/usr/bin/perl -w -I../perllib -I ../../perllib
+#
+# 2009-12-ni-changes:
+# SI 2008/1486 remade all the Northern Ireland Parliamentary Constituencies.
+# We don't have geometry for Northern Ireland, so use postcode->ward name
+# lookups to infer the changes.
+#
+# Ignore Derryaghy for now due to its splitting.
+#
+# Similar in construction to process_codepoint_ni. Call with two arguments:
+#   - CSV file generated from the ward to constituency mapping in SNAC;
+#   - CSV file of postcodes and other data from CodePoint.
+#
+# For example run like this:
+# ./process_codepoint_ni snac-2009-ni-cons2ward.csv bt.csv
+#
+# Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: 2009-12-new-ni-constituencies,v 1.1 2009-12-24 00:35:43 matthew Exp $
+
+use strict;
+use IO::File;
+use Text::CSV_XS;
+use Common;
+
+my $dbh = Common::connect_to_mapit_database();
+my $generation = $dbh->selectrow_array('select id from new_generation');
+
+# Text::CSV excludes characters outside the ASCII range from CSV values (bug
+# reported two years ago, never fixed). Text::CSV_XS also has this behaviour
+# by default, but offers options for a slightly less inept behaviour.
+my $c = new Text::CSV_XS({ binary => 1 });
+
+die "arguments are ONS codes CSV file and CodePoint CSV file" unless (@ARGV == 2);
+
+my ($onscodesfile, $codepointfile) = @ARGV;
+
+my %name; # Name of anything with an ONS code.
+my %ward_to_const; # ONS ward code to constituency ONS code.
+my %ward_to_district; # ONS ward code to district ONS code.
+
+# ONS district/ward/constituency code to area ID of district, district
+# electoral area, constituency and assembly electoral area.
+my %cid;
+
+print STDERR "reading ward/constituency codes... ";
+foreach (read_csv_file($onscodesfile, 1)) {
+    # Fields are: ONS constituency code, name; ONS ward code, name; ONS LA/UA code, name
+    my ($ccode, $cname, $wcode, $wname, $acode, $aname) = @$_;
+
+    $wcode =~ s/ //g;
+
+    if (!exists($name{$ccode})) {
+        my $const_id = $dbh->selectrow_array("select id from area, area_name where id=area_id and name_type='F' and name=? and generation_high=?", {}, $cname, $generation);
+        unless ($const_id) {
+            die "Should be inserted the first time this script was run!"; # This line inserted after ;)
+            $const_id = $dbh->selectrow_array("select nextval('area_id_seq')");
+            $dbh->do("insert into area (
+                        id, type, country, generation_low, generation_high
+                    ) values (
+                        ?, 'WMC', 'N', ?, ?
+                    )", {},
+                        $const_id, $generation, $generation);
+            $dbh->do("insert into area_name (area_id, name_type, name) values (?, 'S', ?)", {}, $const_id, $cname);
+        }
+        $cid{$ccode} = $const_id;
+    }
+
+    $name{$ccode} ||= $cname;
+    $name{$wcode} ||= $wname;
+    $name{$acode} ||= $aname;
+
+    $ward_to_const{$wcode} = $ccode;
+    $ward_to_district{$wcode} = $acode;
+}
+print STDERR "done.\n";
+
+my @postcode;
+my @incomplete;
+my %cache;
+
+my $f = new IO::File($codepointfile) or die "$codepointfile: $!";
+while (defined($_ = $f->getline())) {
+    chomp2($_);
+    $c->parse($_) or die "unable to parse '$_'";
+    # Fields:
+    #   0       postcode
+    #   1       accuracy code
+    #   10      easting
+    #   11      northing
+    #   16..18  ward code
+    my @f = $c->fields();
+
+    my $pc = $f[0];
+    $pc =~ s/ //g;
+    my ($E, $N) = @f[10 .. 11];
+    my $ward = join('', @f[15 .. 17]);
+    $ward =~ s/ //g;
+
+    # Skip postcodes which have no positional information (PQ of 90); these are
+    # mostly PO boxes and things.
+    next if $f[1] == 90;
+
+    # Some postcodes do not have a full ward code.
+    if (length($ward) != 5) {
+        push(@incomplete, [$pc, $E, $N, $ward]);
+        next;
+    }
+    
+    next if $ward eq '95S24'; # Skipping Derryaghy in this script due to its splitting.
+
+    push(@postcode, [$pc, $E, $N, $ward]);
+    $cache{"$E,$N"} = $ward;
+
+    if (!exists($name{$ward})) {
+        die "no ward for code '$ward'\n";
+    } elsif (!exists($ward_to_const{$ward})) {
+        die "ward '$ward' does not lie in any constituency\n";
+    } elsif (!exists($ward_to_district{$ward})) {
+        die "ward '$ward' does not lie in any district\n";
+    }
+}
+die "$codepointfile: $!" if ($f->error());
+$f->close();
+
+printf STDERR "got %d good and %d bad PCs\n", scalar(@postcode), scalar(@incomplete);
+
+# Now attempt to guess the ward in which postcodes with incomplete ward codes
+# lie.
+
+@postcode = sort { $a->[1] <=> $b->[1] } @postcode;
+
+my @reassigned;
+
+print STDERR "trying to guess wards for postcodes with incomplete codes...\n";
+foreach (@incomplete) {
+    my ($pc, $E, $N, $ward) = @$_;
+
+    if (exists($cache{"$E,$N"})) {
+        # Have a postcode for this exact location already.
+        push(@reassigned, [$pc, $E, $N, $cache{"$E,$N"}]);
+        next;
+    }
+
+    my $radius = 10;
+    my @nearby; # Nearby postcodes
+    my @possibles;
+
+    while (@nearby == 0) {
+        @nearby = ( );
+
+#        print STDERR "\r$pc  ";
+        
+        my ($il, $ih) = (0, $#postcode);
+        while ($ih > $il + 1) {
+            my $i = int(($il + $ih) / 2);
+            if ($postcode[$i]->[1] < $E - $radius) {
+                $il = $i;
+            } elsif ($postcode[$i]->[1] > $E - $radius) {
+                $ih = $i;
+            } else {
+                $il = $i;
+                last;
+            }
+        }
+
+        while ($il < @postcode && $postcode[$il]->[1] <= $E + $radius) {
+            my ($dE, $dN) = ($E - $postcode[$il]->[1], $N - $postcode[$il]->[2]);
+            if ($postcode[$il]->[3] =~ m#^95# and sqrt($dE**2 + $dN**2) < $radius) {
+                push(@nearby, [@{$postcode[$il]}, sqrt($dE**2 + $dN**2)]);
+            }
+            ++$il;
+        }
+
+        if (@nearby > 0) {
+            my %p = map { $_->[3] => 1 } @nearby;
+            @possibles = sort keys %p;
+            if (@possibles > 1) {
+#                print "\r$pc possible wards are: ", join(" ", @possibles), "\n";
+#                print "radius = $radius\n";
+#                print join("\n", map { sprintf("%s %s %f", $_->[0], $_->[3], $_->[4]) } sort { $a->[4] <=> $b->[4] } @nearby), "\n";
+            } elsif (@possibles == 1) {
+                push(@reassigned, [$pc, $E, $N, $possibles[0]]);
+            }
+        }
+
+        $radius *= 1.05;
+    }
+}
+
+printf STDERR "reassigned %d postcodes on a nearest-neighbour basis; %d bad remain\n", scalar(@reassigned), scalar(@incomplete) - scalar(@reassigned);
+
+push(@postcode, @reassigned);
+
+# Now @postcode contains all the postcodes for which we have ward codes.
+print STDERR "writing postcodes into database...\n";
+my $n = 0;
+my $check = $dbh->prepare("
+    select postcode_id from postcode_area
+        where postcode_id = ? and area_id = ?");
+foreach (@postcode) {
+    ++$n;
+    printf STDERR "\r%d/%d", $n, scalar(@postcode) if (0 == ($n % 100));
+    my ($pc, $E, $N, $ward) = @$_;
+
+    my $pcid = get_postcode_id($dbh, $pc, $E, $N);
+    $check->execute($pcid, $cid{$ward_to_const{$ward}});
+    $dbh->do('insert into postcode_area (postcode_id, area_id) values (?, ?)', {}, $pcid, $cid{$ward_to_const{$ward}})
+        if (!$check->fetchrow_array);
+}
+printf STDERR "\r%d/%d\n", $n, scalar(@postcode);
+$check->finish();
+print STDERR "committing changes... ";
+$dbh->commit();
+$dbh->disconnect();
+print STDERR "done.\n";
+
