@@ -5,7 +5,7 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: admin-reps.php,v 1.24 2009-12-17 17:21:11 louise Exp $
+ * $Id: admin-reps.php,v 1.25 2010-01-11 15:39:20 louise Exp $
  * 
  */
 
@@ -558,8 +558,10 @@ class ADMIN_PAGE_REPS {
             }
         } else {
             // General info
-            print '<p><a href="?page=reps&bad_contacts=1">Bad contacts</a> (please fix these!)';
-            print '<br><a href="?page=reps&user_corrections=1">User corrections</a> (just for your interest, as sent automatically to GovEval)';
+            if (OPTION_ADMIN_SERVICES_CGI) {
+                print '<p><a href="?page=reps&bad_contacts=1">Bad contacts</a> (please fix these!)';
+                print '<br><a href="?page=reps&user_corrections=1">User corrections</a> (just for your interest, as sent automatically to GovEval)';
+            }
         }
    }
 }
