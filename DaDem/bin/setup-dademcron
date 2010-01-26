@@ -8,12 +8,13 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.8 2008-09-10 02:00:57 root Exp $
+# $Id: setup-dademcron,v 1.9 2010-01-26 13:43:16 louise Exp $
 #
 
 set -e
 
 DADEMHOME=/home/dademcron
+WRITETOTHEM_HOST=peas
 
 if [ $( hostname ) != cake ] ; then
     print "Please run dademcron on one machine (cake) only"
@@ -29,14 +30,19 @@ then
     cd perllib && su dademcron -c "cvs -Q update -dP" && cd ..
     cd phplib && su dademcron -c "cvs -Q update -dP" && cd ..
     cd shlib && su dademcron -c "cvs -Q update -dP" && cd ..
-    cd fyr && su dademcron -c "cvs -Q update -dP" && cd ..
 else 
     export CVSROOT=cvs.mysociety.org:/usr/local/cvs
     su dademcron -c "cvs -Q co mysociety/services"
     su dademcron -c "cvs -Q co mysociety/perllib"
     su dademcron -c "cvs -Q co mysociety/phplib"
     su dademcron -c "cvs -Q co mysociety/shlib"
-    su dademcron -c "cvs -Q co mysociety/fyr"
+fi
+# Some now are in git
+if [ -e "writetothem/.git"]
+then
+  cd writetothem && su dademcron -c "git pull && git submodule update" && cd ..
+else 
+  su dademcron -c "git clone git://git.mysociety.org/writetothem"
 fi
 
 # Checkout or update the representative data module
@@ -62,9 +68,9 @@ fi
 
 cd $DADEMHOME
 
-# Copy conifguration files
+# Copy configuration files
 cat /data/vhost/services.mysociety.org/mysociety/services/conf/general | su dademcron -c "cat >mysociety/services/conf/general"
-cat /data/vhost/www.writetothem.com/mysociety/fyr/conf/general | su dademcron -c "cat >mysociety/fyr/conf/general"
+ssh $WRITETOTHEM_HOST cat /data/vhost/www.writetothem.com/writetothem/conf/general | su dademcron -c "cat >writetothem/conf/general"
 
 # Install .forward
 su - dademcron -c "echo \"team@mysociety.org\" >~dademcron/.forward"
