@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.10 2010-01-26 13:46:38 louise Exp $
+# $Id: setup-dademcron,v 1.11 2010-01-26 13:49:23 louise Exp $
 #
 
 set -e
@@ -30,6 +30,7 @@ then
     cd perllib && su dademcron -c "cvs -Q update -dP" && cd ..
     cd phplib && su dademcron -c "cvs -Q update -dP" && cd ..
     cd shlib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd ..
 else 
     export CVSROOT=cvs.mysociety.org:/usr/local/cvs
     su dademcron -c "cvs -Q co mysociety/services"
