@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.9 2010-01-26 13:43:16 louise Exp $
+# $Id: setup-dademcron,v 1.10 2010-01-26 13:46:38 louise Exp $
 #
 
 set -e
@@ -38,7 +38,7 @@ else
     su dademcron -c "cvs -Q co mysociety/shlib"
 fi
 # Some now are in git
-if [ -e "writetothem/.git"]
+if [ -e "writetothem/.git" ]
 then
   cd writetothem && su dademcron -c "git pull && git submodule update" && cd ..
 else 
