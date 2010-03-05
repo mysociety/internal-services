@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.25 2009-12-14 17:03:53 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_friendly_names,v 1.26 2010-03-05 12:48:47 matthew Exp $';
 
 use strict;
 
@@ -61,7 +61,7 @@ sub friendly_from_os ($) {
     s# Ward$##;
 
     # General
-    s#\bSt\.\s#St #;       # St. Pancras => St Pancras
+    s#\bSt\.\s#St #g;       # St. Pancras => St Pancras
 
     return $_;
 }
