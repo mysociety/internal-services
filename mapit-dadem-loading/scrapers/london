@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: jonathan@onegoodidea.com; WWW: http://www.mysociety.org/
 #
-# $Id: london,v 1.7 2010-03-22 17:55:03 dademcron Exp $
+# $Id: london,v 1.8 2010-03-22 18:02:38 dademcron Exp $
 
 import re
 from urllib import unquote
@@ -62,7 +62,7 @@ class DetailPageParser( HTMLParser ):
 
 
 def splitName( name ):
-    names = name.split()
+    names = name.replace('\xe2\x80\x99', "'").split()
     return " ".join(names[1:]), names[0]
 
 page = urlopen( LIST_PAGE )
