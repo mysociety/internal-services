@@ -6,59 +6,39 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: jonathan@onegoodidea.com; WWW: http://www.mysociety.org/
 #
-# $Id: london,v 1.6 2007-09-26 14:14:21 dademcron Exp $
+# $Id: london,v 1.7 2010-03-22 17:55:03 dademcron Exp $
 
-import os
-from sys import stderr
+import re
 from urllib import unquote
 from urllib2 import urlopen
 from urlparse import urljoin
 from HTMLParser import HTMLParser
-from threading import Thread
 
-LIST_PAGE = 'http://www.london.gov.uk/assembly/lams_facts_cont.jsp'
+LIST_PAGE = 'http://www.london.gov.uk/who-runs-london/the-london-assembly/members'
 
 class HeadedTableParser( HTMLParser ):
     def __init__( self ):
         HTMLParser.__init__( self )
-        self._state = 'START'
-        self.tables = {}
-        self._currentHeader = None
+        self._state = 'CONTENT'
+        self.list = {}
         self._data = ''
         self._url = None
     def handle_starttag( self, tag, attrs ):
-        if self._state == 'CONTENT' and tag == 'h2':
+        if self._state == 'CONTENT' and tag == 'h1':
             self._state = 'HEADER'
+        elif self._state == 'HEADER' and tag == 'ul':
+            self._state = 'LIST'
+            self.list = []
+        elif self._state == 'LIST' and tag == 'a':
+            self._state = 'ITEM'
             self._data = ''
-        elif self._state == 'CONTENT' and tag == 'table':
-            self._state = 'TABLE'
-            self._currentTable = []
-            self.tables[self._currentHeader.upper()] = self._currentTable
-        elif self._state == 'TABLE' and tag == 'tr':
-            self._state = 'ROW'
-            self._currentRow = []
-        elif self._state == 'ROW' and tag == 'td':
-            self._state = 'COLUMN'
-            self._data = ''
-            self._url = None
-        elif self._state == 'COLUMN' and tag == 'a':
             self._url = [ value for key, value in attrs if key == 'href' ][0]
     def handle_endtag( self, tag ):
-        if self._state == 'HEADER' and tag == 'h2':
+        if self._state == 'LIST' and tag == 'ul':
             self._state = 'CONTENT'
-            self._currentHeader = self.tidy_data()
-        elif self._state == 'ROW' and tag == 'tr':
-            self._state = 'TABLE'
-            if self._currentRow:
-                self._currentTable.append( self._currentRow )
-        elif self._state == 'COLUMN' and tag == 'td':
-            self._state = 'ROW'
-            if self._url:
-                self._currentRow.append( (self.tidy_data(), self._url) )
-            else:
-                self._currentRow.append( self.tidy_data() )
-        elif self._state == 'TABLE' and tag == 'table':
-            self._state = 'CONTENT'
+        elif self._state == 'ITEM' and tag == 'a':
+            self._state = 'LIST'
+            self.list.append( (self.tidy_data(), self._url ) )
     def handle_data( self, data ):
         self._data += data
     def handle_entityref( self, ref ):
@@ -68,32 +48,17 @@ class HeadedTableParser( HTMLParser ):
             self._data += '&'
         else:
             self._data += '&%s;' % ref
-    def handle_comment( self, comment ):
-        if comment == ' BeginEditablePageContent ':
-            self._state = 'CONTENT'
-        elif comment == ' EndEditablePageContent ':
-            self._state = 'END'
     def tidy_data( self ):
         return ' '.join( self._data.strip().split() )
-
 
 class DetailPageParser( HTMLParser ):
     def __init__( self ):
         HTMLParser.__init__( self )
-        self._state = 'START'
         self.email = None
-    def handle_comment( self, comment ):
-        if comment == ' BeginEditablePageContent ':
-            self._state = 'CONTENT'
-        elif comment == ' EndEditablePageContent ':
-            self._state = 'END'
-    def handle_starttag( self, tag, attrs ):
-        if self._state == 'CONTENT' and tag == 'a':
-            hrefs = [ value for key, value in attrs if key == 'href' ]
-            if hrefs:
-                url = hrefs[0]
-                if url.startswith( 'mailto:' ):
-                    self.email = unquote(url[7:]).strip().lower()
+    def handle_data( self, data ):
+        m = re.match('\s*E-?mail: (.*)', data)
+        if m:
+            self.email = unquote(m.group(1)).strip().lower()
 
 
 def splitName( name ):
@@ -104,35 +69,29 @@ page = urlopen( LIST_PAGE )
 parser = HeadedTableParser()
 parser.feed( page.read() )
 
-constituency_members = parser.tables['CONSTITUENCY MEMBERS']
-list_members = parser.tables['LONDONWIDE MEMBERS']
-
-if len(constituency_members) != 14:
-    raise StandardError, "Expected 14 constituency MEPs, got %d" % len(constituency_members)    
-if len(list_members) != 11:
-    raise StandardError, "Expected 11 list MEPs, got %d" % len(list_members)    
-
-
 print "First,Last,Constituency,Party,Email,Fax";
 
-for constituency, (name, url), party in constituency_members:
-    constituency = constituency.split( '(', 1 )[0].strip()
-    surname, forename = splitName( name )
+checks = { 'list': 0, 'constituency': 0 }
+
+for data, url in parser.list:
+    data = re.sub(' \(.*?\)', '', data)
+    name, constituency, party = data.split(', ')
+    surname, forename = splitName(name)
+    if constituency == 'Londonwide':
+        constituency = 'Proportionally Elected Member'
+        checks['list'] += 1
+    else:
+        checks['constituency'] += 1
+    url = url.replace('../../../', '../../') # Source has one too many
     url = urljoin( LIST_PAGE, url )
     page = urlopen( url )
     parser = DetailPageParser()
     parser.feed( page.read() )
     email = parser.email
-    print '"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, party, email or "")
-
-for (name, url), party in list_members:
-    surname, forename = splitName( name )
-    url = urljoin( LIST_PAGE, url )
-    page = urlopen( url )
-    parser = DetailPageParser()
-    parser.feed( page.read() )
-    email = parser.email
-    print '"%s","%s","Proportionally Elected Member","%s","%s",""' % (forename, surname, party, email or "")
-
-
+    print '"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, party, email or '')
+    
+if checks['constituency'] != 14:
+    raise StandardError, "Expected 14 constituency MEPs, got %d" % len(checks['constituency'])
+if checks['list'] != 11:
+    raise StandardError, "Expected 11 list MEPs, got %d" % len(checks['list'])
 
