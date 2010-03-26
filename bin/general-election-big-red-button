@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+#
+# general-election-big-red-button:
+# This is the script that acts as a big red button when a general election is
+# called. We don't know when that will be, but hopefully when we do, running
+# this script will do the necessaries on all mySociety sites.
+#
+# Run on the TheyWorkForYou server as the live TheyWorkForYou user, or root.
+# 
+# Copyright (c) 2010 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+
+use strict;
+use FindBin;
+use lib "$FindBin::Bin/../../perllib";
+use mySociety::Config;
+use mySociety::MaPit;
+use mySociety::DaDem;
+mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+
+print <<EOF;
+******************************************************
+* This script will:                                  *
+*   Turn off all MPs on WriteToThem                  *
+*   Mark all MPs as having left on TheyWorkForYou    *
+*   Turn off the posting interface of HearFromYourMP *
+*                                                    *
+* To confirm you wish to do this, please type yes    *
+* and hit return.                                    *
+******************************************************
+EOF
+my $confirm = <>;
+exit unless $confirm =~ /^y(es)?$/i;
+
+theyworkforyou();
+writetothem();
+hearfromyourmp();
+
+# Turn off MPs on TheyWorkForYou
+sub theyworkforyou {
+    my ($d,$m,$y) = (localtime())[3..5];
+    my $date = sprintf("%d-%02d-%02d", $y+1900, $m+1, $d);
+
+    my $out = '';
+    open(FP, '/home/twfy-live/parlparse/members/all-members.xml') or die $!;
+    while (<FP>) {
+        s/todate="9999-12-31"(.*?)towhy="still_in_office"/todate="$date"$1towhy="general_election"/;
+        $out .= $_;
+    }
+    close FP;
+    open(FP, '>/home/twfy-live/parlparse/members/all-members.xml') or die $!;
+    print FP $out;
+    close FP;
+    system("/data/vhost/www.theyworkforyou.com/theyworkforyou/scripts/xml2db.pl --all --members");
+}
+
+# Mark all MP seats as upcoming election for WriteToThem
+sub writetothem {
+    my $area_ids = mySociety::MaPit::get_areas_by_type('WMC');
+    foreach (@$area_ids) {
+        mySociety::DaDem::admin_set_area_status($_, 'pending_election')
+    }
+}
+
+sub hearfromyourmp {
+    # Update OPTION_POSTING_DISABLED to 1
+    # What else?
+    # Deploy site
+}
+
