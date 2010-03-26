@@ -1,0 +1,57 @@
+#!/usr/bin/perl -w -I../../../perllib -I.. -I../../DaDem
+#
+# Look up information for postcodes.
+#
+# Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.1 2010-03-26 17:17:58 matthew Exp $';
+
+use strict;
+use Common;
+use mySociety::GeoUtil;
+use DaDem;
+use LWP::Simple;
+
+my $dbh = connect_to_mapit_database();
+my $db_postcode = $dbh->prepare('select * from postcode where postcode=?');
+my $db_areas = $dbh->prepare("select * from postcode_area, area, area_name where postcode_area.area_id=area.id and area.id=area_name.area_id and name_type='F' and postcode_id=?");
+
+while (<>) {
+    s/[\r\n]//g;
+    my ($id, $name, $pc) = split /\t/;
+    (my $pc_db = $pc) =~ s/ //g;
+    $db_postcode->execute($pc_db);
+    print $_;
+    while (my $row = $db_postcode->fetchrow_hashref()) {
+        my ($id, $N, $E) = ($row->{id}, $row->{northing}, $row->{easting});
+        my ($lat, $lon) = mySociety::GeoUtil::national_grid_to_wgs84($E, $N, 'G');
+        $db_areas->execute($id);
+        my (%areas, $first, $last);
+        while (my $r = $db_areas->fetchrow_hashref()) {
+            $areas{$r->{type}} = $r->{name};
+            if ($r->{type} eq 'WMC') {
+                my $r = DaDem::get_representatives($r->{area_id});
+                if ($r->[0]) {
+                my $mp = DaDem::get_representative_info($r->[0]);
+                my $id = $mp->{parlparse_person_id};
+                $id =~ s{uk.org.publicwhip/person/}{};
+                my $js = get("http://www.theyworkforyou.com/api/getPerson?key=Gbr9QgCDzHExFzRwPWGAiUJ5&output=js&id=$id");
+                $js =~ /"first_name":"([^"]*)"/;
+                $first = $1;
+                $js =~ /"last_name":"([^"]*)"/;
+                $last = $1;
+                } else {
+                    $first = '-'; $last = '-';
+                }
+            }
+        }
+        my $devolved = $areas{SPC} || $areas{WAC} || $areas{NIE} || '-';
+        my $council = $areas{MTD} || $areas{COI} || $areas{DIS} || $areas{LBO} || $areas{LGD} || $areas{UTA};
+        my $county = $areas{CTY} || '-';
+        print "\t$lat\t$lon\t$areas{WMC}\t$council\t$county\t$areas{EUR}\t$devolved\t$first\t$last";
+    }
+    print "\n";
+}
+
