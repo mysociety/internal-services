@@ -27,11 +27,13 @@ print <<EOF;
 *                                                    *
 * To confirm you wish to do this, please type yes    *
 * and hit return.                                    *
+* You can also enter test to do a vague dry run.     *
 ******************************************************
 EOF
 my $confirm = <>;
-exit unless $confirm =~ /^y(es)?$/i;
+exit unless $confirm =~ /^y(es)?$/i || $confirm =~ /^test$/i;
 
+my $dry_run = ($confirm =~ /^test$/i);
 theyworkforyou();
 writetothem();
 hearfromyourmp();
@@ -48,6 +50,18 @@ sub theyworkforyou {
         $out .= $_;
     }
     close FP;
+    if ($dry_run) {
+        print <<EOF;
+******************************************************
+Here is what all-members.xml will be changed to:
+
+$out
+
+xml2db.pl --all --members will then be called.
+******************************************************
+EOF
+        return;
+    }
     open(FP, '>/home/twfy-live/parlparse/members/all-members.xml') or die $!;
     print FP $out;
     close FP;
@@ -57,12 +71,30 @@ sub theyworkforyou {
 # Mark all MP seats as upcoming election for WriteToThem
 sub writetothem {
     my $area_ids = mySociety::MaPit::get_areas_by_type('WMC');
+    if ($dry_run) {
+        print <<EOF;
+******************************************************
+The following areas will be marked as having a pending
+election. After the election, England, Wales, and
+Northern Ireland have new IDs anyway, so those new
+IDs will need to be set to recent_election when they
+are put live.
+
+@$area_ids
+
+******************************************************
+EOF
+        return;
+    }
     foreach (@$area_ids) {
         mySociety::DaDem::admin_set_area_status($_, 'pending_election')
     }
 }
 
 sub hearfromyourmp {
+    if ($dry_run) {
+        return;
+    }
     # Update OPTION_POSTING_DISABLED to 1
     # What else?
     # Deploy site
