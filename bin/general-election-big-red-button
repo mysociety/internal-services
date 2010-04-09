@@ -18,6 +18,8 @@ use mySociety::MaPit;
 use mySociety::DaDem;
 mySociety::Config::set_file("$FindBin::Bin/../conf/general");
 
+use constant NUM_CURRENT_MPS => 643;
+
 print <<EOF;
 ******************************************************
 * This script will:                                  *
@@ -44,12 +46,14 @@ sub theyworkforyou {
     my $date = sprintf("%d-%02d-%02d", $y+1900, $m+1, $d);
 
     my $out = '';
+    my $count = 0;
     open(FP, '/home/twfy-live/parlparse/members/all-members.xml') or die $!;
     while (<FP>) {
-        s/todate="9999-12-31"(.*?)towhy="still_in_office"/todate="$date"$1towhy="general_election"/;
+        $count += s/todate="9999-12-31"(.*?)towhy="still_in_office"/todate="$date"$1towhy="general_election"/;
         $out .= $_;
     }
     close FP;
+    die "Did not make " . NUM_CURRENT_MPS . " changes" unless $count == NUM_CURRENT_MPS;
     if ($dry_run) {
         print <<EOF;
 ******************************************************
@@ -71,6 +75,7 @@ EOF
 # Mark all MP seats as upcoming election for WriteToThem
 sub writetothem {
     my $area_ids = mySociety::MaPit::get_areas_by_type('WMC');
+    die unless @$area_ids == 646; # Areas all exist, unlike MPs
     if ($dry_run) {
         print <<EOF;
 ******************************************************
