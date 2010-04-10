@@ -97,11 +97,29 @@ EOF
 }
 
 sub hearfromyourmp {
-    if ($dry_run) {
-        return;
-    }
-    # Update OPTION_POSTING_DISABLED to 1
-    # What else?
+    print <<EOF;
+Dear me on Monday (dissolution day 2010),
+
+I of three days earlier can't be bothered to set up direct HearFromYourMP
+access just for this, so you'll want to do something like this:
+
+* Config: Disable the sending of threshold alerts in the crontab.
+* Config: Set OPTION_POSTING_DISABLED to 1.
+* DB: update constituent set is_rep='f'; -- don't want anyone being an MP any more.
+* DB: Optionally, delete all MP login tokens (shouldn't matter due to above).
+* DB: update message set state='closed'; -- disable comments.
+* DB: Remove all the rep_nothanks table, as they might be different next time.
+* Bin: Run bin/convert-subs to move people to new constituencies (after
+  checking, and adding a db_commit() line).
+* Deploy HearFromYourMP. 
+* Check: you can still sign up (use a Hammersmith postcode to check it gives
+  the correct new constituency), that the view and league pages still work
+  for a variety of MPs (include Henley, Strangford, Brighton), and then
+  work out what will need changing on the old view pages - easier to do that
+  then than now.
+
+Think that's about it!
+EOF
     # Deploy site
 }
 
