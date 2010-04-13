@@ -6,7 +6,7 @@
  * Copyright (c) 2008 UK Citizens Online Democracy. All rights reserved.
  * Email: matthew@mysociety.org. WWW: http://www.mysociety.org
  *
- * $Id: rep-lookup-xml.php,v 1.3 2008-06-30 16:34:42 matthew Exp $
+ * $Id: rep-lookup-xml.php,v 1.4 2010-04-13 13:24:23 matthew Exp $
  * 
  */
 require_once "../conf/general";
@@ -21,7 +21,8 @@ $pc = get_http_var('pc');
 if (!$pc)
     output();
 
-$voting_areas = mapit_get_voting_areas($pc);
+# Magic Number 12 means pre-2010 constituencies will be returned.
+$voting_areas = mapit_get_voting_areas($pc, 12);
 if (rabx_is_error($voting_areas))
     output(error($voting_areas->text));
 
