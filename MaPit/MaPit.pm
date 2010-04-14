@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.82 2009-12-23 17:40:35 matthew Exp $
+# $Id: MaPit.pm,v 1.83 2010-04-14 09:53:00 matthew Exp $
 #
 
 package MaPit;
@@ -282,35 +282,38 @@ be used and the current active generation.
 
 =cut
 sub get_voting_area_info ($) {
-    my ($id) = @_;
+    my ($input) = @_;
 
     throw RABX::Error("ID must be defined", RABX::Error::INTERFACE)
-        if (!defined($id));
+        if (!defined($input));
 
     my $generation = get_generation();
 
     my $ret;
-    if (exists($special_cases{$id})) {
-        $ret = $special_cases{$id};
-        $ret->{'area_id'} = $id;
+    if (exists($special_cases{$input})) {
+        $ret = $special_cases{$input};
+        $ret->{'area_id'} = $input;
         $ret->{'parent_area_id'} = undef if (!defined($ret->{'parent_area_id'}));
         $ret->{'generation_low'} = 0 if (!defined($ret->{'generation_low'}));
         $ret->{'generation_high'} = $generation if (!defined($ret->{'generation_high'}));
         $ret->{'generation'} = $generation;
     } else {
         # Real data
-        my ($type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high);
-        throw RABX::Error("Voting area not found id $id", mySociety::MaPit::AREA_NOT_FOUND)
-            unless (($type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high) = dbh()->selectrow_array("
-            select type, a1.name as name, a2.name as os_name, country, parent_area_id,
-                   generation_low, generation_high
+        my $lookup = 'id';
+        $lookup = 'ons_code' if $input =~ /^\d\d[a-z]{2,4}$/i;
+
+        my ($area_id, $type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high, $ons_code);
+        throw RABX::Error("Voting area not found id $input", mySociety::MaPit::AREA_NOT_FOUND)
+            unless (($area_id, $type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high, $ons_code) = dbh()->selectrow_array("
+            select id, type, a1.name as name, a2.name as os_name, country, parent_area_id,
+                   generation_low, generation_high, ons_code
                 from area
                 left join area_name as a1 on a1.area_id = area.id and a1.name_type = 'F'
                 left join area_name as a2 on a2.area_id = area.id and a2.name_type = 'O'
-                where id = ?
-            ", {}, $id));
+                where $lookup = ?
+            ", {}, $input));
 
-        throw RABX::Error("No 'F' name found for area $id", mySociety::MaPit::AREA_NOT_FOUND) unless $name;
+        throw RABX::Error("No 'F' name found for area $input", mySociety::MaPit::AREA_NOT_FOUND) unless $name;
      
         $ret = {
                 name => $name,
@@ -318,7 +321,8 @@ sub get_voting_area_info ($) {
                 country => $country,
                 parent_area_id => $parent_area_id,
                 type => $type,
-                area_id => $id,
+                area_id => $area_id,
+                ons_code => $ons_code,
                 generation_low => $generation_low,
                 generation_high => $generation_high,
                 generation => $generation
