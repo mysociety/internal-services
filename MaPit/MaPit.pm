@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: MaPit.pm,v 1.83 2010-04-14 09:53:00 matthew Exp $
+# $Id: MaPit.pm,v 1.84 2010-04-14 09:56:53 matthew Exp $
 #
 
 package MaPit;
@@ -300,7 +300,10 @@ sub get_voting_area_info ($) {
     } else {
         # Real data
         my $lookup = 'id';
-        $lookup = 'ons_code' if $input =~ /^\d\d[a-z]{2,4}$/i;
+        if ($input =~ /^\d\d([a-z][a-z])?([a-z][a-z])?$/i) {
+            $lookup = 'ons_code';
+            $input = uc $input;
+        }
 
         my ($area_id, $type, $name, $os_name, $country, $parent_area_id, $generation_low, $generation_high, $ons_code);
         throw RABX::Error("Voting area not found id $input", mySociety::MaPit::AREA_NOT_FOUND)
