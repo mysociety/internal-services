@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.85 2009-12-17 13:02:36 louise Exp $
+# $Id: DaDem.pm,v 1.86 2010-05-06 14:06:41 matthew Exp $
 #
 
 package DaDem;
@@ -282,7 +282,7 @@ sub get_secret {
 Given the ID of an area (or an ARRAY of IDs of several areas), return a list of
 the representatives returned by that area, or, for an array, a hash mapping
 area ID to a list of representatives for each; or, on failure, an error code.
-The default is to return only current reprenatives.  If ALL has value 1, then
+The default is to return only current representatives.  If ALL has value 1, then
 even deleted representatives are returned. 
 
 =cut
