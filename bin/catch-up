@@ -1,0 +1,56 @@
+#!/usr/bin/python
+#
+# One-off script to inject some old BBC Parliament programme data into the database
+# To cover from 2010-04-28 to 2010-06-17
+
+import urllib, simplejson, re, mx.DateTime
+
+start = [ 0, 0, 0, 0, 28, 1,  1 ]
+end =   [ 0, 0, 0, 0, 30, 31, 17 ]
+
+for m in range(4, 6+1):
+    for d in range(start[m], end[m]+1):
+        url = 'http://www.bbc.co.uk/parliament/programmes/schedules/2010/%02d/%02d.json' % (m, d)
+        data = simplejson.loads(urllib.urlopen(url).read())
+        for entry in data['schedule']['day']['broadcasts']:
+            broadcast_start = mx.DateTime.DateTimeFrom(entry['start'])
+            broadcast_end = mx.DateTime.DateTimeFrom(entry['end'])
+            if broadcast_start.date != '2010-%02d-%02d' % (m, d):
+                continue
+            title = '%s, %s' % (entry['programme']['display_titles']['title'], entry['programme']['display_titles']['subtitle'])
+            synopsis = entry['programme']['short_synopsis']
+            crid = entry['programme']['pid']
+
+            if entry['is_repeat']:
+                status = 'is-a-repeat'
+            else:
+                status = 'not-yet-processed'
+
+            if re.search(r'\blive\b', title) or re.search(r'\blive\b', synopsis):
+                rights = 'internet'
+            else:
+                rights = 'none'
+
+            brand_title = str(entry['programme'].get('programme', {}).get('title', ''))
+            if entry['programme'].get('programme', {}).get('ownership', {}).get('service', {}).get('title', '') != 'BBC Parliament':
+                location = 'other'
+            if brand_title in ('Business Questions', 'Commons Questions', 'House of Commons', "Prime Minister's Questions", 'Select Committees'):
+                location = 'commons'
+            elif brand_title in ('House of Lords', 'Lords Questions'):
+                location = 'lords'
+            elif brand_title in ("Mayor's Question Time"):
+                location = 'gla'
+            elif brand_title in ("Northern Ireland Assembly"):
+                location = 'northern-ireland'
+            elif brand_title in ("Scottish First Minister's Questions", "Scotland Debates", "Scottish Parliament", "Scottish Questions"):
+                location = 'scottish'
+            elif brand_title in ("Welsh Assembly", "Welsh First Minister's Questions"):
+                location = 'welsh'
+            elif brand_title in ('Westminster Hall'):
+                location = 'westminster-hall'
+            else:
+                location = 'unknown'
+
+            print "INSERT INTO programmes (location, broadcast_start, broadcast_end, title, synopsis, crid, channel_id, status, rights) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
+                location, broadcast_start, broadcast_end, title.replace("'", "''"), synopsis.replace("'", "''"), crid, 'BBCParl', status, rights
+            )
