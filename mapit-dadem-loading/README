@@ -1,4 +1,4 @@
-$Id: README,v 1.13 2010-07-07 17:30:25 dademcron Exp $
+$Id: README,v 1.14 2010-07-07 17:40:21 dademcron Exp $
 
 General
 -------
@@ -23,11 +23,6 @@ boundaryline-2005-05-missing-CEDs.csv - For county councils with new boundaries
 boundaryline-2005-10.control - Control file for import of 2005-10 version of Boundary Line
 boundaryline-2005-10-2.control
 boundaryline-2007-05.control - Control file for import of 2007-05 version of Boundary Line (England and Wales).
-
-new_scottish_constituencies new_scottish_constituencies2
-new-scottish-constituencies-council-wards.csv
-new-scottish-constituencies-update-generations.sql - For boundary changes in
-effect in Scotland for 2005 General Election.
 
 process_codepoint_ni - Create postcode to voting area mappings for NI.
 process_codepoint_scilly - Create postcode to voting area mappings for Isles of Scilly.
@@ -90,4 +85,4 @@ oneoffs/council-elections-2006.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.13 2010-07-07 17:30:25 dademcron Exp $
+# $Id: README,v 1.14 2010-07-07 17:40:21 dademcron Exp $

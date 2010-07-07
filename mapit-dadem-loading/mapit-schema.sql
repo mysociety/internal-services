@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.23 2010-07-07 17:30:25 dademcron Exp $
+-- $Id: mapit-schema.sql,v 1.24 2010-07-07 17:40:21 dademcron Exp $
 --
 
 -- generations, for currency of data
@@ -133,17 +133,4 @@ create table postcode_area (
 create index postcode_area_postcode_id_idx on postcode_area(postcode_id);
 -- Needed to make reverse lookups take a sane amount of time, sadly.
 create index postcode_area_area_id_idx on postcode_area(area_id);
-
--- Horrid hack for new Scottish constituency boundaries
-create table new_scottish_constituencies_fixup (
-    council_area_id integer references area(id),
-    ward_area_id integer references area(id),
-    constituency_area_id integer not null references area(id)
-);
-
-create unique index new_scottish_constituencies_fixup_ward_area_id_idx
-    on new_scottish_constituencies_fixup(ward_area_id);
-
-create unique index new_scottish_constituencies_fixup_council_area_id_idx
-    on new_scottish_constituencies_fixup(council_area_id);
 
