@@ -5,7 +5,7 @@
 # and add in the GovEval/FaxYourMP/PublicWhip names as alternates.
 #
 # Parameters: 
-# $1 - kind of data, currently choose from: mep, mp
+# $1 - kind of data
 # stdin - the CSV file from GovEval or FaxYourMP
 # make sure ../conf/general is configured for mapit db
 #
@@ -22,7 +22,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.7 2006-04-10 17:30:25 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: load_csv_names,v 1.8 2010-07-07 17:30:25 dademcron Exp $';
 
 use strict;
 
@@ -39,32 +39,20 @@ use CouncilMatch;
 my $kind = lc(shift(@ARGV));
 die "specify what kind of CSV file" if (!defined($kind));
 my $types;
-my $name_type_char;
+my $name_type_char = 'G';
 my $canon_function = \&CouncilMatch::canonicalise_constituency_name;
 if ($kind eq "mep") {
     $types = [qw(EUR)];
-    $name_type_char = 'G';
-} elsif ($kind eq "mp") {
-    $types = [qw(WMC)];
-    $name_type_char = 'X';
 } elsif ($kind eq "msp") {
     $types = [qw(SPC SPE)];
-    $name_type_char = 'G';
 } elsif ($kind eq "wam") {
     $types = [qw(WAC WAE)];
-    $name_type_char = 'G';
 } elsif ($kind eq "lam") {
     $types = [qw(LAC LAE)];
-    $name_type_char = 'G';
 } elsif ($kind eq "mla") {
     $types = [qw(NIE)];
-    $name_type_char = 'G';
-} elsif ($kind eq "ds") {
-    $types = $mySociety::VotingArea::council_parent_types;
-    $name_type_char = 'M';
-    $canon_function = \&CouncilMatch::canonicalise_council_name
 } else {
-    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds'";
+    die "Please specify 'mep', 'msp', 'wam', 'lam', 'mla'";
 }
 
 my $dbh = connect_to_mapit_database();
@@ -87,15 +75,11 @@ my $s = $dbh->prepare(
 $s->execute();
 
 while (my ($area_id, $name) = $s->fetchrow_array()) {
-    # "Durham" without specifying "County" or "City" is no use
-    next if ($kind eq "ds" and $name eq "Durham");
-
     # Create canonical version of name and also hash it as lookup
     $_ = &$canon_function($name);
     if (exists($parent_to_id{$_}) and $parent_to_id{$_} != $area_id) {
         die "$area_id: Already have different id for canonicalised $_, being " .  $parent_to_id{$_} .  "\n"
     }
-
     $parent_to_id{$_} = $area_id;
 }
 
@@ -112,22 +96,10 @@ while (my $line = <STDIN>) {
     $C->parse($line);
     my $cons;
 
-    if ($kind eq "mep" or $kind eq "msp" or $kind eq "wam" or $kind eq "lam" or $kind eq "mla") {
-        # GovEval-format file.
-        my ($first, $last, $constituency, @dummy) = map { trim_spaces($_) } $C->fields();
-        $cons = $constituency;
-        next if $kind eq "lam" and $cons eq "Proportionally Elected Member";
-    } elsif ($kind eq "mp" || $kind eq 'lord') {
-        # Dump from FYMP, ukparse_xml_to_csv, scrapers/mp
-        my ($name, $constituency, @dummy) = map { trim_spaces($_) } $C->fields();
-        $cons = $constituency;
-    } elsif ($kind eq "ds") {
-        # Out own mySociety data collected by Steiny with patience and pinache
-        my ($council, @dummy) = map { trim_spaces($_) } $C->fields();
-        $cons = $council;
-    } else {
-        die "Missing kind in code";
-    }
+    # GovEval-format file.
+    my ($first, $last, $constituency, @dummy) = map { trim_spaces($_) } $C->fields();
+    $cons = $constituency;
+    next if $kind eq "lam" and $cons eq "Proportionally Elected Member";
 
     die "constituency not defined for line '$line'\n" unless (defined($cons));
     $_ = &$canon_function($cons);
@@ -156,6 +128,5 @@ foreach my $name (keys %newnames) {
 }
 
 $dbh->commit();
-
 $dbh->disconnect();
 

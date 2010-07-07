@@ -1,4 +1,4 @@
-$Id: README,v 1.12 2007-09-25 13:30:22 matthew Exp $
+$Id: README,v 1.13 2010-07-07 17:30:25 dademcron Exp $
 
 General
 -------
@@ -43,7 +43,7 @@ generate-boundary-polyline - Creates a Google Maps polyline of a particular area
 Voting Area Name Matching
 -------------------------
 
-load_csv_names - Add 'G','X','M' name aliases to MaPit from input CSV files.
+load_csv_names - Add 'G','M' name aliases to MaPit from input CSV files.
 load_ons_names - Adds 'S' name alises to MaPit.
 load_friendly_names - Deletes all 'F' type names and remakes them from 'O' ones.
 
@@ -90,4 +90,4 @@ oneoffs/council-elections-2006.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.12 2007-09-25 13:30:22 matthew Exp $
+# $Id: README,v 1.13 2010-07-07 17:30:25 dademcron Exp $

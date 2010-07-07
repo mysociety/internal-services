@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.35 2010-07-07 14:46:30 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.36 2010-07-07 17:30:25 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -164,7 +164,7 @@ while (my $line = <STDIN>) {
     warn "ward name is empty geid $geid" if !$vdiv;
 
     # Special case for areas with elected mayors.
-    next if $vdiv eq "Elected Mayor";
+    next if $vdiv =~ /(Elected|Deputy) Mayor/i;
     
     my $canon = CouncilMatch::canonicalise_council_name($council);
     #print "gename $council canon $canon\n";

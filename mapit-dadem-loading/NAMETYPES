@@ -1,4 +1,4 @@
-$Id: NAMETYPES,v 1.8 2010-07-07 14:46:30 dademcron Exp $
+$Id: NAMETYPES,v 1.9 2010-07-07 17:30:25 dademcron Exp $
 
 Several types of name may be defined for each area. Each type of name is
 identified by a one-letter code:
@@ -38,12 +38,6 @@ G   GovEval Name
     Hatfield", "Grange Villa & West Pelton" or "Lincoln Moorland".  These don't
     bear a simple relationship with any of the official naming schemes but must
     be matched up with them on an ad-hoc basis.
-
-X   FaxYourMP Name
-
-    These are names as used in the dataset exported from FaxYourMP. So
-    it only applies for House of Commons constituencies.  Also applies to
-    data from Public Whip XML file.
 
 F   Friendly Name
 

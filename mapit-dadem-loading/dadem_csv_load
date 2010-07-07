@@ -31,7 +31,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.22 2009-10-30 12:56:07 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.23 2010-07-07 17:30:25 dademcron Exp $';
 
 use strict;
 
@@ -74,11 +74,8 @@ if ($kind eq "mep") {
     $types = [qw(LAC LAE)];
 } elsif ($kind eq "mla") {
     $types = [qw(NIE)];
-} elsif ($kind eq "ds") {
-    $types = $mySociety::VotingArea::council_parent_types;
-    $allow_multiples = 0;
 } else {
-    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'ds', 'mla'";
+    die "Please specify 'mep', 'mp', 'msp', 'wam', 'lam', 'mla'";
 }
 
 my $main_file = shift(@ARGV);
@@ -105,9 +102,6 @@ my $s = $m_dbh->prepare(q#select area_id, name, type from area_name, area
 $s->execute();
 while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
     #print "$area_id $name $type\n";
-
-    # "Durham" without specifying "County" or "City" is no use
-    next if ($kind eq "ds" and $name eq "Durham");
 
     die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
 
@@ -252,28 +246,6 @@ while (my $line = <MAIN>) {
             $finalemail = undef;
             $finalfax = undef;
             $finalmethod = "shame";
-        }
-
-    } elsif ($kind eq "ds") {
-        my ($council, $email, $fax, $web) = @fields;
-
-        $finalcons = $council;
-        $finalname = "Democratic Services";
-        $finalparty = "NOT A PERSON";
-
-        $finalemail = nullify_if_null($email);
-        $finalfax = nullify_if_null($fax);
-
-        # We can accept either fax or email if present in CSV, as
-        # Tom paintsakingly found it all, so all data is good.
-        if (defined($finalemail) and !defined($finalfax)) {
-            $finalmethod = "email";
-        } elsif (!defined($finalemail) and defined($finalfax)) {
-            $finalmethod = "fax";
-        } elsif (!defined($finalemail) and !defined($finalfax)) {
-            $finalmethod = "unknown";
-        } else {
-            $finalmethod = "email";
         }
 
     } else {

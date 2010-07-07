@@ -5,7 +5,7 @@
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: mapit-schema.sql,v 1.22 2007-08-23 11:17:29 matthew Exp $
+-- $Id: mapit-schema.sql,v 1.23 2010-07-07 17:30:25 dademcron Exp $
 --
 
 -- generations, for currency of data
@@ -68,10 +68,8 @@ create table area_name (
             name_type = 'S' or --          ... ONS
             name_type = 'M' or --          ... mySociety
             name_type = 'G' or --          ... GovEval
-            name_type = 'X' or --          ... FaxYourMP / PublicWhip
             name_type = 'L' or --          ... legislation
-            name_type = 'F' or -- "friendly" name for our own use
-            name_type = 'C'    -- "canonical" name for name matching
+            name_type = 'F'    -- "friendly" name for our own use
         ),
     name text not null,
     primary key (area_id, name_type)
