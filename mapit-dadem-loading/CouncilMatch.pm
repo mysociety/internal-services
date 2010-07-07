@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.18 2009-12-15 12:51:24 matthew Exp $
+# $Id: CouncilMatch.pm,v 1.19 2010-07-07 14:46:30 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -364,22 +364,22 @@ sub canonicalise_council_name ($) {
         s#^County of ##;
         s#^Council of the ##;
         s#^Corp of ##;         # Corp of London => London
-        s# Corporation$##;
-        s# District$##;
-        s# Borough$##;
-        s# Dist$##;
-        s# County$##;
-        s# City$##;
-        s# Metropolitan$##;
-        s# London Boro$##;
+        s/ Corporation$//;
+        s/ District$//;
+        s/ Borough$//;
+        s/ Dist$//;
+        s/ County$//;
+        s/ City$//;
+        s/ Metropolitan$//;
+        s/ London Boro$//;
         s#^(London |Royal |)Borough (of )?##;
 
-        s#sh'r$#shire#;       # Renfrewsh'r => Renfrewshire
+        s/sh'r$/shire/;       # Renfrewsh'r => Renfrewshire
         s#W(\.|estern) Isles#Na H-Eileanan an Iar#;    # Scots Gaelic(?) name for Western Isles
-        s#^Blackburn$#Blackburn with Darwen#;
-        s#^Barrow-in-Furness$#Barrow#;
-        s#^Kingston upon Hull$#Hull#;
-        s#^Rhondda, Cynon, Taff$#Rhondda, Cynon, Taf#;
+        s/^Blackburn$/Blackburn with Darwen/;
+        s/^Barrow-in-Furness$/Barrow/;
+        s/^Kingston upon Hull$/Hull/;
+        s/^Rhondda, Cynon, Taff$/Rhondda, Cynon, Taf/;
 
         s#\bN\.\s#North #g;    # N. Warwickshire => North Warwickshire
         s#\bS\.\s#South #g;    # S. Oxfordshire => South Oxfordshire
