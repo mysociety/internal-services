@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.86 2010-05-06 14:06:41 matthew Exp $
+# $Id: DaDem.pm,v 1.87 2010-07-29 10:34:35 matthew Exp $
 #
 
 package DaDem;
@@ -793,17 +793,17 @@ sub admin_edit_representative ($$$$) {
     if (my ($name, $party, $method, $email, $fax, $area_type) = dbh()->selectrow_array('select name, party, method, email, fax, area_type from representative where id = ?', {}, $id)) {
 
         # Make undef (NULL) for any unchanged fields from original
-        if ($newdata->{'name'} && $newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
-        if ($newdata->{'party'} && $newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };
-        if ($newdata->{'method'} && $newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
-        if ($newdata->{'email'} && $email && $newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
-        if ($newdata->{'fax'} && $fax && $newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
+        if (defined $newdata->{'name'} && $newdata->{'name'} eq $name) { $newdata->{'name'} = undef; };
+        if (defined $newdata->{'party'} && $newdata->{'party'} eq $party) { $newdata->{'party'} = undef; };
+        if (defined $newdata->{'method'} && $newdata->{'method'} eq $method) { $newdata->{'method'} = undef; };
+        if (defined $newdata->{'email'} && $email && $newdata->{'email'} eq $email) { $newdata->{'email'} = undef; };
+        if (defined $newdata->{'fax'} && $fax && $newdata->{'fax'} eq $fax) { $newdata->{'fax'} = undef; };
         # Make undef (NULL) for any blank strings
-        if ($newdata->{'name'} && $newdata->{'name'} eq '') { $newdata->{'name'} = undef; };
-        if ($newdata->{'party'} && $newdata->{'party'} eq '') { $newdata->{'party'} = undef; };
-        if ($newdata->{'method'} && $newdata->{'method'} eq '') { $newdata->{'method'} = undef; };
-        if ($newdata->{'email'} && $newdata->{'email'} eq '') { $newdata->{'email'} = undef; };
-        if ($newdata->{'fax'} && $newdata->{'fax'} eq '') { $newdata->{'fax'} = undef; };
+        if (defined $newdata->{'name'} && $newdata->{'name'} eq '') { $newdata->{'name'} = undef; };
+        if (defined $newdata->{'party'} && $newdata->{'party'} eq '') { $newdata->{'party'} = undef; };
+        if (defined $newdata->{'method'} && $newdata->{'method'} eq '') { $newdata->{'method'} = undef; };
+        if (defined $newdata->{'email'} && $newdata->{'email'} eq '') { $newdata->{'email'} = undef; };
+        if (defined $newdata->{'fax'} && $newdata->{'fax'} eq '') { $newdata->{'fax'} = undef; };
 
         # Insert new data
         dbh()->do('insert into representative_edited 
