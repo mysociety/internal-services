@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.36 2010-07-07 17:30:25 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.37 2010-09-02 13:42:03 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -112,7 +112,7 @@ while (my ($area_id, $name) = $s->fetchrow_array()) {
 }
  
 # Load the GovEval data.
-my $C = new Text::CSV;
+my $C = new Text::CSV({ binary => 1 });
 my $line_number = 0;
 <STDIN>;    # header line
 $line_number++;
@@ -128,16 +128,9 @@ while (my $line = <STDIN>) {
 
     # Remove bad control characteres
     chomp($line);
-    $line =~ s/\xA0/ /g; # appears twice after "Castle Baynard"
-    #$line =~ s/\x0B//g; # appears after some email addresse
-    #$line =~ s/\x14ina/Tina/g; # strangely broken "T"
-    #$line =~ s/\x00//g; # appears on the last line
-    $line =~ s/f(\x83|\xef\xbf\xbd|\x9f|\xe2|)ch/fach/g; # ward in Powys, Felin-fach
-    $line =~ s/Eilean a' Ch[^eo]*o/Eilean a' Cheo/g; # Skye
-    $line =~ s/Ste[^or]*rnabhagh/Steornabhagh/g; # Somewhere in W. Isles
+
     $line =~ s/301224a/301224/; # ID has a superfluous "a" in it
     $line =~ s/317169n\/a/317169/; # ID has a superfluous "n/a" in it
-    $line =~ s/Ruair[^"]*/Ruairi/; # Really need to cope with accents soon
     $line =~ s/Sgir. Uige/Sgir' Uige/;
     next if $line =~ m/^\s*$/;
 
