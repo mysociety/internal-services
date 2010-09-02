@@ -1,4 +1,4 @@
-$Id: README,v 1.14 2010-07-07 17:40:21 dademcron Exp $
+$Id: README,v 1.15 2010-09-02 13:36:07 matthew Exp $
 
 General
 -------
@@ -6,48 +6,19 @@ General
 README - This file contains descriptions of every other file
 README-check - Use this one-liner to test for files that need adding to this README
 
-NAMETYPES - Types of voting area names in MaPit.
 dadem-schema.sql, mapit-schema.sql, dress-schema.sql - Database schemas.
 Common.pm - some shared functions
 BoundaryLine.pm - functions shared by Boundary Line scripts
 Area.pm - a simple polygon area class
 
-Postcode / Boundary / Address Loading
--------------------------------------
-
-create_new_generation - Create new generation in MaPit, if there isn't one already.
-make_new_generation_active - Activates new generation.
-process_boundary_line - Create postcode to voting area mappings for GB.
-boundaryline-2005-05.control - Control file for import of 2005-05 version of Boundary Line.
-boundaryline-2005-05-missing-CEDs.csv - For county councils with new boundaries
-boundaryline-2005-10.control - Control file for import of 2005-10 version of Boundary Line
-boundaryline-2005-10-2.control
-boundaryline-2007-05.control - Control file for import of 2007-05 version of Boundary Line (England and Wales).
-
-process_codepoint_ni - Create postcode to voting area mappings for NI.
-process_codepoint_scilly - Create postcode to voting area mappings for Isles of Scilly.
 process_addresspoint - Create database of UK postal addresses
-
-ni-electoral-areas.csv - Maps ONS ward codes to NI local authority electoral areas
-snac-2003-cons2ward.csv - Maps constituencies and wards to their ONS codes
-
-add_boundaryline_geodata - Fill in the area_geometry table in MaPit
-
-generate-boundary-polyline - Creates a Google Maps polyline of a particular area or areas
-
-Voting Area Name Matching
--------------------------
-
 load_csv_names - Add 'G','M' name aliases to MaPit from input CSV files.
-load_ons_names - Adds 'S' name alises to MaPit.
-load_friendly_names - Deletes all 'F' type names and remakes them from 'O' ones.
 
 Representative Info Loading
 ---------------------------
 
 dadem_csv_load - Load reps into DaDem from CSV file from GovEval or the like.
 dadem_mysociety_load - Quick hack, just loads WSCC at the moment.
-ukparse_xml_to_csv - Convert XML file from ukparse (PublicWhip/TheyWorkForYou) to CSV
 
 Councillor Matching
 --------------------
@@ -62,11 +33,7 @@ CouncilMatch.pm - functions to do with matching council ward names (used also in
 General Scripts
 ---------------
 
-writetothemfympconv.py - Matches FaxYourMP names to DaDem constituencies.
 councils-without-contacts - Scans GovEval data and reports missing info.
-dumppoly - Dump coordinates of first part of a shape file
-ntfdump - Simple dump of an NTF file (BoundaryLine comes in this format)
-parsentf - Dump NTF file geometry data
 
 parse_ced_si - Screen scraper for Statutory Instruments creating new County Electoral Divisions
 scrapers/msp - Screen scrape representatives from Scottish Parliament website
@@ -85,4 +52,4 @@ oneoffs/council-elections-2006.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.14 2010-07-07 17:40:21 dademcron Exp $
+# $Id: README,v 1.15 2010-09-02 13:36:07 matthew Exp $

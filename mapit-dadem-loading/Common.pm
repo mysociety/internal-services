@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.21 2009-10-26 16:13:29 matthew Exp $
+# $Id: Common.pm,v 1.22 2010-09-02 13:36:07 matthew Exp $
 #
 
 package Common;
@@ -28,11 +28,6 @@ use Text::CSV_XS;
         &connect_to_mapit_database
         &connect_to_dadem_database
         &current_generation
-        &new_generation
-        &make_new_generation_active
-        &get_area_id
-        &country
-        &get_postcode_id
         &trim_spaces
         &chomp2
         &read_csv_file
@@ -84,90 +79,6 @@ sub connect_to_dadem_database () {
 sub current_generation ($) {
     my ($dbh) = @_;
     return scalar($dbh->selectrow_array('select id from current_generation'));
-}
-
-# new_generation DBH
-# Return the new generation ID, creating a new generation if necessary.  This
-# is not to be confused with new_generation in the SQL, which just returns the
-# current new generation, and doesn't ever make a new one.
-sub new_generation ($) {
-    my ($dbh) = @_;
-    my $id = $dbh->selectrow_array('select id from new_generation');
-    if (!defined($id)) {
-        $id = $dbh->selectrow_array(q#select nextval('generation_id_seq')#);
-        $dbh->do('insert into generation (id, created) values (?, ?)', {}, $id, time());
-    }
-    return $id;
-}
-
-# make_new_generation_active DBH
-# Make the new generation active (i.e. so that it becomes the current
-# generation.)
-sub make_new_generation_active ($) {
-    my ($dbh) = @_;
-    $dbh->do(q#update generation set active = 't' where id = (select new_generation.id from new_generation)#);
-}
-
-# get_area_id DBH NAME NAMETYPE TYPE ONSCODE UNITID GEOMHASH
-# Form area ID from name and other information.
-sub get_area_id ($$$$$$$) {
-    my ($dbh, $name, $nametype, $type, $onscode, $unitid, $geomhash) = @_;
-    my $id;
-    my $gen = new_generation($dbh);
-    
-    if (defined($onscode)) {
-        $id = $dbh->selectrow_array('select id from area where ons_code = ? and type = ? for update', {}, $onscode, $type);
-    } elsif (defined($geomhash)) {
-        $id = $dbh->selectrow_array('select id from area where geom_hash = ? and type = ? for update', {}, $geomhash, $type);
-    }
-    
-    if (defined($id)) {
-        my $n = $dbh->selectrow_array('select name from area_name where area_id = ? and name_type = ?', {}, $id, $nametype);
-        if (defined($n) and $n eq $name) {
-            # This is the same area.
-            $dbh->do('update area set generation_high = ? where area.id = ?', {}, $gen, $id);
-            return $id;
-        } else {
-            die "area id $id '$n' matches on ONS code or geometry hash, but not on name '$name'"
-        }
-    }
-
-    # No existing area. Create a new one.
-    $id = $dbh->selectrow_array(q#select nextval('area_id_seq')#);
-    $dbh->do('insert into area (id, unit_id, ons_code, geom_hash, type, generation_low, generation_high) values (?, ?, ?, ?, ?, ?, ?)',
-            {}, $id, $unitid, $onscode, $geomhash, $type, $gen, $gen);
-    $dbh->do(q#insert into area_name (area_id, name_type, name) values (?, ?, ?)#, {}, $id, $nametype, $name);
-
-    return $id;
-}
-
-# country DBH ID [COUNTRY]
-# Get/set country for area ID.
-sub country ($$;$) {
-    my ($dbh, $id, $country) = @_;
-    if (defined($country)) {
-        die "attempt to set country of area $id to '$country'" unless ($country =~ m#^[ENSW]$#);
-        $dbh->do('update area set country = ? where id = ?', {}, $country, $id);
-    } else {
-        return scalar($dbh->selectrow_array('select country from area where id = ?', {}, $id));
-    }
-}
-
-# get_postcode_id DBH POSTCODE EASTING NORTHING
-# Form postcode ID.
-sub get_postcode_id ($$$$) {
-    my ($dbh, $pc, $E, $N) = @_;
-    my $c = ($pc =~ m#^BT# ? 'I' : 'G');
-    my $id;
-    $id = $dbh->selectrow_array('select id from postcode where postcode = ?', {}, $pc);
-    if (defined($id)) {
-        $dbh->do('update postcode set coordsyst = ?, easting = ?, northing = ? where id = ?', {}, $c, $E, $N, $id);
-        return $id;
-    }
-
-    $id = $dbh->selectrow_array(q#select nextval('postcode_id_seq')#);
-    $dbh->do('insert into postcode (id, postcode, coordsyst, easting, northing) values (?, ?, ?, ?, ?)', {}, $id, $pc, $c, $E, $N);
-    return $id;
 }
 
 # read_csv_file FILE [SKIP]

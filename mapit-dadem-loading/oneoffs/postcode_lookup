@@ -6,28 +6,34 @@
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.1 2010-03-26 17:17:58 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.2 2010-09-02 13:36:09 matthew Exp $';
 
 use strict;
 use Common;
 use mySociety::GeoUtil;
 use DaDem;
 use LWP::Simple;
+use Text::CSV_XS;
 
 my $dbh = connect_to_mapit_database();
+my $generation = current_generation($dbh);
 my $db_postcode = $dbh->prepare('select * from postcode where postcode=?');
-my $db_areas = $dbh->prepare("select * from postcode_area, area, area_name where postcode_area.area_id=area.id and area.id=area_name.area_id and name_type='F' and postcode_id=?");
+my $db_areas = $dbh->prepare("select * from postcode_area, area, area_name
+    where postcode_area.area_id=area.id and area.id=area_name.area_id
+    and name_type='F' and generation_low<=? and ?<=generation_high and postcode_id=?");
 
+my $csv = Text::CSV_XS->new({ binary => 1 });
 while (<>) {
     s/[\r\n]//g;
-    my ($id, $name, $pc) = split /\t/;
+    $csv->parse($_);
+    my ($id, $name, $pc) = $csv->fields();
     (my $pc_db = $pc) =~ s/ //g;
     $db_postcode->execute($pc_db);
-    print $_;
+    my @row = ($id, $name, $pc);
     while (my $row = $db_postcode->fetchrow_hashref()) {
         my ($id, $N, $E) = ($row->{id}, $row->{northing}, $row->{easting});
-        my ($lat, $lon) = mySociety::GeoUtil::national_grid_to_wgs84($E, $N, 'G');
-        $db_areas->execute($id);
+        my ($lat, $lon) = mySociety::GeoUtil::national_grid_to_wgs84($E, $N, $pc =~ /^BT/ ? 'I' : 'G');
+        $db_areas->execute($generation, $generation, $id);
         my (%areas, $first, $last);
         while (my $r = $db_areas->fetchrow_hashref()) {
             $areas{$r->{type}} = $r->{name};
@@ -50,8 +56,10 @@ while (<>) {
         my $devolved = $areas{SPC} || $areas{WAC} || $areas{NIE} || '-';
         my $council = $areas{MTD} || $areas{COI} || $areas{DIS} || $areas{LBO} || $areas{LGD} || $areas{UTA};
         my $county = $areas{CTY} || '-';
-        print "\t$lat\t$lon\t$areas{WMC}\t$council\t$county\t$areas{EUR}\t$devolved\t$first\t$last";
+        push @row, $lat, $lon, $areas{WMC}, $council, $county, $areas{EUR}, $devolved, $first, $last;
     }
+    $csv->combine(@row);
+    print $csv->string();
     print "\n";
 }
 
