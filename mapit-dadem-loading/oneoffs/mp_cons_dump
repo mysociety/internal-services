@@ -6,41 +6,24 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.2 2005-09-30 14:57:02 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.3 2010-09-02 16:33:01 matthew Exp $';
 
 use strict;
-
-use DBI;
-use Data::Dumper;
-use Common;
-use mySociety::Parties;
-use mySociety::VotingArea;
+use mySociety::MaPit;
+BEGIN {
+    mySociety::Config::set_file('../conf/general');
+}
 use DaDem;
-#DBI->trace(1);
-
-my $types = [qw(WMC)];
-my $allow_multiples = 0;
-
-my $m_dbh = connect_to_mapit_database();
-my $d_dbh = connect_to_dadem_database();
 
 # Get all areas
-my @area_ids;
-my $s = $m_dbh->prepare(q#select id from area
-            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)
-            and generation_low <= (select id from current_generation) and
-                (select id from current_generation) <= generation_high
-            #);
-$s->execute();
-while (my ($area_id) = $s->fetchrow_array()) {
-    push(@area_ids, $area_id);
-}
+my $areas = mySociety::MaPit::call('areas', 'WMC');
+my @area_ids = keys %$areas;
 print "Area count ". scalar(@area_ids)."\n";
 
 # Find out all current reps
 my @curr_reps;
 my $count;
-for my $area_id (@area_ids){
+foreach my $area_id (@area_ids) {
     my @reps = DaDem::get_representatives($area_id);
     my @folded = @{$reps[0]};
     $count += scalar(@folded);
@@ -53,9 +36,7 @@ my $reps_info = DaDem::get_representatives_info(\@curr_reps);
 # Loop through all the members we have
 for my $rep_info (values %$reps_info) {
 #    print $rep_info->{name} . "\n";
-    my ($cons) = $m_dbh->selectrow_array(q#select name from area_name
-        where name_type = 'F' and area_id = ?#, {}, $rep_info->{voting_area});
+    my $cons = $areas->{$rep_info->{voting_area}}->{name};
     print $cons . "\n";
-
 }
 

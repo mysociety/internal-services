@@ -11,7 +11,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: remove_parliament_mp_fax_numbers,v 1.1 2005-09-15 09:37:47 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: remove_parliament_mp_fax_numbers,v 1.2 2010-09-02 16:33:01 matthew Exp $';
 
 use strict;
 
@@ -19,6 +19,7 @@ use DBI;
 use Text::CSV_XS;
 use Data::Dumper;
 use Common;
+use mySociety::MaPit;
 use mySociety::Parties;
 use mySociety::VotingArea;
 use DaDem;
@@ -31,17 +32,11 @@ my $commit = ($action eq 'commit');
 my $types = [qw(WMC)];
 my $allow_multiples = 0;
 
-my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 
 # Get all areas
-my @area_ids;
-my $s = $m_dbh->prepare(q#select id from area
-            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
-$s->execute();
-while (my ($area_id) = $s->fetchrow_array()) {
-    push(@area_ids, $area_id);
-}
+my $areas = mySociety::MaPit::call('areas', $types);
+my @area_ids = keys %$areas;
 
 # Find out all current reps
 my @curr_reps;
@@ -83,7 +78,6 @@ for my $rep_info (values %$reps_info) {
     }
 }
 
-$m_dbh->disconnect();
 if ($commit) {
     # Note, most stuff is committed in calls to MaPit above (admin_edit_representative), this
     # commit probably does nothing.

@@ -6,7 +6,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.16 2010-07-07 14:46:30 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.17 2010-09-02 16:33:01 matthew Exp $';
 
 use strict;
 $| = 1; # flush STDOUT afer each write
@@ -51,16 +51,8 @@ my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 CouncilMatch::set_db_handles($m_dbh, $d_dbh);
 
-my $generation = $m_dbh->selectrow_array('select id from current_generation');
-
 # Cache of area_id->type etc.
-my $area_id_data = $m_dbh->selectall_hashref(
-        qq#select area_name.name, area.id from area, area_name
-            where area_name.area_id = area.id and
-            generation_low <= $generation and $generation <= generation_high and
-            area_name.name_type = 'F' and
-            (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)#,
-        'id');
+my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
 
 # Find areas in raw_process_status which are no longer in mapit
 my $areas_with_status = $d_dbh->selectall_hashref(

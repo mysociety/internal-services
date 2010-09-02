@@ -1,4 +1,4 @@
-$Id: README,v 1.15 2010-09-02 13:36:07 matthew Exp $
+$Id: README,v 1.16 2010-09-02 16:33:01 matthew Exp $
 
 General
 -------
@@ -8,11 +8,9 @@ README-check - Use this one-liner to test for files that need adding to this REA
 
 dadem-schema.sql, mapit-schema.sql, dress-schema.sql - Database schemas.
 Common.pm - some shared functions
-BoundaryLine.pm - functions shared by Boundary Line scripts
 Area.pm - a simple polygon area class
 
 process_addresspoint - Create database of UK postal addresses
-load_csv_names - Add 'G','M' name aliases to MaPit from input CSV files.
 
 Representative Info Loading
 ---------------------------
@@ -52,4 +50,4 @@ oneoffs/council-elections-2006.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.15 2010-09-02 13:36:07 matthew Exp $
+# $Id: README,v 1.16 2010-09-02 16:33:01 matthew Exp $

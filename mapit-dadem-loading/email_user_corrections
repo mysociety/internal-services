@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.8 2006-08-21 14:46:56 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.9 2010-09-02 16:33:01 matthew Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
@@ -22,12 +22,11 @@ use POSIX qw(strftime);
 use Error qw(:try);
 
 use Common;
-use mySociety::VotingArea;
+use mySociety::MaPit;
 use mySociety::StringUtils qw(trim merge_spaces string_diff);
 use DaDem;
 
 my $d_dbh = connect_to_dadem_database();
-my $m_dbh = connect_to_mapit_database();
 my $to = shift(@ARGV);
 if (!$to) {
     print "Running in test mode, not sending email or committing.\n";
@@ -38,8 +37,7 @@ if (!$to) {
 }
 
 # Cache of area_id->type etc.
-my $area_id_data = $m_dbh->selectall_hashref( q#select * from area#, 'id');
-my $friendly_names = $m_dbh->selectall_hashref( q#select * from area_name where name_type = 'F'#, 'area_id');
+my %areas;
 
 # Get user corrections
 my $s = $d_dbh->prepare(q#select * from user_corrections 
@@ -52,7 +50,13 @@ my $corrections_count = 0;
 while (my $row = $s->fetchrow_hashref()) {
     my $user_correction_id = $row->{user_correction_id};
     my $area_id = $row->{voting_area_id};
-    my $parent_id = $area_id_data->{$area_id}->{parent_area_id};
+    unless ($areas{$area_id}) {
+        $areas{$area_id} = mySociety::MaPit::call('area', $area_id);
+    }
+    my $parent_id = $areas{$area_id}{parent_area};
+    unless ($areas{$parent_id}) {
+        $areas{$parent_id} = mySociety::MaPit::call('area', $parent_id);
+    }
     if ($row->{representative_id}) {
         my $orig_info;
         try { 
@@ -79,7 +83,6 @@ while (my $row = $s->fetchrow_hashref()) {
 $d_dbh->commit();
 # ... give up if there are none
 if (!$corrections_count) {
-    $m_dbh->disconnect();
     $d_dbh->disconnect();
     exit;
 }
@@ -112,14 +115,14 @@ using it.
 END
 
 # Print them out
-foreach my $parent_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names->{$b}->{name} } keys %$corrections) {
-    my $parent_name = $friendly_names->{$parent_id}->{name};
+foreach my $parent_id (sort { $areas{$a}{name} cmp $areas{$b}{name} } keys %$corrections) {
+    my $parent_name = $areas{$parent_id}{name};
     print "$parent_name\n";
     print "=" x (length($parent_name)) . "\n\n";
     my $parent_hash = $corrections->{$parent_id};
-    foreach my $child_id (sort { $friendly_names->{$a}->{name} cmp $friendly_names->{$b}->{name} } keys %$parent_hash) {
-        my $child_name = $friendly_names->{$child_id}->{name};
-        my $child_type = $area_id_data->{$child_id}->{type};
+    foreach my $child_id (sort { $areas{$a}{name} cmp $areas{$b}{name} } keys %$parent_hash) {
+        my $child_name = $areas{$child_id}{name};
+        my $child_type = $areas{$child_id}{type};
         $child_name .= " " . $mySociety::VotingArea::type_name{$child_type};
         print "$child_name\n";
         print "-" x (length($child_name)) . "\n\n";
@@ -188,7 +191,6 @@ if ($to) {
     print "Rolling back\n";
     $d_dbh->rollback();
 }
-$m_dbh->disconnect();
 $d_dbh->disconnect();
 
 close(STDOUT);

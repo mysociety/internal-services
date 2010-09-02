@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.19 2010-07-07 14:46:30 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.20 2010-09-02 16:33:01 matthew Exp $
 #
 
 package CouncilMatch;
@@ -18,8 +18,8 @@ use HTML::TokeParser;
 use Text::CSV;
 use URI;
 use File::Slurp;
-use mySociety::Parties;
 
+use mySociety::Parties;
 use mySociety::StringUtils qw(trim merge_spaces);
 
 our ($d_dbh, $m_dbh);

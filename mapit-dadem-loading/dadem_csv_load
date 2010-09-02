@@ -31,21 +31,17 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.23 2010-07-07 17:30:25 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.24 2010-09-02 16:33:01 matthew Exp $';
 
 use strict;
 
-use DBI;
 use Text::CSV_XS;
-use Data::Dumper;
-use Devel::Peek;
 
 use Common;
+use mySociety::MaPit;
 use mySociety::Parties;
-use mySociety::VotingArea;
 use CouncilMatch;
 use DaDem;
-#DBI->trace(1);
 
 our $rep_edit_url = "https://secure.mysociety.org/admin/fyr/index.php?page=reps&rep_id=";
 
@@ -86,60 +82,29 @@ if (defined($deleted_file)) {
     open(DELETED, "<$deleted_file") or die "failed to open $deleted_file";
 }
 
-my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
 
 # %name_to_id
 # Cache of name-->id map of all the areas
 my %name_to_id;
 my %name_to_type;
-my %id_to_name;
-my $s = $m_dbh->prepare(q#select area_id, name, type from area_name, area
-            where area_name.area_id = area.id
-            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)
-            and generation_low <= (select id from current_generation) and 
-                (select id from current_generation) <= generation_high#);
-$s->execute();
-while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
-    #print "$area_id $name $type\n";
 
+my $areas = mySociety::MaPit::call('areas', $types);
+foreach my $area (values %$areas) {
+    my ($area_id, $name, $type) = ($area->{id}, $area->{name}, $area->{type});
     die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
-
-    utf8::decode($name); # some kind of unicode train wreck :)
     $name_to_id{$name} = $area_id;
     $name_to_type{$name} = $type;
 }
+
 # Cache of id-->name for all (even other generations)
-$s = $m_dbh->prepare(q#select area_id, name, type from area_name, area
-            where area_name.area_id = area.id
-            and (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
-$s->execute();
-while (my ($area_id, $name, $type) = $s->fetchrow_array()) {
-    $id_to_name{$area_id} = $name;
-}
-
-# Get all areas
+my %id_to_name;
 my @area_ids;
-$s = $m_dbh->prepare(q#select id from area
-            where (# . join(' or ', map { "type = '$_'" } @$types) . q#)#);
-$s->execute();
-while (my ($area_id) = $s->fetchrow_array()) {
+$areas = mySociety::MaPit::call('areas', $types, min_generation => 0);
+foreach my $area (values %$areas) {
+    my ($area_id, $name, $type) = ($area->{id}, $area->{name}, $area->{type});
+    $id_to_name{$area_id} = $name;
     push(@area_ids, $area_id);
-}
-
-# Special cases, should perhaps have function in MaPit instead of the select
-# above, which includes the special cases there.
-if ($kind eq "lam") {
-    $name_to_id{"London Assembly"} = mySociety::VotingArea::LAE_AREA_ID;
-    $name_to_type{"London Assembly"} = "LAE";
-    $id_to_name{mySociety::VotingArea::LAE_AREA_ID} = "London Assembly";
-    push(@area_ids, mySociety::VotingArea::LAE_AREA_ID);
-}
-if ($kind eq "lord") {
-    $name_to_id{"House of Lords"} = mySociety::VotingArea::HOC_AREA_ID;
-    $name_to_type{"House of Lords"} = "HOC";
-    $id_to_name{mySociety::VotingArea::HOC_AREA_ID} = "House of Lords";
-    push(@area_ids, mySociety::VotingArea::HOC_AREA_ID);
 }
 
 # Various forms of null
@@ -174,7 +139,6 @@ for my $rep_info (values %$reps_info) {
     my $canon_repname = CouncilMatch::canonicalise_person_name($rep_info->{'name'});
     $canon_repnames->{$rep_info->{'voting_area'}}->{$canon_repname} = $rep_info;
 }
-#print Dumper($canon_repnames);
 
 # Read CSV file, load into dadem
 binmode(MAIN, ":utf8");
@@ -264,10 +228,6 @@ while (my $line = <MAIN>) {
 
     my $origfinalparty = $finalparty;
     $finalparty = $mySociety::Parties::canonical{$finalparty};
-    if (!$finalparty) {
-        #print Dumper(\%mySociety::Parties::canonical);
-        #print Dumper($origfinalparty);
-    }
     die "party '$origfinalparty' for '$finalname' $kind of '$finalcons' not known, add it to Parties.pm\nLine: $line" if (!defined($finalparty));
 
     if ((!$allow_multiples) && exists($already_done->{$area_id})) {
@@ -462,11 +422,7 @@ foreach my $area_id (keys %$canon_repnames){
         # If we didn't get them above
         if (!defined($repinfo->{got})) {
             my $canon_repname = CouncilMatch::canonicalise_person_name($repinfo->{name});
-            my ($cons) = $m_dbh->selectrow_array("select name from area_name where area_id = ?
-                    and name_type = 'F'", {}, $area_id);
-            if ($kind eq 'lam' && $area_id == mySociety::VotingArea::LAE_AREA_ID) {
-                $cons = "London Assembly";
-            }
+            my $cons = $id_to_name{$area_id};
             my $canon_cons = CouncilMatch::canonicalise_constituency_name($cons);
             if ($deleted_file) {
                 if (!defined($expected_deleted->{$canon_cons}->{$canon_repname})) {
@@ -509,9 +465,8 @@ if ($deleted_file) {
 }
  
  
-$m_dbh->disconnect();
 if ($commit) {
-    # Note, most stuff is committed in calls to MaPit above (admin_edit_representative), this
+    # Note, most stuff is committed in calls to DaDem above (admin_edit_representative), this
     # commit probably does nothing.
     $d_dbh->commit();
 } else {
