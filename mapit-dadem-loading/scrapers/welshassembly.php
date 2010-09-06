@@ -25,7 +25,7 @@ for ($region=1; $region<=5; $region++) {
         $name = $r[2];
         $out[$name]['img'] = $r[1];
         $out[$name]['party'] = party_lookup($r[3]);
-        $out[$name]['const'] = $r[4];
+        $out[$name]['const'] = str_replace('Ynys Mon', "Ynys M\xc3\xb4n", $r[4]);
     }
 }
 
