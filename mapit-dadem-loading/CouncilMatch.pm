@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.20 2010-09-02 16:33:01 matthew Exp $
+# $Id: CouncilMatch.pm,v 1.21 2010-09-06 17:09:06 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -346,7 +346,7 @@ sub canonicalise_council_name ($) {
         # Durham County and Durham District both have same name (Durham)
         # so we leave in the type (County/District) as a special case
         s# City Council# District#;
-        s#County Durham Council#County Durham#;
+        s#County Durham Council#Durham County Council#;
     } else {
         s#\s*\(([A-Z]{2})\)##; # Pendle (BC) => Pendle
         s#(.+) - (.+)#$2#;     # Sir y Fflint - Flintshire => Flintshire
@@ -375,7 +375,7 @@ sub canonicalise_council_name ($) {
         s#^(London |Royal |)Borough (of )?##;
 
         s/sh'r$/shire/;       # Renfrewsh'r => Renfrewshire
-        s#W(\.|estern) Isles#Na H-Eileanan an Iar#;    # Scots Gaelic(?) name for Western Isles
+        s#W(\.|estern) Isles#Comhairle nan Eilean Siar#;    # Scots Gaelic(?) name for Western Isles
         s/^Blackburn$/Blackburn with Darwen/;
         s/^Barrow-in-Furness$/Barrow/;
         s/^Kingston upon Hull$/Hull/;

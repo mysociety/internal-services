@@ -19,7 +19,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.38 2010-09-02 16:33:01 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.39 2010-09-06 17:09:06 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -133,7 +133,7 @@ while (my $line = <STDIN>) {
     next if $council eq 'House of Keys' || $council eq 'Legislative Council'; # We don't cover Isle of Man yet!
 
     # ... we still check we don't have individual empty strings
-    warn "first name is empty geid $geid" if !$first;
+    #warn "first name is empty geid $geid" if !$first;
     warn "last name is empty geid $geid" if !$last;
     warn "ward name is empty geid $geid" if !$vdiv;
 
@@ -453,12 +453,12 @@ foreach my $council_id (keys %$councils) {
         # First a user "import" load the full new data for later reference (we
         # go back to this position when we next do a load)
         CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
-            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
+            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{codes}->{ons},
             [values %$reps_new_import], "import");
 
         # Then on top of that apply the merges
         CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
-            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{ons_code},
+            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{codes}->{ons},
             [values %$reps_merged], "merge");
 
     } else {
