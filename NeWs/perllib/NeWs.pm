@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: NeWs.pm,v 1.11 2007-09-21 13:14:08 matthew Exp $
+# $Id: NeWs.pm,v 1.12 2010-09-27 15:59:43 matthew Exp $
 #
 
 package NeWs;
@@ -363,7 +363,6 @@ use IO::String;
 use RABX;
 use Data::Dumper;
 
-use mySociety::MaPit;
 use mySociety::Sundries;
 
 mySociety::Sundries::create_accessor_methods();

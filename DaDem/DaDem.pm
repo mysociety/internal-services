@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.87 2010-07-29 10:34:35 matthew Exp $
+# $Id: DaDem.pm,v 1.88 2010-09-27 15:59:43 matthew Exp $
 #
 
 package DaDem;
@@ -17,12 +17,13 @@ use DBI;
 use DBD::Pg;
 use Data::Dumper;
 use Mail::RFC822::Address;
+use LWP::Simple;
+use JSON;
 
 use mySociety::DaDem;
 use mySociety::DBHandle qw(dbh);
 use mySociety::VotingArea;
 use mySociety::Config;
-use mySociety::MaPit;
 use mySociety::Parties;
 
 mySociety::DBHandle::configure(
@@ -457,7 +458,8 @@ sub get_bad_contacts () {
             # as their contact method, then it doesn't matter that it is bad
 
             # Get all the child areas of the council ($area_id)
-            my $children = mySociety::MaPit::get_voting_area_children($area_id);
+            my $children = JSON->new->utf8->allow_nonref->decode(get("http://mapit.mysociety.org/area/$area_id/children"));
+
             # And the representatives of them
             my $child_reps = get_representatives($children);
             my @child_reps;

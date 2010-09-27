@@ -6,7 +6,7 @@
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.3 2010-09-02 16:33:01 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.4 2010-09-27 15:59:43 matthew Exp $';
 
 use strict;
 use Common;
@@ -46,9 +46,10 @@ while (<>) {
             }
         }
         my $devolved = $areas{SPC} || $areas{WAC} || $areas{NIE} || '-';
+        my $devolved_region = $areas{SPE} || $areas{WAE} || '-';
         my $council = $areas{MTD} || $areas{COI} || $areas{DIS} || $areas{LBO} || $areas{LGD} || $areas{UTA};
         my $county = $areas{CTY} || '-';
-        push @row, $lat, $lon, $areas{WMC}, $council, $county, $areas{EUR}, $devolved, $first, $last;
+        push @row, $lat, $lon, $areas{WMC}, $first, $last, $council, $county, $areas{EUR}, $devolved, $devolved_region;
     }
     $csv->combine(@row);
     print $csv->string();
