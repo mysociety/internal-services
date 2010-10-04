@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.89 2010-10-04 13:41:19 matthew Exp $
+# $Id: DaDem.pm,v 1.90 2010-10-04 13:51:45 matthew Exp $
 #
 
 package DaDem;
@@ -461,7 +461,7 @@ sub get_bad_contacts () {
             my $children = JSON->new->utf8->allow_nonref->decode(get("http://mapit.mysociety.org/area/$area_id/children"));
 
             # And the representatives of them
-            my $child_reps = get_representatives(keys %$children);
+            my $child_reps = get_representatives([ keys %$children ]);
             my @child_reps;
             foreach (keys %$child_reps) {
                 push @child_reps, @{$child_reps->{$_}};
