@@ -13,12 +13,13 @@
  * Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
  * Email: francis@mysociety.org; WWW: http://www.mysociety.org
  *
- * $Id: general-example,v 1.25 2010-10-04 13:26:23 matthew Exp $
+ * $Id: general-example,v 1.26 2010-10-05 14:00:36 dademcron Exp $
  * 
  */
 
 // RABX URLs for when one service calls another
 define('OPTION_DADEM_URL', 'http://services.mysociety.org/dadem');
+define('OPTION_MAPIT_URL', 'http://mapit.mysociety.org/');
 
 // PostgreSQL database for MaPit
 define('OPTION_MAPIT_DB_NAME', 'mapit');

@@ -2,8 +2,7 @@
 #
 # raw_data_load
 # Load in raw GovEval data, match Council names names to Ordnance Survey ones
-# in the MaPit database, and use appropriate IDs.  Loads the canonical names of
-# councils into MaPit.
+# in the MaPit database, and use appropriate IDs.
 #
 # If an import has been done before to the database, it does a merge with any
 # changes made since them.  This can be safely done repeatedly with the same
@@ -19,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.39 2010-09-06 17:09:06 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.40 2010-10-05 14:00:36 dademcron Exp $';
 
 use strict;
 require 5.8.0;
