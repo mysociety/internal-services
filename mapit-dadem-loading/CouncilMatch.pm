@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.21 2010-09-06 17:09:06 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.22 2010-10-05 15:55:17 dademcron Exp $
 #
 
 package CouncilMatch;
@@ -19,14 +19,14 @@ use Text::CSV;
 use URI;
 use File::Slurp;
 
+use mySociety::MaPit;
 use mySociety::Parties;
 use mySociety::StringUtils qw(trim merge_spaces);
 
-our ($d_dbh, $m_dbh);
-# set_db_handles MAPID_DB DADEM_DB
-# Call first with DB handles to use for other functions.
-sub set_db_handles($$) {
-    $m_dbh = shift;
+our ($d_dbh);
+# set_db_handle DADEM_DB
+# Call first with DB handle to use for other functions.
+sub set_db_handle($) {
     $d_dbh = shift;
 }
 
@@ -47,7 +47,7 @@ sub process_ge_data ($$) {
 
     # Match up wards
     if ($status eq "conflicts-none") {
-        my $ret = match_council_wards($area_id, $verbosity);
+        $ret = match_council_wards($area_id, $verbosity);
         $status = $ret->{error} ? 'wards-mismatch' : 'wards-match';
         $error .= $ret->{error} ? $ret->{error} : "";
         $details .= $ret->{details} . "\n" . $details;
@@ -56,26 +56,9 @@ sub process_ge_data ($$) {
     # Get any extra data
     my $extra_data = get_extradata($area_id);
 
-    # Disable attempt at matching against council website for now
-=comment
-    # See if we have URL
-    if ($status eq "wards-match") {
-        my $found = ($extra_data and $extra_data->{councillors_url} ne "");
-        $status = $found ? "url-found" : "url-missing";
-
-        # Check against council website
-        if ($status eq 'url-found') {
-            my $ret = check_councillors_against_website($area_id, $verbosity);
-            $status = $ret->{error} ? 'councillors-mismatch' : 'councillors-match';
-            $error .= $ret->{error} ? $ret->{error} : "";
-            $details = $ret->{details} . "\n" . $details;
-        }
-    }
-=cut
-
     # Make live
     if ($status eq "wards-match" and $extra_data and $extra_data->{make_live}) {
-        my $ret = refresh_live_data($area_id, $verbosity);
+        $ret = refresh_live_data($area_id, $ret->{ward_name_to_area}, $verbosity);
         $status = $ret->{error} ? 'failed-live' : 'made-live';
         $error .= $ret->{error} ? $ret->{error} : "";
         $details = $ret->{details} . "\n" . $details;
@@ -93,7 +76,7 @@ sub process_ge_data ($$) {
 # Attempts to match up the wards from the raw_input_data table to the Ordnance
 # Survey names. Returns hash ref containing 'details' and 'error'.
 sub refresh_live_data($$) {
-    my ($area_id, $verbose) = @_;
+    my ($area_id, $ward_name_to_area, $verbose) = @_;
     print "refresh_live_data council " . $area_id . "\n" if $verbose;
     my $details = "";
     my $error = "";
@@ -105,20 +88,12 @@ sub refresh_live_data($$) {
     # ... name match to fill in ward id, and contact type
     foreach $row (@raw) {
         # ... get ward id
-        my $name_matches = $m_dbh->selectall_arrayref(q#select area_id, type 
-            from area_name, area where area_name.area_id = area.id and
-            name_type = 'G' and name = ?  and parent_area_id = ?
-            and generation_low <= (select id from current_generation) and
-                (select id from current_generation) <= generation_high
-            #, {}, 
-            $row->{ward_name}, $area_id);
-        if (scalar(@$name_matches) != 1) {
+        unless ($ward_name_to_area->{$row->{ward_name}}) {
             # This should never happen, as we have matched ward names before running this
-            throw Error::Simple("refresh_live_data: Didn't get right number of name matches, got "
-                . scalar(@$name_matches) . " for '" . $row->{ward_name} . "'");
+            throw Error::Simple("refresh_live_data: No name match for '" . $row->{ward_name} . "'");
         }
-        $row->{ward_id} = $name_matches->[0]->[0];
-        $row->{ward_type} = $name_matches->[0]->[1];
+        $row->{ward_id} = $ward_name_to_area->{$row->{ward_name}}[0];
+        $row->{ward_type} = $ward_name_to_area->{$row->{ward_name}}[1];
         $ward_ids->{$row->{ward_id}} = 1;
 
         # ... calculate method
@@ -399,49 +374,6 @@ sub canonicalise_council_name ($) {
     return $_;
 }
 
-my $nickmap;
-
-# match_modulo_nickname NAMEA NAMEB NICKNAMEFILE
-# Sees if two names match, allowing for nickname.  Each name must be in form
-# "firstname initials othernames", all lowercase.  e.g. "timmy tailor" would
-# match "timothy tailor".  Returns 1 if match, 0 otherwise.  NAMEA can
-# have extra stuff at the end (i.e. we look for NAMEB inside NAMEA).
-# NICKNAMEFILE points to mapit-dadem-loading/nicknames/nicknames.csv
-sub match_modulo_nickname($$$) {
-    my ($a, $b, $nicknamefile) = @_;
-
-    if (!defined($nickmap)) {
-        # Load in nickname data
-        my $csv_parser = new Text::CSV;
-        open NICKNAMES, "<$nicknamefile" or die "couldn't find nicknames.csv file";
-        <NICKNAMES>; # heading
-        while (my $line = <NICKNAMES>) {
-            chomp($line);
-            $csv_parser->parse($line);
-            my ($nick, $canon) = map { trim($_) } $csv_parser->fields();
-            push @{$nickmap->{lc($nick)}}, lc($canon);
-        }
-    }
-
-    my (@a, @b);
-    my ($afirst, $arest) = ($a =~ m/^([^ ]*) (.*)$/);
-    my ($bfirst, $brest) = ($b =~ m/^([^ ]*) (.*)$/);
-    return 0 if (!defined($arest) || !defined($brest) || !defined($afirst) || !defined($bfirst));
-    return 0 if ($arest !~ m/\b$brest\b/);
-    return 1 if ($afirst eq $bfirst);
-    my %anames = ($afirst => 1);
-    my %bnames = ($bfirst => 1);
-    do { $anames{$_} = 1 } for @{$nickmap->{$afirst}};
-    do { $bnames{$_} = 1 } for @{$nickmap->{$bfirst}};
-    #print "$afirst-$arest, $bfirst-$brest\n";
-    #print Dumper(\%anames);
-    #print Dumper(\%bnames);
-    foreach $_ (keys %anames) {
-        return 1 if (exists($bnames{$_}));
-    }
-    return 0;
-}
-
 # canonicalise_person_name NAME
 # Convert name from various formats "Fred Smith", "Smith, Fred",
 # "Fred R Smith", "Smith, Fred RK" to uniform one "fred smith".  Removes
@@ -478,15 +410,6 @@ sub canonicalise_person_name ($) {
     return $_;
 }
 
-# canonicalise_ward_name WARD
-# Returns Ward name with extra suffixes (e.g. Ward) removed, and in lowercase.
-sub canonicalise_ward_name ($) {
-    ($_) = @_;
-    s# ED\b.*$##;
-    s# Ward\b.*$##;
-    return CouncilMatch::canonicalise_council_name($_);
-}
-
 # Internal use
 # get_extradata COUNCIL_ID 
 # Checks we have the councillor names webpage URL, and any other needed data.
@@ -516,22 +439,11 @@ sub match_council_wards ($$) {
     my $wards_goveval = [];
     do { push @{$wards_goveval}, { name => $_} } for @wards_array;
 
-    # Set of wards already in database (from Ordnance Survey / ONS / mySociety / legislation)
-    my $rows = $m_dbh->selectall_arrayref(q#
-        select distinct on (area_id) area_id, name,
-        case when name_type = 'M' then 0 else 1 end as o
-        from area_name, area where
-        area_name.area_id = area.id and parent_area_id = ? and 
-        (name_type = 'O' or name_type = 'S' or name_type = 'M' or name_type = 'L') and
-        (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_child_types) . q#) 
-        and generation_low <= (select id from current_generation) and
-            (select id from current_generation) <= generation_high
-        order by area_id, o
-        #, {}, $area_id);
+    # Set of wards already in database
+    my $rows = mySociety::MaPit::call('area/children', $area_id, type => $mySociety::VotingArea::council_child_types);
     my $wards_database = [];
-    foreach my $row (@$rows) { 
-        my ($area_id, $name) = @$row;
-        push @{$wards_database}, { name => $name, id => $area_id };
+    foreach my $row (values %$rows) { 
+        push @{$wards_database}, $row;
     }
     
     @$wards_database = sort { $a->{name} cmp $b->{name} } @$wards_database;
@@ -688,6 +600,7 @@ sub match_council_wards ($$) {
     # Store textual version of what we did
     $matchesdump = &$dump_wards();
 
+    my $ward_name_to_area;
     # Make it an error when a ward has two 'G' spellings, as it happens rarely
     if (!$error) {
         my $wardnames;
@@ -701,29 +614,10 @@ sub match_council_wards ($$) {
                 }
             }
             $wardnames->{$dd->{id}} = $g->{name};
+            $ward_name_to_area->{$g->{name}} = [ $dd->{id}, $dd->{type} ];
         }
     }
 
-    # Delete any old aliases
-    foreach my $d (@$wards_database) {
-        $m_dbh->do(q#delete from area_name where area_id = ? and name_type = 'G'#, {}, $d->{id});
-    }
-
-    # Store name aliases in DB
-    if (!$error) {
-        foreach my $g (@$wards_goveval) {
-            die if (!exists($g->{matches}));
-            die if (scalar(@{$g->{matches}}) != 1);
-            my $dd = @{$g->{matches}}[0];
-            # XXX Occasionally, I'm getting duplicate key violation here.
-            # Looks like this might happen if two GovEval areas map to
-            # the same area ID for some reason??
-            $m_dbh->do(q#insert into area_name (area_id, name_type, name)
-                values (?,?,?)#, {}, $dd->{id}, 'G', $g->{name});
-        }
-        $m_dbh->commit();
-    }
- 
     # Clean up looped references
     foreach my $d (@$wards_database) {
         delete $d->{used};
@@ -734,7 +628,9 @@ sub match_council_wards ($$) {
 
     # Return data
     return { 'details' => $matchesdump, 
-             'error' => $error };
+             'ward_name_to_area' => $ward_name_to_area,
+             'error' => $error
+    };
 }
 
 # get_raw_data COUNCIL_ID [LAST_MERGE]
@@ -793,19 +689,6 @@ sub get_raw_data($;$) {
     }
 
     return values(%$council);
-}
-
-# council_canon_party PARTY
-# Returns canonical version of party name for parties in councils.
-sub council_canon_party($) {
-    my ($party) = @_;
-    my $canonparty = $mySociety::Parties::canonical{$party};
-    if ($canonparty) {
-        return $canonparty;
-    } else {
-        # it's too much making this into an error! there are so many parties at local level
-        return $party;
-    }
 }
 
 # edit_raw_data COUNCIL_ID COUNCIL_NAME COUNCIL_TYPE ONS_CODE DATA ADMIN_USER
@@ -885,271 +768,5 @@ sub edit_raw_data($$$$$$) {
 
     }
 }
-
-# get_url_via_cache URL
-# Gets contents of given URL, throws exception if there is an error.
-# If file is already in the cache, gets it again.
-sub get_url_via_cache($) {
-    my ($url) = @_;
-    my $file = $url;
-    $file =~ s#/#_#g;
-    $file = mySociety::Config::get('COUNCILMATCH_PAGECACHE') . $file;
-    if (! -e $file) {
-        my $ret = LWP::Simple::getstore($url, $file);
-        if (LWP::Simple::is_error($ret)) {
-            throw Error::Simple("Failed to get URL $url HTTP status $ret to $file");
-        }
-    }
-    my $content = File::Slurp::read_file($file);
-}
-
-# check_councillors_against_website COUNCIL_ID VERBOSITY 
-# Attempts to match up the wards from the raw_input_data table to the Ordnance
-# Survey names. Returns hash ref containing 'details' and 'error'.
-sub check_councillors_against_website($$) {
-    my ($area_id, $verbose) = @_;
-    print "Council " . $area_id . "\n" if $verbose;
-
-    # Get URL from database
-    my $extradata = $d_dbh->selectrow_hashref(q#select council_id, councillors_url from 
-        raw_council_extradata where council_id = ?#, {}, $area_id);
-
-    # Get known data from database
-    my @raw = CouncilMatch::get_raw_data($area_id);
-    my $wardnames = $m_dbh->selectall_hashref(
-            q#select * from area_name, area where area_name.area_id = area.id and
-            parent_area_id = ?
-            and generation_low <= (select id from current_generation) and
-                (select id from current_generation) <= generation_high
-            #, 'name', {}, $area_id);
-    my $wardnamescanon;
-    do { $wardnamescanon->{canonicalise_ward_name($_)} = $wardnames->{$_}; print "canonward: " . canonicalise_ward_name($_) . "\n" if $verbose; } for keys %$wardnames;
-    # Various lookup tables
-    my $wardsbyid;
-    do { $wardsbyid->{$wardnames->{$_}->{id}} = $wardnames->{$_}->{name} } for keys %$wardnames;
-    my $cllrsbykey;
-    do { $cllrsbykey->{$_->{key}} = $_ } for @raw;
-    my $cllrsbywardid;
-    do { push @{$cllrsbywardid->{$wardnames->{$_->{ward_name}}->{id}}}, $_ if (defined($wardnames->{$_->{ward_name}})) } for @raw;
-
-    # Break parts of array separated by various sorts of punctuation
-    sub split_lumps_further($) {
-        my ($lumps) = @_;
-        my @lumps = map { split / - | \(| \)|:|;/, $_ } @$lumps;
-        return @lumps;
-    }
-
-    # Get all HTML from councillor list web page, and tidy
-    print "Getting main page... $extradata->{councillors_url} " if $verbose;
-    my $mainpage = get_url_via_cache($extradata->{councillors_url});
-    print "...got\n" if $verbose;
-    my @lumps = mySociety::StringUtils::break_into_lumps($mainpage);
-    @lumps = split_lumps_further(\@lumps);
-    my $content = $mainpage;
-
-    # Get out next layer of URLs
-    my @urls;
-    my $p = HTML::TokeParser->new(\$mainpage);
-    # include only clickable maps "area"
-    while (my $token = $p->get_tag("area")) {
-        my $url = $token->[1]{href};
-        next if !$url;
-        next if $url =~ m/^\#/;
-        next if $url =~ m/\.pdf$/;
-        if (!URI->new($url)->scheme()) { # only relative ones
-            my $uri = URI->new_abs($url, $extradata->{councillors_url});
-            $url = $uri->as_string();
-            push @urls, $url;
-        }
-    }
-
-    # scan_with_pattern PATTERN
-    # Scan lumps to find wards and councillors in given pattern
-    my $scan_with_pattern = sub {
-        my ($pattern) = @_;
-        die "scan_with_pattern: invalid pattern $pattern" if ($pattern ne "WCWCCC" && $pattern ne "CWCWCW");
-        my $error = "";
-
-        my $warddone;
-        do { $warddone->{$wardnames->{$_}->{id}} = [] if $wardnames->{$_}->{id}} for keys %$wardnames;
-        my $repdone;
-        do { $repdone->{$_->{key}} = [] } for @raw;
-    
-        # Scan for stuff
-        my $lastwardid = undef;
-        my $lastcllrkey = undef;
-        foreach my $lump (@lumps) {
-            my $canon_person_lump = canonicalise_person_name($lump);
-            print "person lump: $canon_person_lump\n" if $verbose > 1;
-
-            my $matches = 0;
-            foreach my $rep (@raw) {
-                my $first = $rep->{rep_first};
-                my $last = $rep->{rep_last};
-                # Match representative names various ways
-                my $canon_name = canonicalise_person_name("$first $last");
-                print "name: $canon_name\n" if $verbose > 1;
-                # If lump begins with an initial, initialise first word of name
-                # In that case, don't bother with nicknames
-                my $match = 0;
-                if ($canon_person_lump =~ m/^[[:alpha:]] /) {
-                    $canon_name =~ s/^([[:alpha:]])([[:alpha:]]+) /$1 /;
-                    $match = ($canon_person_lump =~ m/\b$canon_name\b/);
-                } else {
-                    # Apply nicknames
-                    $match = match_modulo_nickname($canon_person_lump, $canon_name, "../mapit-dadem-loading/nicknames/nicknames.csv"); 
-                }
-                if ($match) {
-                    if (($pattern eq "CWCWCW") and defined($lastcllrkey)) {
-                        $error .= $area_id . ": councillor " . $cllrsbykey->{$lastcllrkey}->{rep_first} . " " .
-                            $cllrsbykey->{$lastcllrkey}->{rep_last} . " has no ward\n";
-                    }
-                    print "councillor matched '$canon_person_lump' == '$canon_name'\n" if $verbose;
-                    $lastcllrkey = $rep->{key};
-                    push @{$repdone->{$lastcllrkey}}, $lump;
-                    $matches ++;
-                    if ($pattern eq "WCWCCC") {
-                        # check ward right
-                        if (!(defined $lastwardid)) {
-                            $error .= $area_id . ": councillor $first $last in wrong ward, ge " . $rep->{ward_name} . " none on website\n";
-                        } elsif (!(defined $wardnames->{$rep->{ward_name}})) {
-                            $error .= $area_id . ": councillor $first $last has unknown ward " . $rep->{ward_name} . "\n";
-                        } elsif ($wardnames->{$rep->{ward_name}}->{id} != $lastwardid) {
-                            $error .= $area_id . ": councillor $first $last in wrong ward, ge " . $rep->{ward_name} . " website " . $wardsbyid->{$lastwardid} . "\n";
-                        }
-                    }
-                }
-            }
-            if ($matches > 1) {
-                $error .= $area_id . ": $lump matched multiple councillors\n";
-            }
-
-            my $canon_ward_lump = canonicalise_ward_name($lump);
-            print "ward lump: $canon_ward_lump\n" if $verbose > 1;
-            my $found = 0;
-            do { $found = $wardnamescanon->{$_}->{id} if ($canon_ward_lump =~ m/\b$_\b/) } for (keys %$wardnamescanon);
-#            $found = 0 if ($lump !~ m/(^\d+\.)/);
-            if ($found) {
-                print "ward matched '$canon_ward_lump'\n" if $verbose;
-                $lastwardid = $found;
-                push @{$warddone->{$lastwardid}}, $lump;
-                if ($pattern eq "CWCWCW") {
-                    # check councillor right
-                    if (!$lastcllrkey) {
-                        # do nothing, as we have no councillor to check on
-                    } elsif (!grep { $_->{key} eq $lastcllrkey } @{$cllrsbywardid->{$lastwardid}}) {
-                        #print Dumper(@{$cllrsbywardid->{$lastwardid}});
-                        #print "lastcllrkey $lastcllrkey\n";
-                        $error .= $area_id . ": councillor " . $cllrsbykey->{$lastcllrkey}->{rep_first} . " " .
-                            $cllrsbykey->{$lastcllrkey}->{rep_last} . " appears in wrong ward, ge " . 
-                            $cllrsbykey->{$lastcllrkey}->{ward_name} . " website $lump\n";
-                    } else {
-                        $lastcllrkey = undef;
-                    }
-                }
-            }
-        }
-        if (($pattern eq "CWCWCW") and defined($lastcllrkey)) {
-            $error .= $area_id . ": councillor " . $cllrsbykey->{$lastcllrkey}->{rep_first} . " " .
-                $cllrsbykey->{$lastcllrkey}->{rep_last} . " has no ward\n";
-        }
-
-        # Check all got
-        foreach my $ward (keys %$warddone) {
-            if (!scalar(@{$warddone->{$ward}})) {
-                $error = $area_id . ": ward not matched " . $wardsbyid->{$ward} . " $ward\n" . $error;
-            }
-        }
-        foreach my $rep (keys %$repdone) {
-            if (!scalar(@{$repdone->{$rep}})) {
-                my $name = $cllrsbykey->{$rep}->{rep_first} . " " . $cllrsbykey->{$rep}->{rep_last};
-                # Find best matches by common substring to give as examples
-                my $canon_name = canonicalise_person_name($name);
-                my ($best_len, $best_match);
-                $best_match = "<none>";
-                foreach my $lump (@lumps) {
-                    my $canon_person_lump = canonicalise_person_name($lump);
-                    my $common_len = Common::placename_match_metric($canon_person_lump, $canon_name);
-                    if (!defined($best_len) or $best_len < $common_len) {
-                        $best_match = $lump;
-                        $best_len = $common_len;
-                    }
-                }
-                $error = $area_id . ": councillor not matched ge " . $name . " best match on council website: $best_match\n" . $error;
-            }
-        }
-
-        # Dump matches we have made
-        my $details = "";
-        $details .= sprintf "%38s => %-38s\n", 'Councillor Matches Made: GovEval', 'Council Website';
-        $details .= sprintf "-" x 38 . ' '. "-" x 38 . "\n";
-        foreach my $repkey (keys %$repdone) {
-            my $gename = $cllrsbykey->{$repkey}->{rep_first} . " " . $cllrsbykey->{$repkey}->{rep_last};
-            $first = 1;
-            foreach my $match (@{$repdone->{$repkey}}) {
-                $details .= sprintf "%38s => %-38s\n", $first ? $gename : "", $match;
-                $first = 0;
-            }
-        }
-        $details .= sprintf "\n%38s => %-38s\n", 'Ward Matches Made: GovEval', 'Council Website';
-        $details .= sprintf "-" x 38 . ' '. "-" x 38 . "\n";
-        foreach my $ward (keys %$warddone) {
-            my $gename = $wardsbyid->{$ward};
-            $first = 1;
-            foreach my $match (@{$warddone->{$ward}}) {
-                $details .= sprintf "%38s => %-38s\n", $first ? $gename : "", $match;
-                $first = 0;
-            }
-        }
-
-        return ($error, $details);
-    };
-
-    my ($error1, $details1) = &$scan_with_pattern("WCWCCC");
-    my ($error2, $details2) = &$scan_with_pattern("CWCWCW");
-    my $ecount1 = ($error1 =~ tr/\n/\n/);
-    my $ecount2 = ($error2 =~ tr/\n/\n/);
-    if ($ecount1 > 20 and $ecount2 > 20) {
-        # Nothing much good, so try recursive get
-        foreach my $url (@urls) {
-            print "Getting... $url " if $verbose;
-            my $subpage = get_url_via_cache($url);
-            print "...got\n" if $verbose;
-            my @newlumps = mySociety::StringUtils::break_into_lumps($subpage);
-            @newlumps = split_lumps_further(\@newlumps);
-            push @lumps, @newlumps;
-        }
-        ($error1, $details1) = &$scan_with_pattern("WCWCCC");
-        ($error2, $details2) = &$scan_with_pattern("CWCWCW");
-        $ecount1 = ($error1 =~ tr/\n/\n/);
-        $ecount2 = ($error2 =~ tr/\n/\n/);
-    }
-
-    my ($details, $error);
-    if (!$error1) {
-        print "WCWCCC worked\n" if $verbose;
-        $details = $details1;
-    }
-    if (!$error2) {
-        print "CWCWCW worked\n" if $verbose;
-        $details = $details2;
-    }
-    if ($error1 && $error2) {
-        if ($ecount1 < $ecount2) {
-            print "least-errorful is WCWCCC\n" if $verbose;
-            $error .= $error1;
-            $details = $details1;
-        } else {
-            print "least-errorful is CWCWCW\n" if $verbose;
-            $error .= $error2;
-            $details = $details2;
-        }
-    }
-
-    # Return data
-    return { 'details' => $details, 
-             'error' => $error };
-}
-
 
 1;

@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.24 2010-09-06 10:13:13 dademcron Exp $
+# $Id: Common.pm,v 1.25 2010-10-05 15:55:17 dademcron Exp $
 #
 
 package Common;
@@ -24,7 +24,6 @@ use Text::CSV_XS;
 
 @Common::ISA = qw(Exporter);
 @Common::EXPORT = qw(
-        &connect_to_mapit_database
         &connect_to_dadem_database
         &current_generation
         &trim_spaces
@@ -37,23 +36,6 @@ use Text::CSV_XS;
 #
 # Databasey stuff.
 #
-
-# connect_to_mapit_database
-# Connect to the MaPit database given in the config file.
-sub connect_to_mapit_database () {
-    my $host = mySociety::Config::get('MAPIT_DB_HOST', undef);
-    my $port = mySociety::Config::get('MAPIT_DB_PORT', undef);
-
-    my $connstr = 'dbi:Pg:dbname=' . mySociety::Config::get('MAPIT_DB_NAME');
-    
-    $connstr .= ";host=$host" if (defined($host));
-    $connstr .= ";port=$port" if (defined($port));
-    
-    return DBI->connect($connstr,
-                        mySociety::Config::get('MAPIT_DB_USER'),
-                        mySociety::Config::get('MAPIT_DB_PASS'),
-                        { RaiseError => 1, AutoCommit => 0 });
- }
 
 # connect_to_dadem_database
 # Connect to the DaDem database given in the config file.
