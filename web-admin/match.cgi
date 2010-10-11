@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib -I../mapit-dadem-loading -I ../MaPit
+#!/usr/bin/perl -w -I../../perllib -I../mapit-dadem-loading
 #
 # match.cgi
 # 
@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.40 2008-03-03 14:26:35 matthew Exp $
+# $Id: match.cgi,v 1.41 2010-10-11 12:29:58 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.40 2008-03-03 14:26:35 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.41 2010-10-11 12:29:58 matthew Exp $';
 
 use strict;
 
@@ -30,12 +30,11 @@ use Common;
 use CouncilMatch;
 use mySociety::WatchUpdate;
 use mySociety::VotingArea;
-use MaPit;
+use mySociety::MaPit;
 my $W = new mySociety::WatchUpdate();
 
-my $m_dbh = connect_to_mapit_database();
 my $d_dbh = connect_to_dadem_database();
-CouncilMatch::set_db_handles($m_dbh, $d_dbh);
+CouncilMatch::set_db_handles($d_dbh);
 my ($area_id, $name_data, $area_data, $status_data);
 
 sub html_head($$) {
@@ -115,15 +114,7 @@ sub do_summary ($) {
     print $q->h1("Status Summary");
 
     # Cache of area_id->type etc.
-    my $area_id_data = $m_dbh->selectall_hashref(
-            q#select area_name.name, area.id from area, area_name
-                where area_name.area_id = area.id and
-                area_name.name_type = 'F' and
-                (# . join(' or ', map { "type = '$_'" } @$mySociety::VotingArea::council_parent_types) . q#)
-                and generation_low <= (select id from current_generation) 
-                and (select id from current_generation) <= generation_high
-                #,
-            'id');
+    my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
 
     # Get status of every council
     my $status_data = $d_dbh->selectall_arrayref(
@@ -209,7 +200,7 @@ sub do_council_info ($) {
     print $q->p($status_titles->{$status_data->{status}});
 
     if ($status_data->{status} eq "made-live") {
-        my $example_postcode = MaPit::get_example_postcode($area_id);
+        my $example_postcode = mySociety::MaPit::get_example_postcode($area_id);
         if ($example_postcode) {
             print $q->p("Example postcode to test on WriteToThem.com: ",
                 $q->a({href => build_url($q, "http://www.writetothem.com/",
@@ -230,10 +221,6 @@ sub do_council_info ($) {
         $q->a({href => build_url($q, $q->url('relative'=>1), 
               {'area_id' => $area_id, 'page' => 'counciledit', 'r' => $q->url(-query=>1, -path=>1, -relative=>1)}) }, 
               "Edit councils and wards"),
-        " |",
-        $q->a({href => build_url($q, $q->url('relative'=>1), 
-              {'area_id' => $area_id, 'page' => 'mapitnamesedit', 'r' => $q->url(-query=>1, -path=>1, -relative=>1)}) }, 
-              "Edit ward aliases"),
         " |",
         map { ( $q->a({href => build_url($q, "http://www.google.com/search", 
                     {'q' => "$_"}, 1)},
@@ -391,7 +378,7 @@ sub do_council_edit ($) {
     
         # Make alteration
         CouncilMatch::edit_raw_data($area_id, 
-                $name_data->{'name'}, $area_data->{'type'}, $area_data->{'ons_code'},
+                $name_data->{'name'}, $area_data->{'type'}, $area_data->{'codes'}->{'ons'},
                 \@newdata, $q->remote_user() || "*unknown*");
         $d_dbh->commit();
 
@@ -500,121 +487,6 @@ sub do_council_edit ($) {
     print html_tail($q);
 }
 
-# do_mapit_names_edit CGI 
-# Form for editing 'M' (mySociety) aliases for ward names in MaPit.
-sub do_mapit_names_edit ($) {
-    my ($q) = @_;
-
-    if ($q->param('posted')) {
-        if ($q->param('Cancel')) {
-            print $q->redirect($q->param('r'));
-            return;
-        }
-        
-        my $c = 1;
-        while ($q->param("area_id$c")) {
-            if ($q->param("m_name$c")) {
-                my $affected = $m_dbh->do(q#
-                    update area_name set name = ?
-                    where area_id = ? and name_type = 'M'#,
-                    {}, $q->param("m_name$c"), $q->param("area_id$c"));
-                if ($affected == 0) {
-                    $m_dbh->do(q#
-                        insert into area_name (name, area_id, name_type)
-                        values (?, ?, 'M')#,
-                        {}, $q->param("m_name$c"), $q->param("area_id$c"));
-                }
-            } else {
-                my $affected = $m_dbh->do(q#
-                    delete from area_name 
-                    where area_id = ? and name_type = 'M'#,
-                    {}, $q->param("area_id$c"));
-            }
-            $c++;
-        }
-        $m_dbh->commit();
-
-        # Regenerate stuff
-        my $result = CouncilMatch::process_ge_data($area_id, 0);
-
-        # Redirect if it's Save and Done
-        if ($q->param('Save and Done')) {
-            print $q->redirect($q->param('r'));
-            return;
-        }
-    } 
-    
-    # Display header
-    my $name = $name_data->{'name'};
-    print html_head($q, $name . " - Edit");
-    print $q->h1($name . " $area_id &mdash; Edit Ward Aliases");
-    print $q->p("This edits ward name aliases in MaPit.  Use it for Scottish
-        wards which have numbered and normal names. e.g. mapping 'Ward 3' to
-        'Port Glasgow South'.");
-
-    # Fetch data from database
-    my $os_names = $m_dbh->selectall_hashref(q#
-        select area_id, name, name_type from area, area_name where
-        area.id = area_name.area_id and parent_area_id = ? and name_type = 'O'
-        and generation_low <= (select id from current_generation) and
-            (select id from current_generation) <= generation_high
-        #, 'area_id', {}, $area_id);
-    my $m_names = $m_dbh->selectall_hashref(q#
-        select area_id, name, name_type from area, area_name where
-        area.id = area_name.area_id and parent_area_id = ? and name_type = 'M'
-        and generation_low <= (select id from current_generation) and
-            (select id from current_generation) <= generation_high
-        #, 'area_id', {}, $area_id);
-    
-    # Put it in CGI parameters
-    my $c = 1;
-    foreach my $name (sort { $a->{name} cmp $b->{name} } values %$os_names) {
-        $q->param("area_id" . $c, $name->{area_id});
-        $q->param("os_name" . $c, $name->{name});
-        $q->param("m_name" . $c, $m_names->{$name->{area_id}}->{name});
-        $c++;
-    }
-    my $reps_count = $c-1;
-
-    # Large form for editing ward aliases
-    print $q->start_form(-method => 'POST', -action => $q->url('relative'=>1));
-    print $q->submit('Save and Done'); 
-    print $q->submit('Save');
-    print "&nbsp;";
-    print $q->submit('Cancel');
-
-    print $q->start_table();
-    print $q->Tr({}, $q->th({}, [ 'OS Name', 'mySociety Name' ]));
-
-    my $printrow = sub {
-        my $c = shift;
-        print $q->hidden(-name => "area_id$c", -size => 30);
-        print $q->Tr({}, $q->td([ 
-            encode_entities($q->param("os_name$c")),
-            $q->textfield(-name => "m_name$c", -size => 40),
-        ]));
-    };
-    $c = 1;
-    while ($q->param("area_id$c")) {
-        &$printrow($c);
-        $c++;
-    }
-    
-    print $q->end_table();
-    print $q->hidden('page', 'mapitnamesedit');
-    print $q->hidden('area_id');
-    print $q->hidden('r');
-    print $q->hidden('posted', 'true');
-
-    print $q->submit('Save and Done'); 
-    print $q->submit('Save');
-    print "&nbsp;";
-    print $q->submit('Cancel');
-    print $q->end_form();
-
-    print html_tail($q);
-}
-
 # Main loop, handles FastCGI requests
 my $q;
 try {
@@ -626,11 +498,8 @@ try {
 
         $area_id = $q->param('area_id');
         if ($area_id) {
-            $name_data = $m_dbh->selectrow_hashref(
-                    q#select name from area_name where 
-                        area_id = ? and name_type = 'F'#, {}, $area_id);
-            $area_data = $m_dbh->selectrow_hashref(
-                    q#select * from area where id = ?#, {}, $area_id);
+            $name_data = mySociety::MaPit::call('area', $area_id);
+            $area_data = $name_data;
             $status_data = $d_dbh->selectrow_hashref(
                     q#select council_id, status, error, details from raw_process_status
                     where council_id = ?#, {},$area_id);
@@ -640,8 +509,6 @@ try {
             do_council_info($q);
         } elsif ($page eq "counciledit") {
             do_council_edit($q);
-        } elsif ($page eq "mapitnamesedit") {
-            do_mapit_names_edit($q);
         } else {
             do_summary($q);
         }
