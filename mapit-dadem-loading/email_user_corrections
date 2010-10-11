@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.9 2010-09-02 16:33:01 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.10 2010-10-11 08:55:45 francis Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
@@ -92,7 +92,7 @@ if ($to) {
     open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
 print <<END;
 Subject: WriteToThem User-Submitted Corrections
-From: Francis Irving <francis\@mysociety.org>
+From: WriteToThem Team <team\@writetothem.com>
 To: $to
 
 END
