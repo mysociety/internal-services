@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.41 2010-10-11 12:29:58 matthew Exp $
+# $Id: match.cgi,v 1.42 2010-10-11 12:31:53 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.41 2010-10-11 12:29:58 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.42 2010-10-11 12:31:53 matthew Exp $';
 
 use strict;
 
@@ -34,7 +34,7 @@ use mySociety::MaPit;
 my $W = new mySociety::WatchUpdate();
 
 my $d_dbh = connect_to_dadem_database();
-CouncilMatch::set_db_handles($d_dbh);
+CouncilMatch::set_db_handle($d_dbh);
 my ($area_id, $name_data, $area_data, $status_data);
 
 sub html_head($$) {
