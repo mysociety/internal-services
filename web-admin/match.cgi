@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.43 2010-10-18 21:54:01 matthew Exp $
+# $Id: match.cgi,v 1.44 2010-10-18 21:57:12 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.43 2010-10-18 21:54:01 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.44 2010-10-18 21:57:12 matthew Exp $';
 
 use strict;
 
@@ -31,6 +31,7 @@ use CouncilMatch;
 use mySociety::WatchUpdate;
 use mySociety::VotingArea;
 use mySociety::MaPit;
+use RABX;
 my $W = new mySociety::WatchUpdate();
 
 my $d_dbh = connect_to_dadem_database();
@@ -208,6 +209,7 @@ sub do_council_info ($) {
                         { 'pc' => $example_postcode}) }, 
                     $example_postcode));
             }
+        } catch RABX::Error with {
         };
     }
 
