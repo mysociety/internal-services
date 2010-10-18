@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.42 2010-10-11 12:31:53 matthew Exp $
+# $Id: match.cgi,v 1.43 2010-10-18 21:54:01 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.42 2010-10-11 12:31:53 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.43 2010-10-18 21:54:01 matthew Exp $';
 
 use strict;
 
@@ -200,13 +200,15 @@ sub do_council_info ($) {
     print $q->p($status_titles->{$status_data->{status}});
 
     if ($status_data->{status} eq "made-live") {
-        my $example_postcode = mySociety::MaPit::get_example_postcode($area_id);
-        if ($example_postcode) {
-            print $q->p("Example postcode to test on WriteToThem.com: ",
-                $q->a({href => build_url($q, "http://www.writetothem.com/",
+        try {
+            my $example_postcode = mySociety::MaPit::get_example_postcode($area_id);
+            if ($example_postcode) {
+                print $q->p("Example postcode to test on WriteToThem.com: ",
+                    $q->a({href => build_url($q, "http://www.writetothem.com/",
                         { 'pc' => $example_postcode}) }, 
                     $example_postcode));
-        }
+            }
+        };
     }
 
     if ($status_data->{'error'}) {
