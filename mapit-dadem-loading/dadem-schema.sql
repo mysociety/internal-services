@@ -1,11 +1,11 @@
 --
--- mapit-schema.sql:
+-- dadem-schema.sql:
 -- Schema for the DaDem Postgres database.
 --
 -- Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 -- Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 --
--- $Id: dadem-schema.sql,v 1.39 2007-07-30 16:51:59 matthew Exp $
+-- $Id: dadem-schema.sql,v 1.40 2010-11-01 17:45:12 matthew Exp $
 --
 
 -- data about status of an area in relation to its representatives

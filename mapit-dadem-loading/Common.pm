@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Common.pm,v 1.25 2010-10-05 15:55:17 dademcron Exp $
+# $Id: Common.pm,v 1.26 2010-11-01 17:45:12 matthew Exp $
 #
 
 package Common;
@@ -14,8 +14,9 @@ package Common;
 use strict;
 use CouncilMatch;
 use mySociety::Config;
-use FindBin;
-mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+use File::Basename;
+my $dirname = dirname(__FILE__);
+mySociety::Config::set_file("$dirname/../conf/general");
 
 use DBI;
 use IO::File;

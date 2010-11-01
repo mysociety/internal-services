@@ -1,4 +1,4 @@
-$Id: README,v 1.16 2010-09-02 16:33:01 matthew Exp $
+$Id: README,v 1.17 2010-11-01 17:45:12 matthew Exp $
 
 General
 -------
@@ -6,7 +6,7 @@ General
 README - This file contains descriptions of every other file
 README-check - Use this one-liner to test for files that need adding to this README
 
-dadem-schema.sql, mapit-schema.sql, dress-schema.sql - Database schemas.
+dadem-schema.sql, dress-schema.sql - Database schemas.
 Common.pm - some shared functions
 Area.pm - a simple polygon area class
 
@@ -50,4 +50,4 @@ oneoffs/council-elections-2006.sql - Mark invalid councils as "recent_election"
 oneoffs/remove_parliament_mp_fax_numbers - Mess with MP fax numbers after General Election
 oneoffs/mp_cons_dump - Dump active MPs after election, for checking they are right
 
-# $Id: README,v 1.16 2010-09-02 16:33:01 matthew Exp $
+# $Id: README,v 1.17 2010-11-01 17:45:12 matthew Exp $
