@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.10 2008-12-23 12:40:53 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.11 2010-11-01 17:55:50 dademcron Exp $';
 
 use strict;
 
@@ -46,7 +46,7 @@ while ($m->follow_link(n => $n, url_regex => qr#^.*_.*/index.htm$#)) {
 
     # First, remove horrible <table> in a <span> guff
     my $content = $m->content();
-    $content =~ s{<span class="largeHeading".*?<table class="greyTable.*?</table></span>}{};
+    $content =~ s{<span class="largeHeading".*?<table class="greyTable.*?</table>(?:</span>)?}{};
     my $t = HTML::TreeBuilder->new_from_content($content)
         or die "unable to parse $url";
 
