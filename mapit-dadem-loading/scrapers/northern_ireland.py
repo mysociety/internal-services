@@ -11,6 +11,7 @@
 from urllib2 import urlopen
 from urlparse import urljoin
 from HTMLParser import HTMLParser
+from htmlentitydefs import name2codepoint
 import re
 
 NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership07.htm"
@@ -121,6 +122,8 @@ class NIATableParser( HTMLParser ):
                 self._data += ' '
             elif ref == 'amp':
                 self._data += '&'
+            else:
+                self._data += unichr(name2codepoint[ref])
     #-----------------------------
     def tidy_data( self ):
         return ' '.join( self._data.strip().replace('*','').split() )
@@ -223,12 +226,12 @@ def parseNIAssemblySite():
         member.email = member.email.strip()
         member.constituency = NIA_NAME_FIXES.get(member.constituency, member.constituency)
         
-        print '"%s","%s","%s","%s","%s","","%s"' % (realNameCase(member.forename),
+        print ('"%s","%s","%s","%s","%s","","%s"' % (realNameCase(member.forename),
                                                     realNameCase(member.surname), 
                                                     realNameCase(member.constituency), 
                                                     member.party, 
                                                     member.email, 
-                                                    member.image_url) 
+                                                    member.image_url)).encode('utf-8')
     
 def realNameCase( name ):
         #Should cover people and place names
