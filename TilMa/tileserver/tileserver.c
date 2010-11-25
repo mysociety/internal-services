@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.8 2009-09-03 14:04:57 francis Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.9 2010-11-25 14:07:50 matthew Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -80,7 +80,8 @@ struct request {
     char *r_tileset;
     enum {
         FN_GET_TILE = 0,
-        FN_GET_TILEIDS
+        FN_GET_TILEIDS,
+        FN_GET_TILE_FROM_XY
     } r_function;
 
     uint8_t r_tileid[TILEID_LEN];
@@ -153,6 +154,8 @@ struct request *request_parse(const char *path_info) {
             R->r_format = F_TEXT;
         else if (!strcmp(q, "html"))
             R->r_format = F_HTML;
+        else if (!strcmp(q, "png"))
+            R->r_function = FN_GET_TILE_FROM_XY;
         else {
             err("request for unknown tile ID result format \"%s\"", q);
             goto fail;
@@ -261,6 +264,15 @@ void handle_request(void) {
         tileset_close(T);
         request_free(R);
         return;
+    }
+
+    if (FN_GET_TILE_FROM_XY == R->r_function) {
+        /* 
+         * If we are doing direct coords->png, fetch the intermediate ID.
+         */
+        if (tileset_get_tileid(T, R->r_west, R->r_south, R->r_tileid)) {
+            R->r_function = FN_GET_TILE;
+        }
     }
 
     if (FN_GET_TILE == R->r_function) {
