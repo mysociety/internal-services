@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.9 2010-11-25 14:07:50 matthew Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.10 2010-11-25 17:51:57 matthew Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -272,7 +272,8 @@ void handle_request(void) {
          */
         if (tileset_get_tileid(T, R->r_west, R->r_south, R->r_tileid)) {
             R->r_function = FN_GET_TILE;
-        }
+        } else
+            error(404, "Tile not found");
     }
 
     if (FN_GET_TILE == R->r_function) {
