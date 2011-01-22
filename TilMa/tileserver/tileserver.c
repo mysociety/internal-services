@@ -7,7 +7,7 @@
  *
  */
 
-static const char rcsid[] = "$Id: tileserver.c,v 1.10 2010-11-25 17:51:57 matthew Exp $";
+static const char rcsid[] = "$Id: tileserver.c,v 1.11 2011-01-22 17:44:31 matthew Exp $";
 
 /* 
  * This is slightly complicated by the fact that we indirect tile references
@@ -148,7 +148,7 @@ struct request *request_parse(const char *path_info) {
         ++q;
         if (!strcmp(q, "RABX"))
             R->r_format = F_RABX;
-        else if (!strcmp(q, "JSON"))
+        else if ( (!strcmp(q, "JSON")) || (!strcmp(q, "json")) )
             R->r_format = F_JSON;
         else if (!strcmp(q, "text"))
             R->r_format = F_TEXT;
