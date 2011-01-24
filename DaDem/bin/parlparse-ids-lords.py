@@ -1,6 +1,6 @@
-#!/usr/bin/env python2.4
+#!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# $Id: parlparse-ids-lords.py,v 1.2 2006-05-04 11:15:46 dademcron Exp $
+# $Id: parlparse-ids-lords.py,v 1.3 2011-01-24 12:11:30 louise Exp $
 
 # Converts triple of (name, "House of Lords", date) into parlparse person id.
 # Reads lines from standard input, each line having the triple hash-separated.
