@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.14 2011-01-20 01:21:59 louise Exp $
+# $Id: setup-dademcron,v 1.15 2011-02-24 13:15:17 louise Exp $
 #
 
 set -e
@@ -44,6 +44,7 @@ then
   cd writetothem && su dademcron -c "git pull && git submodule update" && cd ..
 else 
   su dademcron -c "git clone git://git.mysociety.org/writetothem"
+  cd writetothem && su dademcron -c "git submodule update --init"
 fi
 
 # Checkout or update the representative data module
