@@ -1,5 +1,5 @@
 yamdi
-libxml-simple-perl
+lighttpd
 libdatetime-perl
 libwww-perl
-lighttpd
+libjson-perl

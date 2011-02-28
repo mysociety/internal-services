@@ -3,9 +3,9 @@ package BBCParl::Process;
 use strict;
 
 use LWP::UserAgent;
-use XML::Simple;
+use JSON;
 use DateTime;
-use DateTime::TimeZone;
+use DateTime::Format::W3CDTF;
 use Data::Dumper;
 
 use mySociety::Config;
@@ -45,15 +45,10 @@ sub new {
     $self->{'path'}{'output-dir'} .= '/'
         unless $self->{'path'}{'output-dir'} =~ m{/$};
 
-    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www0.rdthdo.bbc.co.uk/cgi-perl/api/query.pl';
+    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www.bbc.co.uk/parliament/programmes/schedules/';
     
     $self->load_flv_api_config();
 
-    $self->{'params'}{'channel_id'} = ',BBCParl';
-    $self->{'params'}{'method'} = 'bbc.schedule.getProgrammes';
-    $self->{'params'}{'limit'} = '500';
-    $self->{'params'}{'detail'} = 'schedule';
-    $self->{'params'}{'format'} = 'simple';
     return $self;
 }
 
@@ -88,10 +83,9 @@ sub load_flv_api_config {
 sub update_programmes{
     my ($self) = @_;
 
-    $self->{params}{start} = DateTime->now()->subtract( days => 1 )->datetime();
-    $self->{params}{end} = DateTime->now()->datetime();
+    my $t = DateTime->now()->subtract( days => 1 )->ymd('/');
 
-    # call the BBC TV web api
+    # call the BBC programmes API
 
     my $ua;
     unless ($ua = LWP::UserAgent->new()) {
@@ -99,11 +93,8 @@ sub update_programmes{
 	return undef;
     }
 
-    my $url = $self->{'constants'}{'tv-schedule-api-url'} . '?';
+    my $url = $self->{'constants'}{'tv-schedule-api-url'} . $t . '.json';
 
-    foreach my $name (keys %{$self->{'params'}}) {
-	$url .= "$name=" . $self->{'params'}{$name} . '&';
-    }
     $self->debug("Requesting $url");
     my $response = $ua->get($url);
 
@@ -113,24 +104,23 @@ sub update_programmes{
     }
 
     my $results = $response->content();
+    my $results_ref = decode_json($results);
 
-    # convert it into an XML object
-    
-    my $results_ref = XMLin($results,
-			    'ForceArray' => ['programme']);
+#    if (defined($results_ref->{'error'})) {
+#	warn "ERROR: Could not fetch data from TV API; error was " . $results_ref->{'error'}{'message'};
+#	warn "ERROR: URI was $url";
+#	return undef;
+#    }
 
-    if (defined($results_ref->{'error'})) {
-	warn "ERROR: Could not fetch data from TV API; error was " . $results_ref->{'error'}{'message'};
-	warn "ERROR: URI was $url";
-	return undef;
-    }
-
-    foreach my $prog_ref (@{$results_ref->{'schedule'}{'programme'}}) {
+    foreach my $prog_ref (@{$results_ref->{schedule}{day}{broadcasts}}) {
 	my $start = $prog_ref->{'start'};
-	map {
-	    $self->{'programmes'}{$start}{$_} = $prog_ref->{$_};
-	} qw (channel_id synopsis duration title);
-	$self->{'programmes'}{$start}{'crid'} = $prog_ref->{'programme_id'};
+	$self->{programmes}{$start}{end} = $prog_ref->{end};
+	$self->{programmes}{$start}{channel_id} = 'BBCParl';
+	$self->{programmes}{$start}{synopsis} = $prog_ref->{programme}{short_synopsis};
+	$self->{programmes}{$start}{duration} = $prog_ref->{duration};
+	$self->{programmes}{$start}{title} = $prog_ref->{programme}{display_titles}{title}
+		. ', ' . $prog_ref->{programme}{display_titles}{subtitle};
+	$self->{programmes}{$start}{crid} = $prog_ref->{programme}{pid};
     }
 
     # foreach programme, determine the rights situation and the
@@ -138,6 +128,7 @@ sub update_programmes{
 
 #    warn Dumper $self;
 
+    my $w3c = DateTime::Format::W3CDTF->new;
     foreach my $prog_start (sort keys %{$self->{'programmes'}}) {
 	my $title_synopsis = $self->{'programmes'}{$prog_start}{'title'} . ' ' .  $self->{'programmes'}{$prog_start}{'synopsis'};
 	my $location = '';
@@ -187,43 +178,18 @@ sub update_programmes{
 	my $duration = $self->{'programmes'}{$prog_start}{'title'} . ' ' .  $self->{'programmes'}{$prog_start}{'duration'};
 
 	# work out the start/end date-times for broadcast (on air)
-
-	my $broadcast_start = $prog_start;
-	my $broadcast_end = '';
-
-	my @date_time = ();
-	if ($broadcast_start =~ /(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z/) {
-	    @date_time = ('year' => $1,
-			  'month' => $2,
-			  'day' => $3,
-			  'hour' => $4,
-			  'minute' => $5,
-			  'second' => $6);
-	} else {
-	    warn "ERROR: $broadcast_start does not contain an hh:mm:ss time";
-	    warn "ERROR: skipping this programme";
-	    next;
-	}
-
-	my $dt = DateTime->new(@date_time,'time_zone','UTC');
-
-	if ($duration =~ /(\d{2}):(\d{2}):(\d{2})/) {
-	    $dt->add('hours' => $1,
-		     'minutes' => $2,
-		     'seconds' => $3);
-	    my $date_time_format = '%FT%TZ';
-	    $broadcast_end = $dt->strftime($date_time_format);
-	}
-
-	$self->{'programmes'}{$prog_start}{'broadcast_start'} = $broadcast_start;
-	$self->{'programmes'}{$prog_start}{'broadcast_end'} = $broadcast_end;
+	my $broadcast_start = $w3c->parse_datetime($prog_start);
+	my $broadcast_end = $w3c->parse_datetime($self->{programmes}{$prog_start}{end});
+	$broadcast_start->set_time_zone('UTC');
+	$broadcast_end->set_time_zone('UTC');
+	$self->{programmes}{$start}{broadcast_start} = $w3c->format_datetime($broadcast_start);
+	$self->{programmes}{$start}{broadcast_end} = $w3c->format_datetime($broadcast_end);
 
 	# foreach programme, work out the recording start/end times
 	# given duration (if possible) - these should be in UTC (GMT)
 
 	my ($rec_start, $rec_end) = ('','');
-
-	if ($title_synopsis =~ /^live/i || $title_synopsis =~ /\s+live\s/i) {
+	if ($title_synopsis =~ /\blive\b/i) {
 
 	    # live broadcasts are easy, record date/time == broadcast date/time
 	    $rec_start = $broadcast_start;
@@ -512,19 +478,6 @@ sub set_prog_status {
 	      $status,
 	      $prog_id);
     dbh()->commit();
-}
-
-sub calculate_offset {
-    my ($d1, $d2) = @_;
-
-    #warn "$d1 <-> $d2";
-
-    my @d1 = BBCParl::Common::extract_datetime_array ($d1);
-    my @d2 = BBCParl::Common::extract_datetime_array ($d2);
-	       
-    my $dt = DateTime->new(@d1);
-    my $diff = $dt->subtract_datetime_absolute( DateTime->new(@d2));
-    return $diff->seconds();
 }
 
 1;
