@@ -182,8 +182,8 @@ sub update_programmes{
 	my $broadcast_end = $w3c->parse_datetime($self->{programmes}{$prog_start}{end});
 	$broadcast_start->set_time_zone('UTC');
 	$broadcast_end->set_time_zone('UTC');
-	$self->{programmes}{$start}{broadcast_start} = $w3c->format_datetime($broadcast_start);
-	$self->{programmes}{$start}{broadcast_end} = $w3c->format_datetime($broadcast_end);
+	$self->{programmes}{$prog_start}{broadcast_start} = $w3c->format_datetime($broadcast_start);
+	$self->{programmes}{$prog_start}{broadcast_end} = $w3c->format_datetime($broadcast_end);
 
 	# foreach programme, work out the recording start/end times
 	# given duration (if possible) - these should be in UTC (GMT)
