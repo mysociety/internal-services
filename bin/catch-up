@@ -5,11 +5,12 @@
 
 import urllib, simplejson, re, mx.DateTime
 
-start = [ 0, 0, 0, 0, 28, 1,  1 ]
-end =   [ 0, 0, 0, 0, 30, 31, 17 ]
+start = [ 22, 1,  1,  1,  1  ]
+end =   [ 31, 30, 31, 31, 28 ]
 
-for m in range(4, 6+1):
-    for d in range(start[m], end[m]+1):
+for i in range(10, 14+1):
+    m = i-12 if i>12 else i
+    for d in range(start[i-10], end[i-10]+1):
         url = 'http://www.bbc.co.uk/parliament/programmes/schedules/2010/%02d/%02d.json' % (m, d)
         data = simplejson.loads(urllib.urlopen(url).read())
         for entry in data['schedule']['day']['broadcasts']:
@@ -31,7 +32,7 @@ for m in range(4, 6+1):
             else:
                 rights = 'none'
 
-            brand_title = str(entry['programme'].get('programme', {}).get('title', ''))
+            brand_title = unicode(entry['programme'].get('programme', {}).get('title', ''))
             if entry['programme'].get('programme', {}).get('ownership', {}).get('service', {}).get('title', '') != 'BBC Parliament':
                 location = 'other'
             if brand_title in ('Business Questions', 'Commons Questions', 'House of Commons', "Prime Minister's Questions", 'Select Committees'):
@@ -51,6 +52,6 @@ for m in range(4, 6+1):
             else:
                 location = 'unknown'
 
-            print "INSERT INTO programmes (location, broadcast_start, broadcast_end, title, synopsis, crid, channel_id, status, rights) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
+            print ("INSERT INTO programmes (location, broadcast_start, broadcast_end, title, synopsis, crid, channel_id, status, rights) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
                 location, broadcast_start, broadcast_end, title.replace("'", "''"), synopsis.replace("'", "''"), crid, 'BBCParl', status, rights
-            )
+            )).encode('utf-8')
