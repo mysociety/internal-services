@@ -48,6 +48,6 @@ sub get_video{
 	return 0;
     }
 
-    $object->get_flv_files_for_programmes();
+    #$object->get_flv_files_for_programmes();
     return 0;
 }
