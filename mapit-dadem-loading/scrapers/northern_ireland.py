@@ -14,7 +14,7 @@ from HTMLParser import HTMLParser
 from htmlentitydefs import name2codepoint
 import re
 
-NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership07.htm"
+NIA_LIST_PAGE = "http://www.niassembly.gov.uk/members/membership11.htm"
 NIA_NAME_FIXES = {
     "MID-ULSTER": "MID ULSTER",
     "NEWRY & ARMAGH": "NEWRY AND ARMAGH",
@@ -65,38 +65,39 @@ class NIATableParser( HTMLParser ):
         # Note that we have now reached the start of the table,
         # and can begin extracting the data
         if tag == 'table':
-            self._state = 'TABLE'
+            if ('border', '1') in attrs:
+                self._state = 'TABLE'
         # This is the start of a new row, where each row contains
         # a member. Create a new blank Member, and set the <td> count
         # to zero.
-        elif tag == 'tr':
+        elif self._state == 'TABLE' and tag == 'tr':
             self._current_member = Member()
             self._td_count = 0
         # Increment the <td> count, and reset self._data.
-        elif tag == 'td':
+        elif self._state == 'TABLE' and tag == 'td':
             self._td_count += 1
             self._data = ''
-        elif tag == 'sup':
+        elif self._state == 'TABLE' and tag == 'sup':
             self._state = 'SUP'
         # if we are in the first <td>, and we see a link,
         # this is a link to the member's homepage. Add the link
         # as member.url.
-        elif self._td_count == 1 and tag == 'a' and attrs[0][0] == 'href':
+        elif self._state == 'TABLE' and self._td_count == 1 and tag == 'a' and attrs[0][0] == 'href':
             self._current_member.url = attrs[0][1]
                     
     #-----------------------------
     def handle_endtag(self, tag):
         # We have reached the end of the table - there is nothing else to do.
-        if tag == 'table':
+        if self._state == 'TABLE' and tag == 'table':
             self._state = 'FINISHED'
-        if tag == 'sup':
+        elif tag == 'sup':
             self._state = 'TABLE'
-        elif tag == 'tr':
+        elif self._state == 'TABLE' and tag == 'tr':
             # add this member to the list (unless there were no <td>s,
             # in which case, it was just the header...
             if self._td_count > 0:
                 self.table.append(self._current_member)
-        elif tag == 'td':
+        elif self._state == 'TABLE' and tag == 'td':
             # First <td> contains the name
             if self._td_count == 1:
                 self._current_member.name = self.tidy_data()
@@ -149,7 +150,7 @@ class NIADetailPageParser( HTMLParser ):
         self._in_email_row = False
         self._in_email_td = False
         
-        self.email = None
+        self.email = ''
         self.image_url = None
     
     #-----------------------------
