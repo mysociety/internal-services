@@ -223,6 +223,7 @@ def parseNIAssemblySite():
             member.surname, member.forename = tuple(member.name.rsplit(' ',1))
 
         # Manual fixes
+        member.surname = member.surname.replace(' MBE', '')
         if member.forename == 'PJ':
             member.forename = 'P J'
         if member.surname[0] == '#':
