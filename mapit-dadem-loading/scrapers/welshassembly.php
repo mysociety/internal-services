@@ -3,35 +3,48 @@
 /**
  * Welsh Assembly members screenscraper for mySociety
  *
- * @copyright Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
- * Email: richard@phase.org; WWW: http://www.mysociety.org/
+ * @copyright Copyright (c) 2011 UK Citizens Online Democracy. All rights reserved.
+ * Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
  *
  */
 
-/* Completely changed mid May 2007 to deal with new set-up to get some people back up */
-
-$f = file_get_contents('https://www.assemblywales.org/memhome/mem-contact/eform-email-a-member.htm');
-preg_match_all('#<option value="(.*?)" >(.*?)</option>#', $f, $m, PREG_SET_ORDER);
+$f = file_get_contents('http://www.senedd.assemblywales.org/mgCommitteeMailingList.aspx?ID=0');
+preg_match_all('#
+    <h3[ ]class="mgSubSubTitleTxt">(.*?)</h3>
+    \s*<p>(.*?)</p>
+    \s*<p>(.*?)</p>
+    \s*<p><a[ ]+href="mailto:(.*?)"[ ]+title=".*?">.*?</a>
+    \s*</p>
+#x', $f, $m, PREG_SET_ORDER);
 $out = array();
 foreach ($m as $row) {
-    $name = str_replace('  ', ' ', $row[2]);
-    $out[$name]['email'] = $row[1];
+    $name = preg_replace('#\s+#', ' ', $row[1]);
+    $out[$name]['email'] = $row[4];
 }
 
-for ($region=1; $region<=5; $region++) {
-    $f = file_get_contents("http://www.assemblywales.org/memhome/member-search-results.htm?region=$region");
-    preg_match_all('#<div class="member_card_images">\s*<a[^>]*><img src="(.*?)".*?<p><a[^>]*>(.*?)</a>.*?<p class="party_title">(.*?)</p>\s*<p>(.*?)</p>#s', $f, $m, PREG_SET_ORDER);
-    foreach ($m as $r) {
-        $name = $r[2];
-        $out[$name]['img'] = $r[1];
-        $out[$name]['party'] = party_lookup($r[3]);
-        $out[$name]['const'] = str_replace('Ynys Mon', "Ynys M\xc3\xb4n", $r[4]);
-    }
-}
-
-if (count($out) != 60) {
-    err("Expected to get 60 Welsh Assembly members, but got $count");
+# 58 as two Lib Dem AMs are currently disqualified
+if (count($out) != 60 && count($out) != 58) {
+    print "Expected to get 60 Welsh Assembly members, but got " . count($out) . "\n";
     exit(1);
+}
+
+$f = file_get_contents('http://www.senedd.assemblywales.org/mgMemberIndex.aspx');
+preg_match_all('#
+    <li>
+    \s*<a[ ]*href="mgUserInfo\.aspx\?UID=(.*?)"[ ]*>
+    \s*<img[ ]*class="mgCouncillorImages"[ ]*src="(.*?)"
+    [^>]*><br[ ]/>(.*?)</a>
+    \s*<p>(.*?)</p>
+    (?: \s*<!--\s*Tel:\s*--> )?
+    \s*<p>(.*?)</p>
+    (?: \s*<p>(.*?)</p> )?
+    \s*</li>
+#x', $f, $m, PREG_SET_ORDER);
+foreach ($m as $r) {
+    list( $dummy, $id, $img, $name, $const, $party, $min) = $r;
+    $out[$name]['img'] = $img;
+    $out[$name]['party'] = party_lookup($party);
+    $out[$name]['const'] = str_replace(array('Anglesey', 'Ynys Mon'), "Ynys M\xc3\xb4n", $const);
 }
 
 function by_const($a, $b) {
@@ -51,13 +64,15 @@ function by_const($a, $b) {
 uasort($out, 'by_const');
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 foreach ($out as $name => $arr) {
+    $name = str_replace(' &#40;Oscar&#41;', '', $name);
     preg_match('#^(.*) (.*?)$#', $name, $m);
     list($first, $last) = array($m[1], $m[2]);
-    print "$first,$last,$arr[const],$arr[party],$arr[email],,http://www.assemblywales.org/memhome/$arr[img]\n";
+    print "$first,$last,$arr[const],$arr[party],$arr[email],,http://www.senedd.assemblywales.org/$arr[img]\n";
 }
 
 function party_lookup($p) {
     if ($p == 'Labour Party') return 'Labour';
+    if ($p == 'Welsh Labour') return 'Labour';
     elseif ($p == 'Welsh Conservative Party') return 'Conservative';
     elseif ($p == 'Welsh Liberal Democrats') return 'Liberal Democrat';
     elseif ($p == 'Independant') return 'Independent';
