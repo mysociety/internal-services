@@ -7,7 +7,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: msp,v 1.12 2011-01-04 15:05:43 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: msp,v 1.13 2011-06-19 23:34:39 dademcron Exp $';
 
 use strict;
 
@@ -45,7 +45,7 @@ while ($m->follow_link(n => $n, url_regex => qr#^.*_.*/index.htm$#)) {
     #
 
     # First, remove horrible <table> in a <span> guff
-    my $content = $m->content();
+    my $content = decode( 'iso-8859-1', $m->content() );
     $content =~ s{<span class="largeHeading".*?<table class="greyTable.*?</table>(?:</span>)?}{}s;
     my $t = HTML::TreeBuilder->new_from_content($content)
         or die "unable to parse $url";
@@ -109,7 +109,8 @@ while ($m->follow_link(n => $n, url_regex => qr#^.*_.*/index.htm$#)) {
     # This page has a three-column table with the contact details in it. The
     # left-hand column is the constituency details; the right-hand column is
     # the Parliamentary details; and the middle column is some "design" thing.
-    $t = HTML::TreeBuilder->new_from_content($m->content())
+    $content = decode( 'iso-8859-1' , $m->content() );
+    $t = HTML::TreeBuilder->new_from_content($content)
         or die "unable to parse $url";
 
     my $contacttable = $t->look_down(_tag => 'table', 'class' => 'pushedTable', summary => qr/Contact details for/i)
