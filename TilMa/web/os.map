@@ -1,0 +1,45 @@
+MAP
+  OUTPUTFORMAT
+    NAME "png"
+    DRIVER AGG/PNG
+    MIMETYPE "image/png"
+    IMAGEMODE RGB
+    EXTENSION "png"
+  END
+  NAME "OS"
+  STATUS ON
+  SIZE 256 256
+  EXTENT 0 0 700000 1300000
+  UNITS METERS
+  SHAPEPATH "/data/vhost/tilma.mysociety.org/rasters"
+  IMAGECOLOR 230 246 255
+  IMAGETYPE png
+  PROJECTION
+    "init=epsg:27700"
+  END
+
+  WEB
+    METADATA
+      "wms_title"           "WMS Server"
+      "wms_onlineresource"  "http://tilma.mysociety.org/mapserv.fcgi?map=os.map&"
+      "wms_srs"             "EPSG:4326 EPSG:900913"
+    END
+  END
+
+  LAYER
+    METADATA
+      wms_title 'streetview'
+    END
+    PROJECTION
+      "init=epsg:27700"
+    END
+    NAME   "streetview"
+    TILEINDEX "streetview.shp"
+    TILEITEM "Location"
+    STATUS       ON
+    TYPE         RASTER
+    PROCESSING "RESAMPLE=AVERAGE CLOSE_CONNECTION=DEFER"
+  END # layer
+
+END
+
