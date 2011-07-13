@@ -22,8 +22,8 @@ foreach ($m as $row) {
     $out[$name]['email'] = $row[4];
 }
 
-# 58 as two Lib Dem AMs are currently disqualified
-if (count($out) != 60 && count($out) != 58) {
+# 59 as one Lib Dem AM was disqualified and the new one isn't listed yet
+if (count($out) != 60 && count($out) != 59) {
     print "Expected to get 60 Welsh Assembly members, but got " . count($out) . "\n";
     exit(1);
 }
