@@ -41,5 +41,20 @@ MAP
     PROCESSING "RESAMPLE=AVERAGE"
   END # layer
 
+  LAYER
+    METADATA
+      wms_title 'vectormap'
+    END
+    PROJECTION
+      "init=epsg:27700"
+    END
+    NAME   "vectormap"
+    TILEINDEX "vectormap.shp"
+    TILEITEM "Location"
+    STATUS       ON
+    TYPE         RASTER
+    PROCESSING "RESAMPLE=AVERAGE"
+  END # layer
+
 END
 
