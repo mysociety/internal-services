@@ -1,1 +1,4 @@
 libfcgi-dev
+python-mapnik
+tilecache
+cgi-mapserver
