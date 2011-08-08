@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.41 2010-10-05 15:55:17 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.42 2011-08-08 13:35:33 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -112,6 +112,7 @@ while (my $line = <STDIN>) {
     $line =~ s/301224a/301224/; # ID has a superfluous "a" in it
     $line =~ s/317169n\/a/317169/; # ID has a superfluous "n/a" in it
     $line =~ s/Sgir. Uige/Sgir' Uige/;
+    $line =~ s/\x0b//g;
     next if $line =~ m/^\s*$/;
 
     # Extract good stuff
@@ -130,6 +131,7 @@ while (my $line = <STDIN>) {
     next if (!$first && ($last eq "Resigned")); # GovEval now mark resigned occasionally TODO: encode this explicitly in DaDem, and show on WTT
 
     next if $council eq 'House of Keys' || $council eq 'Legislative Council'; # We don't cover Isle of Man yet!
+    next if $fax =~ /^01624/ or $email =~ /org\.im$/; # Isle of Man (council left blank sometimes)
 
     # ... we still check we don't have individual empty strings
     #warn "first name is empty geid $geid" if !$first;
@@ -210,23 +212,23 @@ foreach my $council_id (keys %$councils) {
     my $reps_mysociety_mod;
     foreach my $rep (@reps_mysociety_mod) {
         $reps_mysociety_mod->{$rep->{key}} = $rep;
-
-        # Revert any unresolved conflicts back to before their resolution
-        my $conflict = 0;
-        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
-            my $value = $rep->{$field};
-            $conflict = 1 if ($value =~ m/CONFLICT/);
-        }
-        if ($conflict) {
-            #print "Conflict flipping\n";
-            #print Dumper($reps_mysociety_mod->{$rep->{key}});
-            #print Dumper($reps_prev_import->{$rep->{key}});
-            if (!defined($reps_prev_import->{$rep->{key}})) {
-                delete $reps_mysociety_mod->{$rep->{key}};
-            } else {
-                $reps_mysociety_mod->{$rep->{key}} = $reps_prev_import->{$rep->{key}};
-            }
-        }
+#
+#        # Revert any unresolved conflicts back to before their resolution
+#        my $conflict = 0;
+#        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+#            my $value = $rep->{$field};
+#            $conflict = 1 if ($value =~ m/CONFLICT/);
+#        }
+#        if ($conflict) {
+#            #print "Conflict flipping\n";
+#            #print Dumper($reps_mysociety_mod->{$rep->{key}});
+#            #print Dumper($reps_prev_import->{$rep->{key}});
+#            if (!defined($reps_prev_import->{$rep->{key}})) {
+#                delete $reps_mysociety_mod->{$rep->{key}};
+#            } else {
+#                $reps_mysociety_mod->{$rep->{key}} = $reps_prev_import->{$rep->{key}};
+#            }
+#        }
     }
 
     # Get each line of new import
@@ -409,9 +411,10 @@ foreach my $council_id (keys %$councils) {
                         #        " GE: no change";
                         $reps_merged->{$key}->{$field} = $mysociety_mod->{$field};
                     } elsif ($new_import->{$field} ne $prev_import->{$field}) {
-                        # Conversely, take a GovEval change as read if mySociety hasn't changed
-                        #$reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
-                        #    " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
+                        # NO: Conversely, take a GovEval change as read if mySociety hasn't changed
+                        # YES: Alert if GovEval changes any field, due to ID reuse.
+                        $reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
+                            " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
                     }
                 }
                 $out .= "PROPER CLASH both changed\n";
