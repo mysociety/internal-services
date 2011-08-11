@@ -2,6 +2,15 @@
 #
 # !!(*= $daemon_name *)!! Start the EvEl daemon
 
+### BEGIN INIT INFO
+# Provides:          eveld
+# Required-Start:    $remote_fs $syslog $time
+# Required-Stop:     $remote_fs $syslog $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Daemon to send out emails
+### END INIT INFO
+
 NAME=!!(*= $daemon_name *)!!
 DAEMON=/data/vhost/!!(*= $vhost *)!!/mysociety/services/EvEl/bin/eveld
 PIDFILE=/data/vhost/!!(*= $vhost *)!!/eveld.pid
