@@ -44,7 +44,7 @@ foreach ($m as $r) {
     list( $dummy, $id, $img, $name, $const, $party, $min) = $r;
     $out[$name]['img'] = $img;
     $out[$name]['party'] = party_lookup($party);
-    $out[$name]['const'] = str_replace(array('Anglesey', 'Ynys Mon'), "Ynys M\xc3\xb4n", $const);
+    $out[$name]['const'] = str_replace(array('Anglesey', 'Ynys Mon', 'Ynys M&#244;n'), "Ynys M\xc3\xb4n", $const);
 }
 
 function by_const($a, $b) {
