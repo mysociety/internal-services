@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.42 2011-08-08 13:35:33 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.43 2012-01-13 11:36:09 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -127,7 +127,7 @@ while (my $line = <STDIN>) {
         next;
     }
 
-    next if (!$first && !$last && $vdiv);  # GovEval sometimes use this to mark pending byelection, so no member ...
+    next unless $first || $last; # No name, can't really do much!
     next if (!$first && ($last eq "Resigned")); # GovEval now mark resigned occasionally TODO: encode this explicitly in DaDem, and show on WTT
 
     next if $council eq 'House of Keys' || $council eq 'Legislative Council'; # We don't cover Isle of Man yet!
