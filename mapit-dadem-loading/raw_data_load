@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.43 2012-01-13 11:36:09 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.44 2012-03-26 10:17:23 dademcron Exp $';
 
 use strict;
 require 5.8.0;
@@ -110,6 +110,7 @@ while (my $line = <STDIN>) {
     chomp($line);
 
     $line =~ s/301224a/301224/; # ID has a superfluous "a" in it
+    $line =~ s/95110e/95110/; # ID has a superfluous "e" in it
     $line =~ s/317169n\/a/317169/; # ID has a superfluous "n/a" in it
     $line =~ s/Sgir. Uige/Sgir' Uige/;
     $line =~ s/\x0b//g;
