@@ -5,6 +5,8 @@ MAP
     MIMETYPE "image/png"
     IMAGEMODE RGB
     EXTENSION "png"
+    FORMATOPTION "QUANTIZE_FORCE=on"
+    FORMATOPTION "QUANTIZE_COLORS=256"
   END
   NAME "OS"
   STATUS ON
@@ -56,5 +58,40 @@ MAP
     PROCESSING "RESAMPLE=AVERAGE"
   END # layer
 
+  LAYER
+    METADATA
+      wms_title 'Bromley playgrounds'
+    END
+    PROJECTION
+      "init=epsg:27700"
+    END
+    NAME   "bromley_playgrounds"
+    DATA   /data/vhost/tilma.mysociety.org/bromley/PlayGrounds
+    STATUS       ON
+    TYPE         POLYGON
+    CLASS
+        NAME "Bromley playgrounds"
+        OUTLINECOLOR 100 0 0
+    END
+    PROCESSING "RESAMPLE=AVERAGE"
+  END # layer
+
+  LAYER
+    METADATA
+      wms_title 'Bromley trees'
+    END
+    PROJECTION
+      "init=epsg:27700"
+    END
+    NAME   "bromley_trees"
+    DATA   /data/vhost/tilma.mysociety.org/bromley/Trees
+    STATUS       ON
+    TYPE         POLYGON
+    CLASS
+        NAME "Bromley trees"
+        OUTLINECOLOR 0 100 0
+    END
+    PROCESSING "RESAMPLE=AVERAGE"
+  END
 END
 
