@@ -71,7 +71,7 @@ MAP
     TYPE         POLYGON
     CLASS
         NAME "Bromley playgrounds"
-        OUTLINECOLOR 100 0 0
+        COLOR 100 0 0
     END
     PROCESSING "RESAMPLE=AVERAGE"
   END # layer
@@ -89,7 +89,7 @@ MAP
     TYPE         POLYGON
     CLASS
         NAME "Bromley trees"
-        OUTLINECOLOR 0 100 0
+        COLOR 0 100 0
     END
     PROCESSING "RESAMPLE=AVERAGE"
   END
