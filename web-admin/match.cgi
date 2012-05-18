@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.46 2012-05-18 19:26:15 matthew Exp $
+# $Id: match.cgi,v 1.47 2012-05-18 19:32:04 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.46 2012-05-18 19:26:15 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.47 2012-05-18 19:32:04 matthew Exp $';
 
 use strict;
 
@@ -436,8 +436,8 @@ sub do_council_edit ($) {
     print $q->submit('Cancel');
 
     print '&nbsp;&nbsp;&nbsp;';
-    print q#<button onclick="row = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var email = rows[i].getElementsByTagName('td')[5].getElementsByTagName('input')[0].value; if (email.match(/DELETED COUNCILLOR ENTIRELY/)) { for (var j=1; j<=5; j++) { rows[i].getElementsByTagName('td')[j].getElementsByTagName('input')[0].value = ''; } } }">Blank out rows deleted by GE</button>#;
-    print q#<button onclick="row = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var first = rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value; if (first.match(/CONFLICT MS: no change/)) { rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value = first.replace(/^.* ->/, ''); } }">Resolve all first name changes</button>#;
+    print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var email = rows[i].getElementsByTagName('td')[5].getElementsByTagName('input')[0].value; if (email.match(/DELETED COUNCILLOR ENTIRELY/)) { for (var j=1; j<=5; j++) { rows[i].getElementsByTagName('td')[j].getElementsByTagName('input')[0].value = ''; } } } return false;">Blank out rows deleted by GE</button>#;
+    print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var first = rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value; if (first.match(/CONFLICT MS: no change/)) { rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value = first.replace(/^.* ->/, ''); } } return false;">Resolve all first name changes</button>#;
 
     print $q->start_table();
     my $r = $q->param('r') || '';
