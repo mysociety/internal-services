@@ -8,7 +8,7 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.15 2011-02-24 13:15:17 louise Exp $
+# $Id: setup-dademcron,v 1.16 2012-09-05 12:03:16 dademcron Exp $
 #
 
 set -e
@@ -49,13 +49,12 @@ fi
 
 # Checkout or update the representative data module
 cd $DADEMHOME
-if [ -e "repdata/CVS/Root" ]
+if [ -e "repdata/.git" ]
 then
     cd repdata
-    su dademcron -c "cvs -Q update -dP"
+    su dademcron -c "git pull"
 else
-    export CVSROOT=cvs.mysociety.org:/usr/local/privatecvs
-    su dademcron -c "cvs -Q co repdata"
+    su dademcron -c "git clone ssh://git.mysociety.org/data/git/private/repdata"
 fi
 
 # Checkout or update parlparse
