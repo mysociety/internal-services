@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib -I../mapit-dadem-loading
+#!/usr/bin/perl -w -I../perllib -I../../perllib -I../mapit-dadem-loading
 #
 # match.cgi
 # 
@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.48 2012-06-21 16:01:38 matthew Exp $
+# $Id: match.cgi,v 1.49 2012-10-03 13:25:14 matthew Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.48 2012-06-21 16:01:38 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.49 2012-10-03 13:25:14 matthew Exp $';
 
 use strict;
 
