@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.23 2012-10-03 13:15:59 dademcron Exp $
+# $Id: CouncilMatch.pm,v 1.24 2012-10-03 13:28:20 matthew Exp $
 #
 
 package CouncilMatch;
@@ -167,9 +167,9 @@ sub refresh_live_data($$) {
         }
         if ($row->{method} eq 'either' || $row->{method} eq 'email') {
             FYRQueue::admin_update_recipient($rep_id, $row->{rep_email}, 0);
-        } elsif ($row->{method} eq 'fax')
+        } elsif ($row->{method} eq 'fax') {
             FYRQueue::admin_update_recipient($rep_id, $row->{rep_fax}, 0);
-        } elsif ($row->{method} eq 'via')
+        } elsif ($row->{method} eq 'via') {
             # Need to look up via contact here TODO
             # FYRQueue::admin_update_recipient($rep_id, $row, 1);
         }
