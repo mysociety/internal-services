@@ -7,7 +7,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: CouncilMatch.pm,v 1.24 2012-10-03 13:28:20 matthew Exp $
+# $Id: CouncilMatch.pm,v 1.25 2012-10-03 14:56:48 matthew Exp $
 #
 
 package CouncilMatch;
@@ -128,7 +128,6 @@ sub refresh_live_data($$) {
     # Go through all updated data, and either insert or replace
     foreach $update_key (keys %$update_keys) {
         my $row = $update_keys->{$update_key};
-        my $rep_id;
         if (exists($current_keys->{$update_key})) {
             # update
             my $rows_affected = $d_dbh->do(q#update representative set
@@ -147,7 +146,15 @@ sub refresh_live_data($$) {
                 . " method: " . $row->{method}
                 . " fax: " . $row->{rep_fax} . " email: " . $row->{rep_email} 
                 . "\n";
-            $rep_id = $current_keys->{$update_key}->{id};
+            my $rep_id = $current_keys->{$update_key}->{id};
+            if ($row->{method} eq 'either' || $row->{method} eq 'email') {
+                FYRQueue::admin_update_recipient($rep_id, $row->{rep_email}, 0);
+            } elsif ($row->{method} eq 'fax') {
+                FYRQueue::admin_update_recipient($rep_id, $row->{rep_fax}, 0);
+            } elsif ($row->{method} eq 'via') {
+                # Need to look up via contact here TODO
+                # FYRQueue::admin_update_recipient($rep_id, $row, 1);
+            }
         } else {
             # insert into
             $d_dbh->do(q#insert into representative 
@@ -163,15 +170,6 @@ sub refresh_live_data($$) {
                 . " method: " . $row->{method}
                 . " fax: " . $row->{rep_fax} . " email: " . $row->{rep_email} 
                 . "\n";
-            ($rep_id) = $d_dbh->selectrow_array('select id from representative where import_key=?', {}, $update_key);
-        }
-        if ($row->{method} eq 'either' || $row->{method} eq 'email') {
-            FYRQueue::admin_update_recipient($rep_id, $row->{rep_email}, 0);
-        } elsif ($row->{method} eq 'fax') {
-            FYRQueue::admin_update_recipient($rep_id, $row->{rep_fax}, 0);
-        } elsif ($row->{method} eq 'via') {
-            # Need to look up via contact here TODO
-            # FYRQueue::admin_update_recipient($rep_id, $row, 1);
         }
     }
 

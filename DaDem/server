@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib
+#!/usr/bin/perl -w -I../../perllib -I../perllib
 #
 # server:
 # RABX server for DaDem.
@@ -12,7 +12,7 @@
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: server,v 1.29 2009-12-17 16:08:48 louise Exp $';
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.30 2012-10-03 14:56:47 matthew Exp $';
 
 use strict;
 require 5.8.0;
@@ -28,6 +28,7 @@ use RABX;
 use FindBin;
 
 use lib "$FindBin::Bin";
+use lib "$FindBin::Bin/../perllib";
 use lib "$FindBin::Bin/../../perllib";
 
 use mySociety::DaDem;   # client interface

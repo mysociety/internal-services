@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.91 2010-10-05 14:00:35 dademcron Exp $
+# $Id: DaDem.pm,v 1.92 2012-10-03 14:56:47 matthew Exp $
 #
 
 package DaDem;
@@ -18,6 +18,7 @@ use DBD::Pg;
 use Data::Dumper;
 use Mail::RFC822::Address;
 
+use FYRQueue;
 use mySociety::DaDem;
 use mySociety::DBHandle qw(dbh);
 use mySociety::MaPit;
@@ -815,6 +816,19 @@ sub admin_edit_representative ($$$$) {
             $id, $newdata->{'name'}, $newdata->{'party'}, $newdata->{'method'},
             $newdata->{'email'}, $newdata->{'fax'}, 'f', $editor, time(), $note);
         dbh()->commit();
+
+        my $new_method = $newdata->{'method'} || $method;
+        if ($new_method eq 'either' || $new_method eq 'email') {
+            my $new_email = $newdata{'email'} || $email;
+            FYRQueue::admin_update_recipient($id, $new_email, 0);
+        } elsif ($new_method eq 'fax') {
+            my $new_fax = $newdata{'fax'} || $fax;
+            FYRQueue::admin_update_recipient($id, $new_fax, 0);
+        } elsif ($new_method eq 'via') {
+            # Need to look up via contact here TODO
+            # FYRQueue::admin_update_recipient($rep_id, $row, 1);
+        }
+
     } else {
         throw RABX::Error("Representative $id not found, so can't be edited", mySociety::DaDem::REP_NOT_FOUND);
     }
