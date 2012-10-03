@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: DaDem.pm,v 1.92 2012-10-03 14:56:47 matthew Exp $
+# $Id: DaDem.pm,v 1.93 2012-10-03 15:00:13 matthew Exp $
 #
 
 package DaDem;
@@ -819,10 +819,10 @@ sub admin_edit_representative ($$$$) {
 
         my $new_method = $newdata->{'method'} || $method;
         if ($new_method eq 'either' || $new_method eq 'email') {
-            my $new_email = $newdata{'email'} || $email;
+            my $new_email = $newdata->{'email'} || $email;
             FYRQueue::admin_update_recipient($id, $new_email, 0);
         } elsif ($new_method eq 'fax') {
-            my $new_fax = $newdata{'fax'} || $fax;
+            my $new_fax = $newdata->{'fax'} || $fax;
             FYRQueue::admin_update_recipient($id, $new_fax, 0);
         } elsif ($new_method eq 'via') {
             # Need to look up via contact here TODO
