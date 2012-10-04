@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib
+#!/usr/bin/perl -w -I../perllib -I../../perllib
 #
 # raw_data_load
 # Load in raw GovEval data, match Council names names to Ordnance Survey ones
@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.44 2012-03-26 10:17:23 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.45 2012-10-04 14:06:17 dademcron Exp $';
 
 use strict;
 require 5.8.0;

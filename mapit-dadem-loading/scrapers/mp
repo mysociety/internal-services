@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../../perllib -I../
+#!/usr/bin/perl -w -I../../perllib -I../../../perllib -I../
 #
 # scrapers/mp
 # Load in MPs from UKParse format XML file, and write out CSV file.
@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: mp,v 1.5 2012-03-26 10:17:23 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp,v 1.6 2012-10-04 14:06:18 dademcron Exp $';
 
 use strict;
 

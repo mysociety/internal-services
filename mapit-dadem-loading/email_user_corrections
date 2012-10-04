@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../perllib -I../DaDem
+#!/usr/bin/perl -w -I../perllib -I../../perllib -I../DaDem
 #
 # email_user_corrections
 #
@@ -8,7 +8,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.10 2010-10-11 08:55:45 francis Exp $';
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.11 2012-10-04 14:06:17 dademcron Exp $';
 
 use strict;
 $| = 1; # flush STDOUT after each write
