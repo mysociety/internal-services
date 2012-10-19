@@ -8,16 +8,17 @@
 # Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: setup-dademcron,v 1.17 2012-10-03 07:41:53 ian Exp $
+# $Id: setup-dademcron,v 1.18 2012-10-19 08:18:00 ian Exp $
 #
 
 set -e
 
 DADEMHOME=/home/dademcron
 WRITETOTHEM_HOST=stork
+DADEM_HOST=leopard
 
-if [ $( hostname ) != majestic ] ; then
-    print "Please run dademcron on one machine (majestic) only"
+if [ $( hostname ) != $DADEM_HOST ] ; then
+    print "Please run dademcron on one machine ($DADEM_HOST) only"
     exit
 fi
 
