@@ -76,5 +76,6 @@ function party_lookup($p) {
     elseif ($p == 'Welsh Conservative Party') return 'Conservative';
     elseif ($p == 'Welsh Liberal Democrats') return 'Liberal Democrat';
     elseif ($p == 'Independant') return 'Independent';
+    elseif ($p == 'Independent Plaid Cymru Member') return 'Plaid Cymru'; # Bethan Jenkins
     else return $p;
 }

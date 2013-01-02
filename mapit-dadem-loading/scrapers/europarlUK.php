@@ -42,13 +42,12 @@ print "First,Last,Constituency,Party,Email,Fax,Image\n";
 //Get the base file
 $regions_data = cached_file_get_contents($regions_url);
 $base_path = '/view/en/your_MEPs/List-MEPs-by-region';
-preg_match_all('#<a  href="(' . $base_path . '/[^"]*)"  >(?:<span>)*(.*?)(?:</span>)*</a>#', $regions_data, $matches, PREG_SET_ORDER);
+preg_match_all('#<a  href="(' . $base_path . '/[^";]*)[^"]*"  >(?:<span>)*(.*?)(?:</span>)*</a>#', $regions_data, $matches, PREG_SET_ORDER);
 
 $regionurls = array();
 foreach ($matches as $match) {
     $region = preg_replace('/&amp;/','and',$match[2]);
     $region = preg_replace('/\bThe/','the',$region);
-    // Remove jsessionid to keep URLs constant (avoid flooding cache dir)
     $regionurls[$region] = $host . $match[1];
 }
 
@@ -57,10 +56,10 @@ $members = array();
 foreach ($regionurls as $region => $regionurl) {
     $meplist_data = cached_file_get_contents($regionurl);
     $meplist_data = preg_replace("/\s+/", ' ', $meplist_data);
-    $meplist_data = preg_replace('#<h2 class="subtitle">Committee\(s\):?</h2>#', '<h3 class="subtitle">Committee(s)</h3>', $meplist_data);
+    $meplist_data = preg_replace('#<h2 [^>]* class="subtitle">Committee\(s\):?</h2>#', '<h3 class="subtitle">Committee(s)</h3>', $meplist_data);
     $mepsfound[$region] = 0;
 
-    preg_match_all('#<h2[ ]class="subtitle">\s*(.*?)\s*</h2>.*?
+    preg_match_all('#<h2[ ][^>]*[ ]class="subtitle">(?:\s*<a[^>]*>)?\s*(.*?)\s*(?:</a>\s*)?</h2>.*?
         <img[ ]src="([^"]*)".*?
         (?:Telephone|Tel):\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?
         (?:Fax:\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?)?
