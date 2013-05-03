@@ -8,10 +8,10 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: match.cgi,v 1.49 2012-10-03 13:25:14 matthew Exp $
+# $Id: match.cgi,v 1.50 2013-05-03 09:05:28 dademcron Exp $
 #
 
-my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.49 2012-10-03 13:25:14 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: match.cgi,v 1.50 2013-05-03 09:05:28 dademcron Exp $';
 
 use strict;
 
@@ -40,8 +40,7 @@ my ($area_id, $name_data, $area_data, $status_data);
 
 sub html_head($$) {
     my ($q, $title) = @_;
-    # XXX don't send this here; also, charset should be utf-8
-    my $ret = $q->header(-type => 'text/html', -charset => 'iso-8859-1');
+    my $ret = $q->header(-type => 'text/html', -charset => 'utf-8');
     $ret .= <<END;
 <html>
 <head>
@@ -529,7 +528,7 @@ try {
     warn "caught fatal exception: $msg";
     warn "aborting";
     encode_entities($msg);
-    print "Status: 500\nContent-Type: text/html; charset=iso-8859-1\n\n",
+    print "Status: 500\nContent-Type: text/html; charset=utf-8\n\n",
             html_head($q, 'Error'),
             q(<p>Unfortunately, something went wrong. The text of the error
                     was:</p>),
