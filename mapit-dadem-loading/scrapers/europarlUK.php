@@ -7,7 +7,7 @@
  */
 
 $host = 'http://www.europarl.org.uk';
-$base_path = '/view/en/your_MEPs/List-MEPs-by-region';
+$base_path = '/en/your_MEPs/List-MEPs-by-region';
 $regions_url = "$host$base_path.html";
 
 $short_opts = '';
@@ -41,13 +41,12 @@ print "First,Last,Constituency,Party,Email,Fax,Image\n";
 
 //Get the base file
 $regions_data = cached_file_get_contents($regions_url);
-$base_path = '/view/en/your_MEPs/List-MEPs-by-region';
-preg_match_all('#<a  href="(' . $base_path . '/[^";]*)[^"]*"  >(?:<span>)*(.*?)(?:</span>)*</a>#', $regions_data, $matches, PREG_SET_ORDER);
+preg_match_all('#href=" *(' . $base_path . '/[^";]*)[^"]*">(?:<span>)* *(.*?) *(?:</span>)*</a>#', $regions_data, $matches, PREG_SET_ORDER);
 
 $regionurls = array();
 foreach ($matches as $match) {
-    $region = preg_replace('/&amp;/','and',$match[2]);
-    $region = preg_replace('/\bThe/','the',$region);
+    $region = str_replace('&amp;', 'and', $match[2]);
+    $region = str_replace('and Humber', 'and the Humber', $region);
     $regionurls[$region] = $host . $match[1];
 }
 

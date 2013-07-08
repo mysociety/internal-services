@@ -9,7 +9,7 @@ use LWP::Simple;
 use Text::CSV_XS;
 
 my $url = 'http://www.scottish.parliament.uk/msps/177.aspx';
-my $msps = LWP::Simple::get('http://www.scottish.parliament.uk/msps/177.aspx');
+my $msps = LWP::Simple::get($url);
 
 my $csv_out = new Text::CSV_XS();
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
