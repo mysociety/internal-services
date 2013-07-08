@@ -22,13 +22,14 @@ foreach ($m as $row) {
     $out[$name]['email'] = $row[4];
 }
 
-# 59 as one Lib Dem AM was disqualified and the new one isn't listed yet
+# 59 as might be someone resigned
 if (count($out) != 60 && count($out) != 59) {
     print "Expected to get 60 Welsh Assembly members, but got " . count($out) . "\n";
     exit(1);
 }
 
 $f = file_get_contents('http://www.senedd.assemblywales.org/mgMemberIndex.aspx');
+$f = str_replace('Lynne Neagle</a>', 'Lynne Neagle</a> <p>Torfaen</p>', $f);
 preg_match_all('#
     <li>
     \s*<a[ ]*href="mgUserInfo\.aspx\?UID=(.*?)"[ ]*>

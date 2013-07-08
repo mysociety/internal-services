@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I../../../perllib -I.. -I../../DaDem
+#!/usr/bin/perl -w -I../../perllib -I../../../perllib -I.. -I../../DaDem
 #
 # Look up information for postcodes.
 #
@@ -6,7 +6,7 @@
 # Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.4 2010-09-27 15:59:43 matthew Exp $';
+my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.5 2013-07-08 11:43:45 dademcron Exp $';
 
 use strict;
 use Common;

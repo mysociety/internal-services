@@ -73,6 +73,9 @@ foreach ($regionurls as $region => $regionurl) {
         preg_match('/^(\S+)\s(.*)/', $name, $nameparts);
         $members[$name]['firstname'] = $nameparts[1];
         $members[$name]['surname'] = $nameparts[2];
+        if ($name == 'Malcolm Harbour') {
+            $members[$name]['surname'] = 'Harbour CBE';
+        }
         
         $members[$name]['region'] = $region;
         $mepsfound[$members[$name]['region']]++;

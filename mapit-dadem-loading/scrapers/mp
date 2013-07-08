@@ -18,7 +18,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: mp,v 1.6 2012-10-04 14:06:18 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: mp,v 1.7 2013-07-08 11:43:45 dademcron Exp $';
 
 use strict;
 
@@ -113,6 +113,8 @@ binmode(CSV, ":utf8");
 print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
 foreach my $member (@membersnow) {
     my $fullname = $member->att('firstname') . " " . $member->att('lastname');
+    $fullname = $member->att('title') . " $fullname"
+        if $member->att('title');
     my $party = $member->att('party');
     my $constituency = $member->att('constituency');
     my $member_id = $member->att('id');

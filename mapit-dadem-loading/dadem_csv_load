@@ -29,7 +29,7 @@
 # Email: francis@mysociety.org; WWW: http://www.mysociety.org/
 #
 
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.27 2012-10-04 14:06:17 dademcron Exp $';
+my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.28 2013-07-08 11:43:44 dademcron Exp $';
 
 use strict;
 
@@ -348,7 +348,13 @@ while (my $line = <MAIN>) {
 
         # Make any updates
         my $dadem_rep_id = $cur_repinfo->{id};
-        if ($conflict) {
+        if ($conflict && (
+               ($dadem_rep_id == 45628 && $cur_repinfo->{party} eq 'Conservative' && $finalparty eq 'UKIP')
+            || ($dadem_rep_id == 45655 && $cur_repinfo->{party} eq 'We Demand a Referendum Party' && $finalparty eq 'Independent')
+            )
+        ) {
+            # Do nothing for exceptions we know about
+        } elsif ($conflict) {
             print "Conflict $dadem_rep_id, not updated --- $conflict\n";
             print "\tLast edited by: " . $cur_repinfo->{last_editor} . "\n";
             print "\tCur: " . $cur_repinfo->{name} . " (".$cur_repinfo->{party}.") ".$cur_repinfo->{method} . " " . ($cur_repinfo->{fax} || "NOFAX") . " " . ($cur_repinfo->{email} || "NOEMAIL"). "\n";
