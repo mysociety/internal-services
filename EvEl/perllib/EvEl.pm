@@ -6,7 +6,7 @@
 # Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: EvEl.pm,v 1.60 2008-10-09 15:51:00 matthew Exp $
+# $Id: EvEl.pm,v 1.61 2013-09-12 15:06:58 ian Exp $
 #
 
 package EvEl::Error;
@@ -27,7 +27,7 @@ Generic email sending and mailing list functionality, with bounce detection
 
 use strict;
 
-use Digest::SHA1;
+use Digest::SHA;
 use Error qw(:try);
 use Mail::RFC822::Address;
 use MIME::Entity;
@@ -80,8 +80,8 @@ sub verp_address ($$$) {
     # random bytes because that creates a potential problem with "greylisting"
     # setups which defer mail from unknown senders until it's been retried. So
     # use a hash of the message contents.
-    my $salt = substr(Digest::SHA1::sha1_hex($_[2]), 0, 6);
-    my $hash = Digest::SHA1::sha1_hex("$msgid-$recipid-$salt-" . secret());
+    my $salt = substr(Digest::SHA::sha1_hex($_[2]), 0, 6);
+    my $hash = Digest::SHA::sha1_hex("$msgid-$recipid-$salt-" . secret());
     return sprintf('%s%d-%d-%s-%s@%s',
                 mySociety::Config::get('EVEL_VERP_PREFIX'),
                 $msgid, $recipid, $salt,
@@ -104,7 +104,7 @@ sub parse_verp_address ($) {
     
     my ($msgid, $recipid, $salt, $hash) = ($addr =~ m/^(\d+)-(\d+)-([0-9a-f]+)-([0-9a-f]+)$/i)
         or return ();
-    return () unless (substr(Digest::SHA1::sha1_hex("$msgid-$recipid-$salt-" . secret()), 0, 8) ne $hash);
+    return () unless (substr(Digest::SHA::sha1_hex("$msgid-$recipid-$salt-" . secret()), 0, 8) ne $hash);
 
     # Only return data for messages which actually exist.
     return () unless (defined(dbh()->selectrow_array('select id from message where id = ?', {}, $msgid)));

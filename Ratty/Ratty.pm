@@ -6,7 +6,7 @@
 # Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
 # Email: chris@mysociety.org; WWW: http://www.mysociety.org/
 #
-# $Id: Ratty.pm,v 1.28 2007-01-25 15:07:30 louise Exp $
+# $Id: Ratty.pm,v 1.29 2013-09-12 15:06:59 ian Exp $
 #
 
 package Ratty::Error;
@@ -20,7 +20,7 @@ package Ratty;
 use strict;
 
 use DBI;
-use Digest::SHA1;
+use Digest::SHA;
 use Error qw(:try);
 use Net::Netmask;
 use Time::HiRes;
@@ -268,8 +268,8 @@ sub compile_rules () {
 
         if (@sdconds) {
             # Now assemble all the single/distinct matches.
-            push(@code, 'my $S = new Digest::SHA1();') if (@sconds);
-            push(@code, 'my $D = new Digest::SHA1();') if (@dconds);
+            push(@code, 'my $S = new Digest::SHA();') if (@sconds);
+            push(@code, 'my $D = new Digest::SHA();') if (@dconds);
             foreach (@sdconds) {
                 my ($id, $field, $condition, $value) = @$_;
                 push(@data, $field);
