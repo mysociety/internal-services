@@ -59,7 +59,7 @@ foreach ($regionurls as $region => $regionurl) {
     $mepsfound[$region] = 0;
 
     preg_match_all('#<h2[ ][^>]*[ ]class="subtitle">(?:\s*<a[^>]*>)?\s*(.*?)\s*(?:</a>\s*)?</h2>.*?
-        <img[ ]src="([^"]*)".*?
+        <img[ ]src="([^"]*)\?hash=[0-9]+".*?
         (?:Telephone|Tel):\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?
         (?:Fax:\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?)?
         Email:\s*<a[ ]class="[^"]*"[ ]href="mailto:([^"]*)">.*?
