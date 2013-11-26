@@ -15,3 +15,6 @@ libstring-ediff-perl
 # Ratty
 libnet-netmask-perl 
 
+# EvEl
+libmime-tools-perl
+libmail-rfc822-address-perl
