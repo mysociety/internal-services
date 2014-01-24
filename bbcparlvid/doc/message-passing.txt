@@ -1,0 +1,19 @@
+Message Passing in the parlvid system
+
+Hosts:
+
+video-download = sponge.ukcod.org.uk
+video-processor = sponge.ukcod.org.uk
+video-storage = sponge.ukcod.org.uk (network attached storage via NFS mount at /parlvid)
+video-database = bitter.ukcod.org.uk
+
+Message groups:
+
+parlvid-raw-footage = video-download -> video-database: Notification of new chunk of video downloaded (status and other metadata in "name=value\n" pairs)
+
+processing-requests = video-database -> video-processor: Notification of new programmes to extract from downloaded video chunks (encoding metadata in "name=value\n" pairs)
+
+encoding-status: video-processor -> video-database: Notification of newly processed programmes  (status in "name=value\n" pairs)
+
+
+
