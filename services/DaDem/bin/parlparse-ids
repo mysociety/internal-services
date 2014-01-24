@@ -1,0 +1,108 @@
+#!/usr/bin/perl -w
+#
+# parlparse-ids:
+#
+# Recreates table linking DaDem representative ids with parlparse MP person ids.
+# See http://ukparse.kforge.net
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.10 2012-06-18 22:34:13 dademcron Exp $';
+
+use strict;
+require 5.8.0;
+
+# Horrible boilerplate to set up appropriate library paths.
+use FindBin;
+use lib "$FindBin::Bin/../../perllib";
+use lib "$FindBin::Bin/../../../perllib";
+use lib "$FindBin::Bin/../../mapit-dadem-loading";
+
+use POSIX qw(strftime);
+use Data::Dumper;
+use IPC::Open2;
+use utf8;
+binmode(STDOUT, ':utf8');
+
+use mySociety::Config;
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../../conf/general");
+}
+use mySociety::DBHandle qw(dbh);
+use mySociety::DaDem;
+use mySociety::MaPit;
+use mySociety::VotingArea;
+use mySociety::Parties;
+
+sub connect_to_dadem_database () {
+    my $host = mySociety::Config::get('DADEM_DB_HOST', undef);
+    my $port = mySociety::Config::get('DADEM_DB_PORT', undef);
+
+    my $connstr = 'dbi:Pg:dbname=' . mySociety::Config::get('DADEM_DB_NAME');
+    $connstr .= ";host=$host" if (defined($host));
+    $connstr .= ";port=$port" if (defined($port));
+
+    return DBI->connect($connstr,
+                        mySociety::Config::get('DADEM_DB_USER'),
+                        mySociety::Config::get('DADEM_DB_PASS'),
+                        { RaiseError => 1, AutoCommit => 0 });
+}
+my $d_dbh = connect_to_dadem_database();
+
+$d_dbh->do('delete from parlparse_link;');
+#print "WMC\n";
+process_one_type("WMC", './parlparse-ids.py');
+#print "HOC\n";
+process_one_type("HOC", './parlparse-ids-lords.py');
+$d_dbh->commit();
+
+sub process_one_type {
+    my $area_type = shift;
+    my $matcher_script = shift;
+
+    # Need to obtain a list of MP/constituency names and then pick out messages by those.
+    my %areainfo = %{ mySociety::MaPit::call('areas', $area_type, min_generation => -1) }; # ALL areas (not just current generation)
+    my $repids = mySociety::DaDem::get_representatives([keys %areainfo], 1); # hash from area to reps for that area
+    my @allreps;
+    my $reptoarea; # hash from rep id to area represented
+    foreach (keys %$repids) {
+        if (!@{$repids->{$_}}) {
+            next if $_ == 32499 || $_ == 33112; # two Scottish WMCs that didn't
+            # exist in old mapit, are old generation and so have never had a rep,
+            # and never will do. 
+            print STDERR "area #$_ ($areainfo{$_}->{name}) has no representative\n";
+        } else {
+            foreach my $repid (@{$repids->{$_}}) {
+                if ($repid !~ /^[1-9]\d*$/) {
+                    print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
+                }
+
+                push @allreps, $repid;
+                $reptoarea->{$repid} = $_;
+            }
+       }
+    }
+    my %repinfo = %{mySociety::DaDem::get_representatives_info(\@allreps)};
+
+    # Match all the names
+    my ($rd, $wt);
+    open2($rd, $wt, $matcher_script) or die "failed to call $matcher_script";
+    binmode($wt, ':utf8');
+    foreach my $repid (@allreps) {
+        next if $reptoarea->{$repid} >= 1000000; # XXX Test areas
+        my $name = $repinfo{$repid}->{name};
+        my $cons = $areainfo{$reptoarea->{$repid}}->{name};
+        my $editdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whenlastedited}));
+        my $createdate = strftime("%Y-%m-%d", localtime($repinfo{$repid}->{whencreated}));
+        # print "$name $cons $createdate $editdate\n";
+        $wt->print("$name#$cons#$createdate\n");
+        my $person_id_1 = $rd->getline();
+        die "none matched for $name ($cons)" if (!$person_id_1);
+        $person_id_1 =~ s/(\s+$)|(^\s+)//g;
+        $d_dbh->do('insert into parlparse_link (representative_id, person_id) values (?, ?)', {}, $repid, $person_id_1);
+    }
+    close($rd);
+}
+

@@ -1,0 +1,112 @@
+#!/usr/bin/perl -w -I../../../perllib
+#
+# makenicknames
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+# Data in this directory is from:
+# http://www.tcarden.com/tree/ensor/nicknamemale.htm
+# (copyright, Trish S. Carden, reproduced with link by her permission)
+# http://policy.ssa.gov/poms.nsf/lnx/0102528007?opendocument
+# http://policy.ssa.gov/poms.nsf/lnx/0102528008?opendocument
+# (in the public domain as per http://www.ssa.gov/policy/about/copyright.html)
+
+my $rcsid = ''; $rcsid .= '$Id: make_nick_names,v 1.3 2005-02-02 00:10:02 francis Exp $';
+
+use strict;
+$| = 1; # flush STDOUT afer each write
+
+use HTML::TokeParser;
+use Data::Dumper;
+use mySociety::StringUtils;
+
+# Array of arrayref of nicknames in a set.  First in set is key.
+my @nick_sets;
+
+sub add_nicks($$) {
+    my ($key, $values) = @_;
+    my @values = split /,|\bor\b/, $values; 
+    @values = map { mySociety::StringUtils::trim($_) } @values;
+    do { die "space in $_" if m/ /; } for @values;
+    my $arr = [];
+    push @$arr, $key;
+    push @$arr, @values;
+    push @nick_sets, $arr;
+}
+
+# SSA
+foreach my $filename (qw(ssa-female.html ssa-male.html)) {
+    my $p = HTML::TokeParser->new($filename);
+    while (my $row = $p->get_tag("tr")) {
+        $p->get_tag("td", "/tr");
+        my $key = $p->get_trimmed_text();
+        next if !$key;
+        $p->get_tag("td", "/tr");
+        my $values = $p->get_trimmed_text();
+        next if ($key eq "(feminine)");
+        #print "values $values\n";
+        next if ($values =~ m/^See /);
+        die "'See ' in middle $values" if ($values =~ m/\bSee\b/);
+        add_nicks($key, $values);
+    }
+}
+
+# Trish
+foreach my $filename (qw(trish-female.html trish-male.html)) {
+    open TRISH, "<$filename";
+    # ... skip to H1
+    while (<TRISH>) {
+        last if m/<h1>/;
+    }
+    # ... read cnicks
+    while (<TRISH>) {
+        last if m/copyright 1999/;
+        last if m/Welcome Page/;
+        s/<br>//g;
+        s/<p>//g;
+        s/&nbsp;//g;
+        s/\b[sS]ee .*//;
+        s/\bnames starting .*//;
+        s/\bmay be .*//;
+        s/\bsometimes .*//;
+        s/\betc\b[.]?//g;
+        s/\([fm]\)//g;
+        $_ = mySociety::StringUtils::trim($_);
+        next if ($_ eq "");
+        next if m/^\*/;
+        next if m/[<>]/;
+        next if m/~~/;
+        next if m/^[A-Z] \(female\)$/;
+        my @names = split m#(?:/|,|--|-|\bor\b| )#, $_;
+        @names = map { mySociety::StringUtils::trim($_) } @names;
+        @names = grep { $_ ne "" } @names;
+        my $key = shift @names;
+#        print $key;
+#        print Dumper(@names);
+        add_nicks($key, join(",", @names));
+        #do { print "$_\n" if m/ /; } for @names;
+#        print Dumper(\@names);
+    }
+}
+
+# Print it out
+print "\"Nickname\", \"Full form\"\n";
+my $done;
+foreach my $set (@nick_sets) {
+    my $key;
+    foreach my $value (@$set) {
+        die if $value =~ m/"/;
+        if (!defined($key)) {
+            $key = $value;
+            next;
+        }
+        my $line = "\"$value\",\"$key\"\n";
+        # keep only unqiue lines (copied between two sources of names)
+        next if exists($done->{$line});
+        print $line;
+        $done->{$line} = 1;
+    }
+}
+

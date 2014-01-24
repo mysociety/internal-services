@@ -1,0 +1,129 @@
+#!/usr/bin/perl -w -I../../perllib -I../perllib
+#
+# server:
+# RABX server for DaDem.
+#
+# To run it you need these lines in an Apache config:
+#     Options +ExecCGI
+#     SetHandler fastcgi-script
+#
+#
+# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
+# Email: chris@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.30 2012-10-03 14:56:47 matthew Exp $';
+
+use strict;
+require 5.8.0;
+
+# Do this first of all, because DaDem.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../conf/general');
+}
+
+use FCGI;
+use RABX;
+use FindBin;
+
+use lib "$FindBin::Bin";
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../perllib";
+
+use mySociety::DaDem;   # client interface
+use mySociety::VotingArea;
+use mySociety::WatchUpdate;
+
+use DaDem;              # implementation
+
+my $W = new mySociety::WatchUpdate();
+
+my $req = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%ENV, 0, 1 );
+
+use constant cache_age => 0;
+
+# FastCGI signal handling
+my $exit_requested = 0;
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+};
+
+while ($req->Accept() >= 0) {
+    # Only want to make the query results cacheable, not the admin interface.
+    RABX::Server::CGI::dispatch(
+            'DaDem.get_representatives' => [
+                sub { return DaDem::get_representatives($_[0], $_[1]); },
+                cache_age
+            ],
+            'DaDem.get_area_status' => [
+                sub { return DaDem::get_area_status($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_area_statuses' => [
+                sub { return DaDem::get_area_statuses(); },
+                cache_age
+            ],
+            'DaDem.search_representatives' => [
+                sub { return DaDem::search_representatives($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_bad_contacts' => sub {
+                return DaDem::get_bad_contacts();
+            },
+            'DaDem.get_user_corrections' => sub {
+                return DaDem::get_user_corrections();
+            },
+            'DaDem.get_representative_info' => [
+                sub { return DaDem::get_representative_info($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_representatives_info' => [
+                sub { return DaDem::get_representatives_info($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_same_person' => [
+                sub { return DaDem::get_same_person($_[0]); },
+                cache_age
+            ],
+            'DaDem.get_representative_history' => sub {
+                return DaDem::get_representative_history($_[0]);
+            },
+            'DaDem.get_representatives_history' => sub {
+                return DaDem::get_representatives_history($_[0]);
+            },
+            'DaDem.store_user_correction' => sub {
+                return DaDem::store_user_correction($_[0], $_[1], $_[2], $_[3], $_[4], $_[5], $_[6]);
+            },
+            'DaDem.get_secret' => sub {
+                return DaDem::get_secret();
+            },
+            'DaDem.admin_get_stats' => sub {
+                return DaDem::admin_get_stats();
+            },
+            'DaDem.admin_edit_representative' => sub {
+                return DaDem::admin_edit_representative($_[0], $_[1], $_[2], $_[3]);
+            },
+            'DaDem.admin_done_user_correction' => sub {
+                return DaDem::admin_done_user_correction($_[0]);
+            },
+            'DaDem.admin_mark_failing_contact' => sub {
+                return DaDem::admin_mark_failing_contact($_[0], $_[1], $_[2], $_[3], $_[4]);
+            },
+            'DaDem.admin_set_area_status' => sub {
+                return DaDem::admin_set_area_status($_[0], $_[1]);
+            },
+            'DaDem.admin_get_raw_council_status' => sub {
+                return DaDem::admin_get_raw_council_status();
+            },
+            'DaDem.admin_get_diligency_council' => sub {
+                return DaDem::admin_get_diligency_council($_[0]);
+            },
+            'DaDem.admin_get_diligency_reps' => sub {
+                return DaDem::admin_get_diligency_reps($_[0]);
+            }
+         );
+#    $W->exit_if_changed();
+    last if $exit_requested;
+}
+

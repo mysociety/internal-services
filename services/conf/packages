@@ -1,0 +1,20 @@
+# Used by RABX
+libjson-perl
+libinline-perl
+
+# People scrapers / dademcron
+libwww-perl
+libwww-mechanize-perl
+libxml-twig-perl
+libtext-csv-perl
+libtext-csv-xs-perl
+
+# WTT user corrections uses this
+libstring-ediff-perl
+
+# Ratty
+libnet-netmask-perl 
+
+# EvEl
+libmime-tools-perl
+libmail-rfc822-address-perl

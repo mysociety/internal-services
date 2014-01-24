@@ -1,0 +1,100 @@
+#!/usr/bin/perl -w
+#
+# process_addresspoint:
+# Load Address-Point into a database
+#
+# Call with a directory of CSV files containing Address-Point data
+# ONLY FOR INITIAL IMPORT - doesn't check for existing entries at all
+#
+# Copyright (c) 2007 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: process_addresspoint,v 1.1 2007-03-17 12:42:12 matthew Exp $';
+
+use strict;
+require 5.8.0;
+
+use FindBin;
+use lib "$FindBin::Bin/../perllib";
+use lib "$FindBin::Bin/../../perllib";
+use Text::CSV_XS;
+use Archive::TarGzip; # XXX: Isn't properly installed, sorry
+use mySociety::Config;
+use mySociety::DBHandle qw(dbh);
+
+BEGIN {
+    mySociety::Config::set_file("$FindBin::Bin/../conf/general");
+    mySociety::DBHandle::configure(
+            Name => mySociety::Config::get('DRESS_DB_NAME'),
+            User => mySociety::Config::get('DRESS_DB_USER'),
+            Password => mySociety::Config::get('DRESS_DB_PASS'),
+            Host => mySociety::Config::get('DRESS_DB_HOST', undef),
+            Port => mySociety::Config::get('DRESS_DB_PORT', undef)
+        );
+}
+
+die "argument is .tar.gz file of Address-Point CSV files" unless (@ARGV == 1);
+my ($apfile) = @ARGV;
+$/ = "\r\n";
+my $n = 0;
+my @rows = qw(APR dept po org number subbuilding building
+    road subroad town locality sublocality countyBLANK
+    postcode easting northing status change);
+# E/N are in 10ths of a metre
+
+my $tar = new Archive::TarGzip();
+$tar->OPEN("<$apfile", 1);
+while (my $tar_header = $tar->READLINE()) {
+    last if ($tar_header->{end_of_tar});
+    my $file = $tar_header->{data};
+    my @f = read_csv_file($file);
+    foreach my $r (@f) {
+	my %l = map { $rows[$_] => ($r->[$_] eq ' ' ? '' : $r->[$_]) } 0..17;
+	next if $l{po} # PO Box
+	    or $l{change} eq 'D' # Deleted
+	    or ($l{status} != '1354' and $l{status} != '0354'); # Defined, Accurate, Existing, Matched
+	foreach (qw(dept org subbuilding building road subroad town locality sublocality)) {
+	    $l{$_} = ucwords($l{$_});
+	}
+	$l{postcode} =~ s/  +/ /g;
+	my @address = map { $l{$_} ? $l{$_} : () } qw(subroad road sublocality locality town);
+	$address[0] = "$l{number} $address[0]" if $l{number};
+	($address[0],$l{building}) = ("$l{building} $address[0]",'') if $l{building} =~ /^\d.*\d[a-z]?$/i;
+	($address[0],$l{subbuilding}) = ("$l{subbuilding} $address[0]",'') if $l{subbuilding} =~ /^\d.*\d[a-z]?$/i;
+	@address = grep { $_ } ($l{org}, $l{dept}, $l{subbuilding}, $l{building}, @address);
+	my $address = join("\n", @address);
+	dbh()->do("insert into address (easting, northing, coordsyst, address, postcode)
+	    values (?, ?, 'G', ?, ?)", {}, $l{easting}/10, $l{northing}/10, $address, $l{postcode});
+        ++$n;
+	$address =~ s/\n/, /g;
+        if (0 == ($n % 1000)) {
+            STDERR->printf("\r[2K%d addresses (%s, %s)", $n, $address, $l{postcode});
+	    dbh()->commit();
+        }
+    }
+}
+STDERR->printf("\r[2K%d addresses\n", $n);
+#print STDERR "dbh->commit disabled, rolling back\n";
+
+END {
+    $tar->CLOSE();
+}
+
+sub read_csv_file {
+    my ($f) = @_;
+    my $C = new Text::CSV_XS();
+    my @f = split /\r\n/, $f;
+    my @res = ( );
+    foreach (@f) {
+        $C->parse($_);
+        push(@res, [ $C->fields() ]);
+    }
+    return @res;
+}
+
+sub ucwords {
+    my $s = shift;
+    $s =~ s/\b(.)(.*?)\b/\u$1\L$2\E/g;
+    return $s;
+}

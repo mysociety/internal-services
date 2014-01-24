@@ -1,0 +1,197 @@
+#!/usr/bin/perl -w -I../perllib -I../../perllib -I../DaDem
+#
+# email_user_corrections
+#
+# Generate report for GovEval of user-submitted corrections.
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: email_user_corrections,v 1.11 2012-10-04 14:06:17 dademcron Exp $';
+
+use strict;
+$| = 1; # flush STDOUT after each write
+
+use DBI;
+use DBD::Pg;
+use Text::CSV;
+use Data::Dumper;
+use Text::Wrap;
+use POSIX qw(strftime);
+use Error qw(:try);
+
+use Common;
+use mySociety::MaPit;
+use mySociety::StringUtils qw(trim merge_spaces string_diff);
+use DaDem;
+
+my $d_dbh = connect_to_dadem_database();
+my $to = shift(@ARGV);
+if (!$to) {
+    print "Running in test mode, not sending email or committing.\n";
+    print "(specify email addresses as first parameter to run for real)\n";
+    print "NOTE: Bad user correction data for delete reps is still marked\n";
+    print "even in this otherwise non-commit mode.\n";
+    print "\n";
+}
+
+# Cache of area_id->type etc.
+my %areas;
+
+# Get user corrections
+my $s = $d_dbh->prepare(q#select * from user_corrections 
+    where admin_done = 'f' 
+        and when_goveval is null
+    order by whenentered#);
+$s->execute();
+my $corrections;
+my $corrections_count = 0;
+while (my $row = $s->fetchrow_hashref()) {
+    my $user_correction_id = $row->{user_correction_id};
+    my $area_id = $row->{voting_area_id};
+    unless ($areas{$area_id}) {
+        $areas{$area_id} = mySociety::MaPit::call('area', $area_id);
+    }
+    my $parent_id = $areas{$area_id}{parent_area};
+    unless ($areas{$parent_id}) {
+        $areas{$parent_id} = mySociety::MaPit::call('area', $parent_id);
+    }
+    if ($row->{representative_id}) {
+        my $orig_info;
+        try { 
+            $orig_info = DaDem::get_representative_info($row->{representative_id});
+        } catch RABX::Error::User with {
+            my $E = shift;
+            # Ignore REP_NOT_FOUND errors - we just skip this item if the rep 
+            # has already been deleted.
+            if ($E->value() != mySociety::DaDem::REP_NOT_FOUND) {
+                $E->throw();
+            }
+        };
+        if (!$orig_info) {
+            print STDERR "Representative ".$row->{representative_id}." no longer there\n";
+            $d_dbh->do("update user_corrections set admin_done = 't' where user_correction_id = ?", 
+                {}, $user_correction_id);
+            next;
+        }
+    }
+    $corrections->{$parent_id}->{$area_id}->{$user_correction_id} = $row;
+    $corrections_count++;
+}
+# commit reps no longer there
+$d_dbh->commit();
+# ... give up if there are none
+if (!$corrections_count) {
+    $d_dbh->disconnect();
+    exit;
+}
+
+# Connect to SENDMAIL
+if ($to) {
+    open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
+print <<END;
+Subject: WriteToThem User-Submitted Corrections
+From: WriteToThem Team <team\@writetothem.com>
+To: $to
+
+END
+}
+
+# Report header
+my $date = strftime("%e %b %Y at %H:%M:%S", localtime);
+print <<END;
+WriteToThem User-Submitted Corrections
+======================================
+
+Report generated on $date. Contains corrections 
+to councillor data submitted by users to the WriteToThem.com website.
+Only new submissions since the last report are included. The
+submissions are sorted alphabetically by council and then by ward.
+They are not filtered or edited; double check the information before
+using it.
+
+
+END
+
+# Print them out
+foreach my $parent_id (sort { $areas{$a}{name} cmp $areas{$b}{name} } keys %$corrections) {
+    my $parent_name = $areas{$parent_id}{name};
+    print "$parent_name\n";
+    print "=" x (length($parent_name)) . "\n\n";
+    my $parent_hash = $corrections->{$parent_id};
+    foreach my $child_id (sort { $areas{$a}{name} cmp $areas{$b}{name} } keys %$parent_hash) {
+        my $child_name = $areas{$child_id}{name};
+        my $child_type = $areas{$child_id}{type};
+        $child_name .= " " . $mySociety::VotingArea::type_name{$child_type};
+        print "$child_name\n";
+        print "-" x (length($child_name)) . "\n\n";
+
+        my $child_hash = $parent_hash->{$child_id};
+        foreach my $user_correction_id (keys %$child_hash) {
+            my $c = $child_hash->{$user_correction_id};
+
+            # Store we have done it
+            $d_dbh->do("update user_corrections set when_goveval = ? where user_correction_id = ?", 
+                {}, time(), $user_correction_id);
+
+            my $rep_id = $c->{representative_id};
+            my $orig_info;
+            if ($rep_id) {
+                $orig_info = DaDem::get_representative_info($rep_id);
+                die if (!$orig_info);
+            }
+
+            print "   "; # . $user_correction_id . ". ";
+            if ($c->{alteration} eq "delete") {
+                print "Delete '$orig_info->{name}'\n";
+            } elsif ($c->{alteration} eq "add") {
+                print "Add '$c->{name}' party '$c->{party}'\n";
+            } elsif ($c->{alteration} eq "modify") {
+                my $name_change = ($c->{name} && ($c->{name} ne $orig_info->{name}));
+                my $party_change = ($c->{party} && ($c->{party} ne $orig_info->{party}));
+                my $neither = (!$name_change && !$party_change);
+                if ($name_change) {
+                    print "Change name '$orig_info->{name}' to '$c->{name}' ";
+                }
+                if ($party_change) {
+                    print "Change party '$orig_info->{party}' to '$c->{party}' ";
+                    if (!$name_change) {
+                        print "for '$orig_info->{name}' ";
+                    }
+                }
+                if ($neither) {
+                    print "Already made change for '$orig_info->{name}'";
+                }
+                print "\n";
+            } else {
+                die "unknown alteration type " . $c->{alteration};
+            }
+
+            if ($c->{user_notes}) {
+                local($Text::Wrap::columns) = 60;
+                local($Text::Wrap::huge) = 'overflow';      # user may include URLs which shouldn't be wrapped
+                print "      ";
+                print trim(Text::Wrap::wrap('      ', '      ', 'Comment: '. trim($c->{user_notes})));
+                print "\n";
+            }
+
+            # Other fields in $c which we might want to use:
+            #  'whenentered' => '1109002342',
+            #  'user_email' => '',
+        }
+        print "\n";
+    }
+    print "\n";
+}
+
+if ($to) {
+    $d_dbh->commit();
+} else {
+    print "Rolling back\n";
+    $d_dbh->rollback();
+}
+$d_dbh->disconnect();
+
+close(STDOUT);
+

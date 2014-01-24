@@ -1,0 +1,58 @@
+#!/usr/bin/perl -w -I../../perllib -I../../../perllib -I.. -I../../DaDem
+#
+# Look up information for postcodes.
+#
+# Copyright (c) 2009 UK Citizens Online Democracy. All rights reserved.
+# Email: matthew@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: postcode_lookup,v 1.5 2013-07-08 11:43:45 dademcron Exp $';
+
+use strict;
+use Common;
+use DaDem;
+use LWP::Simple;
+use Text::CSV_XS;
+use mySociety::MaPit;
+
+my $csv = Text::CSV_XS->new({ binary => 1 });
+while (<>) {
+    s/[\r\n]//g;
+    $csv->parse($_);
+    my ($id, $name, $pc) = $csv->fields();
+    (my $pc_db = $pc) =~ s/ //g;
+    my $row = mySociety::MaPit::call('postcode', $pc_db);
+    my @row = ($id, $name, $pc);
+    {
+        my ($N, $E) = ($row->{northing}, $row->{easting});
+        my ($lat, $lon) = ($row->{wgs84_lat}, $row->{wgs84_lon});
+        my (%areas, $first, $last);
+        foreach my $r (values %{$row->{areas}}) {
+            $areas{$r->{type}} = $r->{name};
+            if ($r->{type} eq 'WMC') {
+                my $r = DaDem::get_representatives($r->{id});
+                if ($r->[0]) {
+                    my $mp = DaDem::get_representative_info($r->[0]);
+                    my $id = $mp->{parlparse_person_id};
+                    $id =~ s{uk.org.publicwhip/person/}{};
+                    my $js = get("http://www.theyworkforyou.com/api/getPerson?key=Gbr9QgCDzHExFzRwPWGAiUJ5&output=js&id=$id");
+                    $js =~ /"first_name":"([^"]*)"/;
+                    $first = $1;
+                    $js =~ /"last_name":"([^"]*)"/;
+                    $last = $1;
+                } else {
+                    $first = '-'; $last = '-';
+                }
+            }
+        }
+        my $devolved = $areas{SPC} || $areas{WAC} || $areas{NIE} || '-';
+        my $devolved_region = $areas{SPE} || $areas{WAE} || '-';
+        my $council = $areas{MTD} || $areas{COI} || $areas{DIS} || $areas{LBO} || $areas{LGD} || $areas{UTA};
+        my $county = $areas{CTY} || '-';
+        push @row, $lat, $lon, $areas{WMC}, $first, $last, $council, $county, $areas{EUR}, $devolved, $devolved_region;
+    }
+    $csv->combine(@row);
+    print $csv->string();
+    print "\n";
+}
+

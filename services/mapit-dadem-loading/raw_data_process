@@ -1,0 +1,94 @@
+#!/usr/bin/perl -w -I../perllib -I../../perllib
+#
+# raw_data_process
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: raw_data_process,v 1.20 2012-10-04 14:06:18 dademcron Exp $';
+
+use strict;
+$| = 1; # flush STDOUT afer each write
+
+use DBI;
+use DBD::Pg;
+use Text::CSV;
+use Data::Dumper;
+use Getopt::Long;
+
+use mySociety::MaPit;
+use mySociety::VotingArea;
+
+use Common;
+use CouncilMatch;
+
+# Options
+sub help {
+print <<END
+
+Usage: raw_data_process [OPTION]
+
+Options are:
+    --verbose=n   Choose 0 (no progress) to 2 (full debug), defaults to 2
+
+END
+}
+our $verbose = 1;
+our $help;
+if (!GetOptions(
+        "verbose=i" => \$verbose,
+        "help" => \$help
+    )) {
+    help();
+    exit(1);
+}
+if ($help) {
+    help();
+    exit(0);
+}
+
+my $d_dbh = connect_to_dadem_database();
+CouncilMatch::set_db_handle($d_dbh);
+
+# Cache of area_id->type etc.
+my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
+
+# Find areas in raw_process_status which are no longer in mapit
+my $areas_with_status = $d_dbh->selectall_hashref(
+    qq#select council_id from raw_process_status#, 'council_id');
+foreach my $id (keys %$area_id_data) {
+    if (exists($areas_with_status->{$id})) {
+        delete ($areas_with_status->{$id});
+    }
+}
+# Remove them from database
+foreach my $id (keys %$areas_with_status) {
+    print "Deleting old council $id\n";
+    $d_dbh->do(q#delete from raw_process_status where council_id=?#, {}, $id);
+}
+$d_dbh->commit();
+
+# For each "council" (or similar), get list of "wards" (or similar) and match it up
+# with what is in the database already.
+my $success = 0;
+my $count = 0;
+foreach my $id (keys %$area_id_data) {
+    printf "%38s %5d: ", $area_id_data->{$id}->{name}, $id if $verbose > 0;
+
+    my $result = CouncilMatch::process_ge_data($id, $verbose);
+    if ($result->{error}) {
+        print " FAIL\n" if $verbose > 0;
+    } else {
+        $success++;
+        print " ok\n" if $verbose > 0;
+    }
+
+    $count++;
+}
+print "\n" if $verbose > 0;
+print "Success for $success/$count councils\n" if $verbose > 0;
+print "Failed for " . ($count-$success) . " councils\n" if $verbose > 0;
+
+$d_dbh->disconnect();
+

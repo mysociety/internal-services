@@ -1,0 +1,81 @@
+#!/usr/bin/perl -w -I./perllib -I../../perllib 
+#
+# server:
+# RABX server for NeWs.
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: louise.crow@gmail.com; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: server,v 1.7 2008-02-04 22:50:30 matthew Exp $';
+
+use strict;
+require 5.8.0;
+
+
+# Do this first of all, because NeWs.pm needs to see the config file.
+BEGIN {
+    use mySociety::Config;
+    mySociety::Config::set_file('../conf/general');
+}
+
+use FCGI;
+use RABX;
+
+
+use mySociety::WatchUpdate;
+use NeWs;
+
+my $req = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%ENV, 0, 1 );
+my $W = new mySociety::WatchUpdate();
+
+# FastCGI signal handling
+my $exit_requested = 0;
+$SIG{TERM} = $SIG{USR1} = sub {
+    $exit_requested = 1;
+};
+
+
+while ($req->Accept() >= 0) {
+    RABX::Server::CGI::dispatch(
+            'NeWs.get_newspaper' => sub {
+                return NeWs::get_newspaper($_[0]);
+            }, 
+            'NeWs.get_newspapers' => sub {
+                return NeWs::get_newspapers();
+            }, 
+            'NeWs.publish_newspaper_update' => sub {
+                return NeWs::publish_newspaper_update($_[0],$_[1],$_[2]);
+            },
+            'NeWs.get_newspaper_history' => sub {
+                return NeWs::get_newspaper_history($_[0]);
+            },
+            'NeWs.get_newspaper_coverage' => sub {
+                return NeWs::get_newspaper_coverage($_[0]);
+            }, 
+            'NeWs.get_newspaper_journalists' => sub {
+                return NeWs::get_newspaper_journalists($_[0]);
+            },
+            'NeWs.get_locations_by_location' => sub {
+                return NeWs::get_locations_by_location($_[0],$_[1],$_[2]);
+            },
+            'NeWs.get_newspapers_by_location' => sub {
+                return NeWs::get_newspapers_by_location($_[0],$_[1],$_[2]);
+            },
+            'NeWs.get_newspapers_by_name' => sub {
+                return NeWs::get_newspapers_by_name($_[0]);
+            },
+            'NeWs.get_journalist' => sub{
+                return NeWs::get_journalist($_[0]);
+            },
+            'NeWs.publish_journalist_update' => sub {
+                return NeWs::publish_journalist_update($_[0],$_[1]);
+            },
+            'NeWs.get_journalist_history' => sub {
+                return NeWs::get_journalist_history($_[0]);
+            }
+
+        );
+    $W->exit_if_changed();
+    last if $exit_requested;
+}

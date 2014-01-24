@@ -1,0 +1,40 @@
+#!/usr/bin/perl -w
+#
+# msp:
+# Scrape MSP information from the Scottish Parliament's web site.
+# Copyright (c) 2012 UK Citizens Online Democracy. All rights reserved.
+
+use strict;
+use LWP::Simple;
+use Text::CSV_XS;
+
+my $url = 'http://www.scottish.parliament.uk/msps/177.aspx';
+my $msps = LWP::Simple::get($url);
+
+my $csv_out = new Text::CSV_XS();
+print "First,Last,Constituency,Party,Email,Fax,Image\n";
+
+my $count = 0;
+
+while ($msps =~ /<li>\s*
+    <p>\s*<a[ ]href="[^"]*"><strong>\s*([^,]*),[ ]([^<]*)<\/strong><\/a><\/p>\s*
+    <img[ ]alt=""[ ]src="([^"]*)"[ ]\/>\s*
+    <div[ ]class="alphabetListItem">\s*
+        <p>\s*([^<]*)<\/p>\s*
+        <p>\s*Member\s*for\s*<strong>\s*([^<]*)<\/strong><\/p>\s*
+        <ul>\s*<li><a[ ]href="mailto:([^"]*)">Email[ ]me<\/a><\/li>\s*<\/ul>\s*
+    <\/div>\s*<\/li>/xg) {
+
+    my ($last, $first, $image, $party, $area, $email) = ($1, $2, $3, $4, $5, $6);
+
+    $image = URI->new_abs($image, $url)->as_string();
+    $party = 'Presiding Officer' if $party eq 'No Party Affiliation';
+
+    # Output to CSV
+    $csv_out->combine($first, $last, $area, $party, $email, '', $image);
+    print $csv_out->string() . "\n";
+    $count++;
+}
+
+die "Expected 129 MSPs, but got $count" if $count != 129;
+

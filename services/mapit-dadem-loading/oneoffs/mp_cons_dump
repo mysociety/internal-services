@@ -1,0 +1,42 @@
+#!/usr/bin/perl -w -I../../perllib -I../DaDem -I .
+#
+# Dump info on current MPs in database
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: mp_cons_dump,v 1.3 2010-09-02 16:33:01 matthew Exp $';
+
+use strict;
+use mySociety::MaPit;
+BEGIN {
+    mySociety::Config::set_file('../conf/general');
+}
+use DaDem;
+
+# Get all areas
+my $areas = mySociety::MaPit::call('areas', 'WMC');
+my @area_ids = keys %$areas;
+print "Area count ". scalar(@area_ids)."\n";
+
+# Find out all current reps
+my @curr_reps;
+my $count;
+foreach my $area_id (@area_ids) {
+    my @reps = DaDem::get_representatives($area_id);
+    my @folded = @{$reps[0]};
+    $count += scalar(@folded);
+    push(@curr_reps, @folded);
+}
+#die if $count != 659;
+print "Rep count $count\n";
+my $reps_info = DaDem::get_representatives_info(\@curr_reps);
+
+# Loop through all the members we have
+for my $rep_info (values %$reps_info) {
+#    print $rep_info->{name} . "\n";
+    my $cons = $areas->{$rep_info->{voting_area}}->{name};
+    print $cons . "\n";
+}
+

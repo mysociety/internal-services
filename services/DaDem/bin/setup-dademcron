@@ -1,0 +1,84 @@
+#!/bin/sh
+#
+# setup-dademcron
+# Set up user who will run DaDem cron jobs. These get updated councillor
+# data from GovEval, send corrections back to GovEval, and send mails
+# to administrators.
+#
+# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+# $Id: setup-dademcron,v 1.19 2013-11-26 08:39:38 matthew Exp $
+#
+
+set -e
+
+DADEMHOME=/home/dademcron
+WRITETOTHEM_HOST=stork
+DADEM_HOST=leopard
+
+if [ $( hostname ) != $DADEM_HOST ] ; then
+    echo "Please run dademcron on one machine ($DADEM_HOST) only"
+    exit
+fi
+
+# Checkout or update the files we need to run dademcron scripts
+cd $DADEMHOME
+if [ -e "mysociety/CVS/Root" ]
+then 
+    cd mysociety
+    cd services && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd perllib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd phplib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd shlib && su dademcron -c "cvs -Q update -dP" && cd ..
+    cd ..
+else 
+    export CVSROOT=cvs.mysociety.org:/usr/local/cvs
+    su dademcron -c "cvs -Q co mysociety/services"
+    su dademcron -c "cvs -Q co mysociety/perllib"
+    su dademcron -c "cvs -Q co mysociety/phplib"
+    su dademcron -c "cvs -Q co mysociety/shlib"
+fi
+# Some now are in git
+if [ -e "writetothem/.git" ]
+then
+  cd writetothem && su dademcron -c "git pull && git submodule update" && cd ..
+else 
+  su dademcron -c "git clone git://git.mysociety.org/writetothem"
+  cd writetothem && su dademcron -c "git submodule update --init"
+fi
+
+# Checkout or update the representative data module
+cd $DADEMHOME
+if [ -e "repdata/.git" ]
+then
+    cd repdata
+    su dademcron -c "git pull"
+else
+    su dademcron -c "git clone ssh://git.mysociety.org/data/git/private/repdata"
+fi
+
+# Checkout or update parlparse
+cd $DADEMHOME
+if [ -e "parlparse/.svn/entries" ]
+then
+    cd parlparse
+    su dademcron -c "svn -q update"
+else
+    su dademcron -c "svn -q co https://project.knowledgeforge.net/ukparse/svn/trunk/parlparse"
+fi
+
+cd $DADEMHOME
+
+# Copy configuration files
+cat /data/vhost/services.mysociety.org/mysociety/services/conf/general | su dademcron -c "cat >mysociety/services/conf/general"
+ssh $WRITETOTHEM_HOST cat /data/vhost/www.writetothem.com/writetothem/conf/general | su dademcron -c "cat >writetothem/conf/general"
+
+# Install .forward
+su - dademcron -c "echo \"team@mysociety.org\" >~dademcron/.forward"
+
+# Install crontab
+su dademcron -c "crontab repdata/bin/crontab"
+
+
+

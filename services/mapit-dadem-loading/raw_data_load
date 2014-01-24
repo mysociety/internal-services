@@ -1,0 +1,479 @@
+#!/usr/bin/perl -w -I../perllib -I../../perllib
+#
+# raw_data_load
+# Load in raw GovEval data, match Council names names to Ordnance Survey ones
+# in the MaPit database, and use appropriate IDs.
+#
+# If an import has been done before to the database, it does a merge with any
+# changes made since them.  This can be safely done repeatedly with the same
+# data.  The merge automatically is made relative to the last import.
+# Conflicts are marked in the merged fields with the text CONFLICT.
+#
+# Parameters:  Pipe the councillorsWithID.csv file from GovEval into standard
+# input.
+#
+# cat ../../../repdata/goveval/councillorsWithID.csv | ./raw_data_load
+#
+# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
+# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
+#
+
+my $rcsid = ''; $rcsid .= '$Id: raw_data_load,v 1.45 2012-10-04 14:06:17 dademcron Exp $';
+
+use strict;
+require 5.8.0;
+
+$| = 1; # flush STDOUT afer each write
+
+use DBI;
+use DBD::Pg;
+use Text::CSV;
+use Data::Dumper;
+use Encode;
+use Storable;
+use Getopt::Long;
+
+use mySociety::MaPit;
+use mySociety::VotingArea;
+use mySociety::ArrayUtils;
+
+use Common;
+use CouncilMatch;
+
+my $d_dbh = connect_to_dadem_database();
+CouncilMatch::set_db_handle($d_dbh);
+
+# Options
+sub help {
+print <<END
+
+Usage: raw_data_load [OPTION]
+
+Standard input must contain a file of the same format as councillorsWithID.csv
+from GovEval.
+
+Options are:
+    --verbose=n   Choose 0 (no progress) to 3 (full debug), defaults to 2
+
+END
+}
+# values from 0 to 3 with increasing verbosity
+our $verbose = 2;
+our $help;
+if (!GetOptions(
+        "verbose=i" => \$verbose,
+        "help" => \$help
+    )) {
+    help();
+    exit(1);
+}
+if ($help) {
+    help();
+    exit(0);
+}
+
+# %parent_to_id
+# Hash of council canonical name to council ID from existing MaPit data.
+my %parent_to_id;
+
+# Cache of areas
+my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
+foreach my $area (values %$area_id_data) {
+    # Create canonical version of name and also hash it as lookup
+    my $canon = CouncilMatch::canonicalise_council_name($area->{name});
+    print "#$area->{id} '$area->{name}' -> '$canon'\n" if $verbose > 1;
+    if (exists($parent_to_id{$canon})) {
+        if ($parent_to_id{$canon} != $area->{id}) {
+            die "Already have id for canonicalised $canon, being " .  $parent_to_id{$canon} .  "\n";
+        }
+    } else {
+        $parent_to_id{$canon} = $area->{id};
+    }
+}
+ 
+# Load the GovEval data.
+my $C = new Text::CSV({ binary => 1 });
+my $line_number = 0;
+<STDIN>;    # header line
+$line_number++;
+
+# $councils
+# Reference to hash of council ID to reference to hash of information about the
+# council, including:
+#   govevalname     its GovEval name
+my $councils;
+
+while (my $line = <STDIN>) {
+    $line_number++;
+
+    # Remove bad control characteres
+    chomp($line);
+
+    $line =~ s/301224a/301224/; # ID has a superfluous "a" in it
+    $line =~ s/95110e/95110/; # ID has a superfluous "e" in it
+    $line =~ s/317169n\/a/317169/; # ID has a superfluous "n/a" in it
+    $line =~ s/Sgir. Uige/Sgir' Uige/;
+    $line =~ s/\x0b//g;
+    next if $line =~ m/^\s*$/;
+
+    # Extract good stuff
+    $C->parse($line);
+    my @line = map { trim_spaces($_) } $C->fields();
+    my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @line;
+
+    die "council not defined\nline $line_number: $line\n" unless (defined($council));
+    # Check valid GovEval ids.
+    unless ($geid =~ m/^[1-9][0-9]+$/) {
+        warn "skipping invalid geid $geid\nline $line_number: $line\n";
+        next;
+    }
+
+    next unless $first || $last; # No name, can't really do much!
+    next if (!$first && ($last eq "Resigned")); # GovEval now mark resigned occasionally TODO: encode this explicitly in DaDem, and show on WTT
+
+    next if $council eq 'House of Keys' || $council eq 'Legislative Council'; # We don't cover Isle of Man yet!
+    next if $fax =~ /^01624/ or $email =~ /org\.im$/; # Isle of Man (council left blank sometimes)
+
+    # ... we still check we don't have individual empty strings
+    #warn "first name is empty geid $geid" if !$first;
+    warn "last name is empty geid $geid" if !$last;
+    warn "ward name is empty geid $geid" if !$vdiv;
+
+    # Special case for areas with elected mayors.
+    next if $vdiv =~ /(Elected|Deputy) Mayor/i;
+    
+    my $canon = CouncilMatch::canonicalise_council_name($council);
+    #print "gename $council canon $canon\n";
+
+    die "no council in database matches canonical name '$canon'\nline $line_number: $line" unless (exists($parent_to_id{$canon}));
+
+    my $id = $parent_to_id{$canon};
+    
+    $councils->{$id}->{govevalname} = $council;
+    push @{$councils->{$id}->{lines}}, \@line;
+}
+
+# Print out councils in $parent_to_id for which nobody has been added to $councils
+foreach my $parent (keys %parent_to_id) {
+    my $id = $parent_to_id{$parent};
+    die "\$parent_to_id{'$parent'} not present" unless (defined($id));
+    if (!exists($councils->{$id})) {
+        # Suppress error message for Isles of Scilly, as we don't expect GE data for them
+        if ($parent ne "isles of scilly") {
+            print STDERR "Missing $parent id $id from GovEval data\n"; 
+        }
+    }
+}
+
+# Load data into raw table in DaDem
+my $councils_count = 0;
+my $clashes_count = 0;
+foreach my $council_id (keys %$councils) {
+    print "doing $council_id\n" if $verbose > 0;
+    $councils_count++;
+    my $this_clashes = "";
+
+    #################################################################
+    # Utility functions
+    
+    # Returns string containing differences between two representative records, or empty
+    # string (which is "false") if there are no differences.
+    my $reps_diff = sub {
+        my ($rep1, $rep2) = @_;
+
+        my $diff = "";
+        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+            if ($rep1->{$field} ne $rep2->{$field}) {
+                $diff .= "$field: '".$rep1->{$field}."'->'".$rep2->{$field}."' ";
+            }
+        }
+        return $diff;
+    };
+
+    # Returns description of rep
+    my $rep_desc = sub {
+        my ($rep) = @_;
+        return $rep->{ward_name} . ", ".$rep->{rep_first}." ".$rep->{rep_last}." (".$rep->{rep_party}.")";
+    };
+
+    #################################################################
+    # Get the three versions of data
+
+    # Get data we loaded last time, i.e. before mySociety edits
+    # We use the second parameter to get_raw_data to do this -- it gives the 
+    # state just after the user "import" last edited things.
+    my @reps_prev_import = CouncilMatch::get_raw_data($council_id, 1);
+    my $reps_prev_import;
+    foreach my $rep (@reps_prev_import) {
+        $reps_prev_import->{$rep->{key}} = $rep;
+    }
+
+    # Get data as modified by mySociety
+    my @reps_mysociety_mod = CouncilMatch::get_raw_data($council_id);
+    my $reps_mysociety_mod;
+    foreach my $rep (@reps_mysociety_mod) {
+        $reps_mysociety_mod->{$rep->{key}} = $rep;
+#
+#        # Revert any unresolved conflicts back to before their resolution
+#        my $conflict = 0;
+#        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+#            my $value = $rep->{$field};
+#            $conflict = 1 if ($value =~ m/CONFLICT/);
+#        }
+#        if ($conflict) {
+#            #print "Conflict flipping\n";
+#            #print Dumper($reps_mysociety_mod->{$rep->{key}});
+#            #print Dumper($reps_prev_import->{$rep->{key}});
+#            if (!defined($reps_prev_import->{$rep->{key}})) {
+#                delete $reps_mysociety_mod->{$rep->{key}};
+#            } else {
+#                $reps_mysociety_mod->{$rep->{key}} = $reps_prev_import->{$rep->{key}};
+#            }
+#        }
+    }
+
+    # Get each line of new import
+    my $lines = $councils->{$council_id}->{lines};
+    my $reps_new_import;
+    foreach my $line (@$lines) {
+        my ($geid, $first, $last, $vdiv, $council, $party, $fax, $email, $councilfax, $councilemail) = @$line;
+        $fax = ""; $email = ""; # Fax and email data isn't good enough to use
+        $geid =~ s/[^0-9]//g;
+        die "digit part of geid too short\nline $line_number: $line\n" unless scalar($geid) > 3;
+        my $key = 'ge_id' . $geid;
+        $reps_new_import->{$key}->{key} = $key;
+        $reps_new_import->{$key}->{ward_name} = $vdiv;
+        $reps_new_import->{$key}->{rep_first} = $first;
+        $reps_new_import->{$key}->{rep_last} = $last;
+        $reps_new_import->{$key}->{rep_party} = $party;
+        $reps_new_import->{$key}->{rep_email} = $email;
+        $reps_new_import->{$key}->{rep_fax} = $fax;
+    }
+    
+    # Display
+    my $out = "";
+    $out .= "-" x 70 . "\n";
+    $out .= $councils->{$council_id}->{govevalname} . " " . $area_id_data->{$council_id}->{type} . " id:$council_id" . "\n";
+
+    #print "prev import:\n";
+    #print Dumper($reps_prev_import);
+    #print "mysociety mods:\n";
+    #print Dumper($reps_mysociety_mod);
+    #print "new import:\n";
+    #print Dumper($reps_new_import);
+
+    #################################################################
+
+    # This is where we store what we will write to the database.  We work from
+    # the new GE data ($reps_new_import), and import in appropriate mySociety
+    # changes.
+    my $reps_merged = Storable::dclone($reps_new_import);
+
+    #################################################################
+    # Find keys which are added/deleted by either mySociety or GE,
+    # and resolve what to have in reps_merged.
+
+    # Look for differences in the keys
+    my $common_keys;
+    my $diff_mysociety_new = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
+    my $ge_add_del = 0;
+    my $ms_add_del = 0;
+    my $ge_change = 0;
+    my $ms_change = 0;
+    if (scalar(@$diff_mysociety_new) > 0) {
+        # See what the additions/deletions are
+        foreach my $key (@$diff_mysociety_new) {
+            my $new_import = $reps_new_import->{$key};
+            my $mysociety_mod = $reps_mysociety_mod->{$key};
+            my $prev_import = $reps_prev_import->{$key};
+            my $in_new = defined($new_import);
+            my $in_mysociety = defined($mysociety_mod);
+            my $in_prev = defined($prev_import);
+            if ($in_mysociety && !$in_new) {
+                # In current database, not in new GovEval data.
+                if ($in_prev) {
+                    # Was in previous GovEval data - GovEval have removed it.
+                    $out .= "GE deleted: " . $rep_desc->($reps_prev_import->{$key}) . "\n";
+                    $ge_add_del = 1;
+                    my $prev_mysociety = $reps_diff->($prev_import, $mysociety_mod);
+                    if ($prev_mysociety) {
+                        $reps_merged->{$key} = Storable::dclone($prev_import);
+                        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+                            if ($mysociety_mod->{$field} ne $prev_import->{$field}) {
+                                $reps_merged->{$key}->{$field} = "CONFLICT MS: " . $prev_import->{$field} .
+                                    "->". $mysociety_mod->{$field} . " GE: DELETED COUNCILLOR ENTIRELY";
+                            }
+                        }                    
+                        $out .= "\tPROPER CLASH: but MS modified: $prev_mysociety\n";
+                        $this_clashes .= "Deletion modified by other. ";
+                        $ms_change = 1;
+                    }
+                } else {
+                    # Wasn't in previous GovEval data - is just a manual mySociety addition.
+                    $reps_merged->{$key} = Storable::dclone($reps_mysociety_mod->{$key});
+                    if ($verbose > 0) {
+                        $out .= "MS added: " . $rep_desc->($reps_mysociety_mod->{$key}) . "\n";
+                    }
+                    $ms_add_del = 1;
+                }
+            } elsif ($in_new && !$in_mysociety) {
+                # In new GovEval data, not in current database.
+                if ($in_prev) {
+                    # Was in previous GovEval data - so we've manually overridden and deleted that.
+                    delete $reps_merged->{$key};
+                    $out .= "MS deleted: " . $rep_desc->($reps_prev_import->{$key}) . "\n";
+                    $ms_add_del = 1;
+                    my $prev_new = $reps_diff->($prev_import, $new_import);
+                    if ($prev_new) {
+                        $reps_merged->{$key} = Storable::dclone($prev_import);
+                        foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+                            if ($new_import->{$field} ne $prev_import->{$field}) {
+                                $reps_merged->{$key}->{$field} = "CONFLICT MS: DELETED COUNCILLOR ENTIRELY" . 
+                                    " GE: " . $prev_import->{$field} .  "->". $new_import->{$field};
+                            }
+                        }                    
+                        $out .= "\tPROPER CLASH: but GE modified: $prev_new\n";
+                        $this_clashes .= "Deletion modified by other. ";
+                        $ge_change = 1;
+                    }
+                } else {
+                    # It's a new addition by GovEval, nothing out of the ordinary.
+                    $out .= "GE added: " . $rep_desc->($reps_new_import->{$key}) . "\n";
+                    $ge_add_del = 1;
+                }
+            } else {
+                die "symmetric diff must be in one of them, $key";
+            }
+        }
+        
+        # What to do about deletion clashes
+        if ($ge_add_del && $ms_add_del) {
+            # TODO: Maybe make this a CONFLICT somehow?
+            $this_clashes .= "Both made major additions/deletions. ";
+        }
+
+        # Keys which remained in both fields throughout
+        $common_keys = mySociety::ArrayUtils::intersection([keys %$reps_mysociety_mod], [keys %$reps_new_import]);
+    } else {
+        # In this case, other diffs should find no additions (as serious mySociety mods make their own new keys),
+        # and only deletions which have happened in both sets of changes.  So, symmetric diff same for both.
+        my $diff_mysociety_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_mysociety_mod], [keys %$reps_prev_import]);
+        my $diff_new_prev = mySociety::ArrayUtils::symmetric_diff([keys %$reps_new_import], [keys %$reps_prev_import]);
+        if (scalar(@$diff_mysociety_prev) > 0 || scalar(@$diff_new_prev) > 0) {
+            my $d = mySociety::ArrayUtils::symmetric_diff($diff_mysociety_prev, $diff_new_prev);
+            if (scalar(@$d) > 0) {
+                die "Internally inconsistent changes:" . 
+                    " diff_mysociety_prev: " . join(", ", @$diff_mysociety_prev) .
+                    " diff_mysociety_prev: " . join(", ", @$diff_new_prev);
+            }
+        }
+
+        # Keys match, so use them all
+        $common_keys = [keys %$reps_new_import];
+    }
+
+    #################################################################
+    # For common keys, merge changes
+    
+    # Loop through all representatives, merging changes
+    foreach my $key (@$common_keys) {
+        my $new_import = $reps_new_import->{$key};
+        my $mysociety_mod = $reps_mysociety_mod->{$key};
+        my $prev_import = $reps_prev_import->{$key};
+
+        my $mysociety_new = $reps_diff->($mysociety_mod, $new_import);
+        my $prev_mysociety = $reps_diff->($prev_import, $mysociety_mod);
+        my $prev_new = $reps_diff->($prev_import, $new_import);
+
+        if ($mysociety_new) {
+            # There has been a change from the current database to the new GovEval data.
+            if ($prev_mysociety && !$prev_new) {
+                # Pick the same mySociety alternation, GovEval hasn't changed
+                $reps_merged->{$key} = Storable::dclone($reps_mysociety_mod->{$key});
+                $out .= "MS change: $prev_mysociety\n" if $verbose > 0;
+                $ms_change = 1;
+            } elsif ($prev_new && !$prev_mysociety) {
+                # Pick the GovEval change, as mySociety hasn't made any change
+                $out .= "GE change: $prev_new\n";
+                $ge_change = 1;
+            } else {
+                die if (!$prev_new || !$prev_mysociety); # We must have both changing to get here
+                foreach my $field ('ward_name', 'rep_first', 'rep_last', 'rep_party', 'rep_email', 'rep_fax') {
+                    next if ($mysociety_mod->{$field} eq $new_import->{$field});
+                    if ( ($mysociety_mod->{$field} ne $prev_import->{$field})
+                        && ($new_import->{$field} ne $prev_import->{$field})) {
+                        $reps_merged->{$key}->{$field} = "CONFLICT: " .  $prev_import->{$field} . " ->" .
+                                " MS: " . $mysociety_mod->{$field} . 
+                                " GE: " . $new_import->{$field};
+                    } elsif ($mysociety_mod->{$field} ne $prev_import->{$field}) {
+                        # mySociety has changed, GovEval hasn't - take the mySociety change
+                        #$reps_merged->{$key}->{$field} = "CONFLICT" . 
+                        #        " MS: " .  $prev_import->{$field} . " ->" . $mysociety_mod->{$field} . 
+                        #        " GE: no change";
+                        $reps_merged->{$key}->{$field} = $mysociety_mod->{$field};
+                    } elsif ($new_import->{$field} ne $prev_import->{$field}) {
+                        # NO: Conversely, take a GovEval change as read if mySociety hasn't changed
+                        # YES: Alert if GovEval changes any field, due to ID reuse.
+                        $reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
+                            " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
+                    }
+                }
+                $out .= "PROPER CLASH both changed\n";
+                $out .= "\tMS change: $prev_mysociety\n";
+                $out .= "\tGE change: $prev_new\n";
+                $this_clashes .= "Individual rep edit clashes. ";
+                $ms_change = 1;
+                $ge_change = 1;
+            }
+        } else {
+            # Same
+            if ($prev_mysociety || $prev_new) {
+                print "Both made same change\n" if $verbose > 2;
+                print "\tMS change: $prev_mysociety\n" if $verbose > 2;
+                print "\tGE change: $prev_new\n" if $verbose > 2;;
+            }
+        }
+    }
+
+    #################################################################
+    # Make modifications to raw input table in database
+
+    if (($ge_change && $ms_add_del) || ($ms_change && $ge_add_del)) {
+        $this_clashes .= "Add/del by one, small mods by other. ";
+    }
+
+    if ($ge_change or $ge_add_del) {
+        print $out;
+
+        # Count clashes
+        if ($this_clashes) {
+            $clashes_count++;
+            print "CLASH REASONS: " . $this_clashes . "\n" if $verbose > 2;
+        }       
+        
+        # Edit the data
+
+        # First a user "import" load the full new data for later reference (we
+        # go back to this position when we next do a load)
+        CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
+            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{codes}->{ons},
+            [values %$reps_new_import], "import");
+
+        # Then on top of that apply the merges
+        CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
+            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{codes}->{ons},
+            [values %$reps_merged], "merge");
+
+    } else {
+        die "Unexpected clashes when no GE changes:\n$this_clashes" if $this_clashes;
+        print $out if $verbose > 0;
+        print "Nothing to do\n" if $verbose > 0;
+    }
+}
+
+print "-" x 70 . "\n" if $verbose > 0;
+print "All done.  $clashes_count/$councils_count clash a bit\n" if $verbose > 0;
+
+$d_dbh->commit();
+$d_dbh->disconnect();
+
