@@ -16,7 +16,7 @@
 name="eveld"
 rcvar=`set_rcvar`
 
-command="/data/vhost/services.mysociety.org/mysociety/services/EvEl/bin/eveld"
+command="/data/vhost/services.mysociety.org/internal-services/services/EvEl/bin/eveld"
 command_args=""
 pidfile="/data/vhost/services.mysociety.org/$name.pid"
 
@@ -24,6 +24,6 @@ pidfile="/data/vhost/services.mysociety.org/$name.pid"
 load_rc_config "$name"
 
 : ${eveld_user="msservices"}
-: ${eveld_chdir="/data/vhost/services.mysociety.org/mysociety/services/EvEl/bin"}
+: ${eveld_chdir="/data/vhost/services.mysociety.org/internal-services/services/EvEl/bin"}
 : ${command_interpreter="/usr/bin/perl"}
 run_rc_command "$1"

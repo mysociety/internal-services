@@ -8,5 +8,5 @@
 
 # MAILTO=???
 
-30 0 * * * bbcparlvid perl /data/vhost/!!(*= $vhost *)!!/mysociety/bbcparlvid/bin/cron-wrapper --target=get_video
+30 0 * * * bbcparlvid perl /data/vhost/!!(*= $vhost *)!!/internal-services/bbcparlvid/bin/cron-wrapper --target=get_video
 

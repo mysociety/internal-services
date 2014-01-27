@@ -12,7 +12,7 @@
 ### END INIT INFO
 
 NAME=!!(*= $daemon_name *)!!
-DAEMON=/data/vhost/!!(*= $vhost *)!!/mysociety/services/EvEl/bin/eveld
+DAEMON=/data/vhost/!!(*= $vhost *)!!/internal-services/services/EvEl/bin/eveld
 PIDFILE=/data/vhost/!!(*= $vhost *)!!/eveld.pid
 DUSER=!!(*= $user *)!!
 
