@@ -137,7 +137,10 @@ while (my $line = <STDIN>) {
     # ... we still check we don't have individual empty strings
     #warn "first name is empty geid $geid" if !$first;
     warn "last name is empty geid $geid" if !$last;
-    warn "ward name is empty geid $geid" if !$vdiv;
+    if (!$vdiv) {
+        warn "ward name is empty, $geid $first $last, $party, $council";
+        next;
+    }
 
     # Special case for areas with elected mayors.
     next if $vdiv =~ /(Elected|Deputy) Mayor/i;
