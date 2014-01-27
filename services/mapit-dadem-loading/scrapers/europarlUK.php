@@ -7,7 +7,7 @@
  */
 
 $host = 'http://www.europarl.org.uk';
-$base_path = '/en/your_MEPs/List-MEPs-by-region';
+$base_path = '/en/your_meps/list-meps-by-region';
 $regions_url = "$host$base_path.html";
 
 $short_opts = '';
@@ -58,7 +58,7 @@ foreach ($regionurls as $region => $regionurl) {
     $meplist_data = preg_replace('#<h2 [^>]* class="subtitle">Committee\(s\):?</h2>#', '<h3 class="subtitle">Committee(s)</h3>', $meplist_data);
     $mepsfound[$region] = 0;
 
-    preg_match_all('#<h2[ ][^>]*[ ]class="subtitle">(?:\s*<a[^>]*>)?\s*(.*?)\s*(?:</a>\s*)?</h2>.*?
+    preg_match_all('#<h2[ ][^>]*[ ]class="subtitle">\s*(.*?)\s*</h2>.*?
         <img[ ]src="([^"]*)\?hash=[0-9]+".*?
         (?:Telephone|Tel):\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?
         (?:Fax:\s*(.*?)\s*(?:UK[ ]Office|EU[ ]Office|<br).*?)?
@@ -69,6 +69,7 @@ foreach ($regionurls as $region => $regionurl) {
     foreach ($sections as $section) {
         list($dummy, $name, $image, $phone, $fax, $email, $party, $affiliation) = $section;
 
+        $name = trim(preg_replace('#</?a[^>]*>#', '', $name));
         $name = preg_replace('/^(' . join('|', $honorifics) . ')\s*/', '', $name);
         preg_match('/^(\S+)\s(.*)/', $name, $nameparts);
         $members[$name]['firstname'] = $nameparts[1];
