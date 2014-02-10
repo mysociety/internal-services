@@ -13,7 +13,7 @@ from urlparse import urljoin
 from HTMLParser import HTMLParser
 from cache import DiskCacheFetcher
 
-NIA_MEMBERS = 'http://data.niassembly.gov.uk/members_json.ashx?m=GetAllCurrentMembers'
+NIA_MEMBERS = 'http://data.niassembly.gov.uk/members.asmx/GetAllCurrentMembers_JSON'
 NIA_DETAIL_PAGE = 'http://aims.niassembly.gov.uk/mlas/details.aspx?&aff=%d&per=%d&sel=1&ind=11&prv=0'
 
 fetcher = DiskCacheFetcher('cache')
@@ -62,7 +62,7 @@ def parseNIAssemblySite():
     print "First,Last,Constituency,Party,Email,Fax,Image"
     
     data = fetcher.fetch( NIA_MEMBERS )
-    assembly_members = json.loads( data[1:-2] )['AllMembersList']['Member']
+    assembly_members = json.loads( data )['AllMembersList']['Member']
 
     for mla in assembly_members:
         m = re.match('(.*?) Belfast$', mla['ConstituencyName'])
