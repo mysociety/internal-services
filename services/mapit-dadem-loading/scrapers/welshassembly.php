@@ -29,7 +29,6 @@ if (count($out) != 60 && count($out) != 59) {
 }
 
 $f = file_get_contents('http://www.senedd.assemblywales.org/mgMemberIndex.aspx');
-$f = str_replace('Lynne Neagle</a>', 'Lynne Neagle</a> <p>Torfaen</p>', $f);
 preg_match_all('#
     <li>
     \s*<a[ ]*href="mgUserInfo\.aspx\?UID=(.*?)"[ ]*>
