@@ -745,7 +745,7 @@ sub edit_raw_data($$$$$$) {
 
         if ($key && exists($old{$key})) {
             my $changed = 0;
-            foreach my $fieldname qw(ward_name rep_first rep_last rep_party rep_email rep_fax) {
+            foreach my $fieldname (qw(ward_name rep_first rep_last rep_party rep_email rep_fax)) {
                 if ($old{$key}->{$fieldname} ne $rep->{$fieldname}) {
                     $changed = 1;
                 }
