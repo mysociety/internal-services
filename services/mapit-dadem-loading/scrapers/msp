@@ -36,5 +36,5 @@ while ($msps =~ /<li>\s*
     $count++;
 }
 
-die "Expected 129 MSPs, but got $count" if $count != 129;
+die "Expected 128 or 129 MSPs, but got $count" if $count < 128;
 
