@@ -41,7 +41,7 @@ print "First,Last,Constituency,Party,Email,Fax,Image\n";
 
 //Get the base file
 $regions_data = cached_file_get_contents($regions_url);
-preg_match_all('#href=" *(' . $base_path . '/[^";]*)[^"]*">(?:<span>)* *(.*?) *(?:</span>)*</a>#', $regions_data, $matches, PREG_SET_ORDER);
+preg_match_all('#href=" *(' . $base_path . '/[^";]*)[^"]*"[^>]*>(?:<span>)* *(.*?) *(?:</span>)*</a>#', $regions_data, $matches, PREG_SET_ORDER);
 
 $regionurls = array();
 foreach ($matches as $match) {
