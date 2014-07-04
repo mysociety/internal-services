@@ -6,6 +6,7 @@
 from csv import DictWriter
 import hashlib
 import json
+from optparse import OptionParser
 import os
 import re
 import sys
@@ -15,7 +16,20 @@ import urlparse
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-cache_directory = 'cache'
+parser = OptionParser()
+parser.add_option(
+    "-c", "--cache-directory",
+    dest="cache_directory",
+    help="use DIRECTORY as a cache for downloaded HTML",
+    metavar="DIRECTORY",
+    default='cache'
+)
+
+options, args = parser.parse_args()
+
+if len(args):
+    parser.print_help()
+    sys.exit(1)
 
 host = 'www.europarl.org.uk'
 regions_path = '/en/your_meps.html'
@@ -40,7 +54,7 @@ expected_regions = expected_region_counts.keys()
 def get_url_cached(url):
     """GET a URL, caching the result for future runs of the script"""
     cached_filename = os.path.join(
-        cache_directory,
+        options.cache_directory,
         hashlib.md5(url).hexdigest()
     )
     if os.path.exists(cached_filename):
