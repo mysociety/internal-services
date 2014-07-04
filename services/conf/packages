@@ -8,6 +8,7 @@ libwww-mechanize-perl
 libxml-twig-perl
 libtext-csv-perl
 libtext-csv-xs-perl
+python-bs4
 
 # WTT user corrections uses this
 libstring-ediff-perl
