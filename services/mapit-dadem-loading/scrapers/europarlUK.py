@@ -80,6 +80,10 @@ def tidy_region_name(region_name):
     result = region_name.replace(' Region', '')
     return result.replace('Noth', 'North')
 
+def tidy_party(party):
+    # Strip any abbreviation in parentheses:
+    return re.sub(r'\(.*?\)', '', party).strip()
+
 csv_headers = [
     'First', 'Last', 'Constituency', 'Party', 'Email', 'Fax', 'Image'
 ]
@@ -109,7 +113,7 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
             mep_soup.text
         )
         if party_match:
-            party = party_match.group(1).strip()
+            party = tidy_party(party_match.group(1))
         else:
             message = "Warning: couldn't find the party for {0} {1}"
             print >> sys.stderr, message.format(first_name, last_names)
