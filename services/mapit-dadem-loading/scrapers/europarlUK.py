@@ -115,9 +115,14 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
         if party_match:
             party = tidy_party(party_match.group(1))
         else:
-            message = "Warning: couldn't find the party for {0} {1}"
-            print >> sys.stderr, message.format(first_name, last_names)
-            party = ''
+            if first_name == 'Amjad' and last_names == 'Bashir':
+                party = 'United Kingdom Independence Party'
+            elif first_name == 'Richard' and last_names == 'Corbett':
+                party = 'Labour Party'
+            else:
+                message = "Warning: couldn't find the party for {0} {1}"
+                print >> sys.stderr, message.format(first_name, last_names)
+                party = ''
         # Find any email addreses - in fact, we only use the first
         # one.
         mailto_links = mep_soup.find_all(
