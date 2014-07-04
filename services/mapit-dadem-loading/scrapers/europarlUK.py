@@ -84,7 +84,7 @@ csv_headers = [
     'First', 'Last', 'Constituency', 'Party', 'Email', 'Fax', 'Image'
 ]
 
-csv_writer = DictWriter(sys.stdout, fieldnames=csv_headers)
+csv_writer = DictWriter(sys.stdout, fieldnames=csv_headers, lineterminator='\n')
 csv_writer.writeheader()
 
 for region_link in content_div.find_all('a', {'class': 'simple'}):
