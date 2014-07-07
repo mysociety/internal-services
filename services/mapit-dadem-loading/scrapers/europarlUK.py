@@ -51,6 +51,11 @@ expected_region_counts = {
 
 expected_regions = expected_region_counts.keys()
 
+honorifics = ('Ms', 'Mrs', 'Rt. Hon. Sir', 'Mr', 'Dr', 'Baroness')
+honorifics_re = re.compile(
+    '^\s*(' +'|'.join(re.escape(h) for h in honorifics) + ')\s*'
+)
+
 def get_url_cached(url):
     """GET a URL, caching the result for future runs of the script"""
     cached_filename = os.path.join(
@@ -103,7 +108,8 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
             i for i in image_element.next_siblings
             if isinstance(i, Tag)
         ]
-        name_match = re.search(r'^\s*(\S+)\s+(.*)', sibling_tags[0].text)
+        full_name = honorifics_re.sub('', sibling_tags[0].text)
+        name_match = re.search(r'^\s*(\S+)\s+(.*)', full_name)
         # Assume there's only one first name and possibly multiple
         # last names, as the previous script did:
         first_name, last_names = name_match.groups()
