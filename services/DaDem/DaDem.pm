@@ -897,7 +897,7 @@ any of the values described for get_area_status.
 sub admin_set_area_status($$) {
     my ($area_id, $new_status) = @_;
     throw RABX::Error("NEW_STATUS must be 'none', 'pending_election' or 'recent_election'")
-        unless ($new_status eq 'none' || $new_status eq 'pending_election' || $new_status eq 'recent_election');
+        unless ($new_status eq 'none' || $new_status eq 'pending_election' || $new_status eq 'recent_election' || $new_status eq 'boundary_changes');
     dbh()->do("delete from area_status where area_id = ?", {}, $area_id);
     dbh()->do("insert into area_status (area_id, status) values (?, ?)", {}, $area_id, $new_status);
     dbh()->commit();
