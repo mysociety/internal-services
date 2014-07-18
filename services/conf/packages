@@ -1,6 +1,7 @@
 # Used by RABX
 libjson-perl
 libinline-perl
+libio-string-perl
 
 # People scrapers / dademcron
 libwww-perl
