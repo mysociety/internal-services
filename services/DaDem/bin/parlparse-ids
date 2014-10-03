@@ -68,6 +68,9 @@ sub process_one_type {
             print STDERR "area #$_ ($areainfo{$_}->{name}) has no representative\n";
         } else {
             foreach my $repid (@{$repids->{$_}}) {
+                # Incorrectly created Patrick Mercer entries post-retirement
+                next if $repid == 59294 || $repid == 59287;
+
                 if ($repid !~ /^[1-9]\d*$/) {
                     print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
                 }
