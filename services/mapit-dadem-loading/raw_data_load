@@ -103,6 +103,8 @@ $line_number++;
 #   govevalname     its GovEval name
 my $councils;
 
+my $problems = '';
+
 while (my $line = <STDIN>) {
     $line_number++;
 
@@ -138,7 +140,7 @@ while (my $line = <STDIN>) {
     #warn "first name is empty geid $geid" if !$first;
     warn "last name is empty geid $geid" if !$last;
     if (!$vdiv) {
-        warn "ward name is empty, $geid $first $last, $party, $council";
+        $problems .= "ward name is empty, $geid $first $last, $party, $council\n";
         next;
     }
 
@@ -472,6 +474,10 @@ foreach my $council_id (keys %$councils) {
         print $out if $verbose > 0;
         print "Nothing to do\n" if $verbose > 0;
     }
+}
+
+if ($problems) {
+    print "\n---\n\n$problems";
 }
 
 print "-" x 70 . "\n" if $verbose > 0;
