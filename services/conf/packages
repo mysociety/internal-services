@@ -9,11 +9,7 @@ libwww-mechanize-perl
 libxml-twig-perl
 libtext-csv-perl
 libtext-csv-xs-perl
-
-# python-bs4 isn't available on squeeze, which ocelot is still on, so
-# this would prevent deployment of services there - the scraper that uses
-# it is actually only run on leopard, though.
-# python-bs4
+python-bs4
 
 # WTT user corrections uses this
 libstring-ediff-perl
