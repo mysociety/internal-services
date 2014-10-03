@@ -1,15 +1,8 @@
 #!/usr/bin/perl -w
 #
 # parlparse-ids:
-#
 # Recreates table linking DaDem representative ids with parlparse MP person ids.
-# See http://ukparse.kforge.net
-#
-# Copyright (c) 2006 UK Citizens Online Democracy. All rights reserved.
-# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
-#
-
-my $rcsid = ''; $rcsid .= '$Id: parlparse-ids,v 1.10 2012-06-18 22:34:13 dademcron Exp $';
+# See http://parser.theyworkforyou.com
 
 use strict;
 require 5.8.0;

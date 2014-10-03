@@ -45,11 +45,11 @@ else
 fi
 
 # Checkout or update parlparse
-if [ -e "parlparse/.svn/entries" ]
+if [ -e "parlparse/.git" ]
 then
-    (cd parlparse && su dademcron -c "svn -q update")
+    (cd parlparse && su dademcron -c "git pull")
 else
-    su dademcron -c "svn -q co https://project.knowledgeforge.net/ukparse/svn/trunk/parlparse"
+    su dademcron -c "git clone git://git.mysociety.org/parlparse"
 fi
 
 # Copy configuration files

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# $Id: parlparse-ids.py,v 1.2 2011-01-24 12:11:30 louise Exp $
 
 # Converts triple of (name, constituency, date) into parlparse person id.
 # Reads lines from standard input, each line having the triple hash-separated.
@@ -9,8 +8,8 @@
 import sys
 import os
 
-# Check this out from the ukparse project using Subversion:
-# svn co https://scm.kforge.net/svn/ukparse/trunk/parlparse
+# Check this out from the parlparse project:
+# git clone https://github.com/mysociety/parlparse
 os.chdir("../../../../parlparse/pyscraper")
 sys.path.append(".")
 import re
