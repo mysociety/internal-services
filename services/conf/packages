@@ -2,6 +2,8 @@
 libjson-perl
 libinline-perl
 libio-string-perl
+# dademcron -> WriteToThem -> PHP RABX
+php5-curl
 
 # People scrapers / dademcron
 libwww-perl
