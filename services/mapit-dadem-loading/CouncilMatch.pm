@@ -384,6 +384,9 @@ sub canonicalise_council_name ($) {
     return $_;
 }
 
+my $titles = "Cllr|Councillor|Dr|Hon|hon|rah|rh|Mrs|Ms|Mr|Miss|Rt Hon|Reverend|The Rev|The Reverend|Sir|Dame|Rev|Prof";
+my $honourifics = "MP|CBE|OBE|MBE|QC|BEM|rh|RH|Esq|QPM|JP|FSA|Bt|BEd|Hons|TD|MA|QHP|DL|CMG|BB|AKC|Bsc|Econ|LLB|GBE|QSO|BA|FRSA|FCA|DD|KBE|PhD";
+
 # canonicalise_person_name NAME
 # Convert name from various formats "Fred Smith", "Smith, Fred",
 # "Fred R Smith", "Smith, Fred RK" to uniform one "fred smith".  Removes
@@ -393,8 +396,6 @@ sub canonicalise_person_name ($) {
     ($_) = @_;
 
     # Remove fancy words
-    my $titles = "Cllr|Councillor|Dr|Hon|hon|rah|rh|Mrs|Ms|Mr|Miss|Rt Hon|Reverend|The Rev|The Reverend|Sir|Dame|Rev|Prof";
-    my $honourifics = "MP|CBE|OBE|MBE|QC|BEM|rh|RH|Esq|QPM|JP|FSA|Bt|BEd|Hons|TD|MA|QHP|DL|CMG|BB|AKC|Bsc|Econ|LLB|GBE|QSO|BA|FRSA|FCA|DD|KBE|PhD";
     while (s#(\b(?:$titles)\b)##) {};
     while (s#(\b(?:$honourifics)\b)##) {};
 
@@ -417,6 +418,14 @@ sub canonicalise_person_name ($) {
     # Remove case
     $_ = lc($_);
 
+    return $_;
+}
+
+# remove_honourifics NAME
+sub remove_honourifics ($) {
+    ($_) = @_;
+    while (s#(\b(?:$titles)\b)##) {};
+    while (s#(\b(?:$honourifics)\b)##) {};
     return $_;
 }
 

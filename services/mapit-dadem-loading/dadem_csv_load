@@ -262,10 +262,18 @@ while (my $line = <MAIN>) {
             $updates_required = 1;
             $conflict .= "Party changed ";
         }
+
         # ... changing name is also (even though it must have matched canonical name)
-        if ($cur_repinfo->{name} ne $finalname) {
+        if ($kind ne 'mp' && $cur_repinfo->{name} ne $finalname) {
             $updates_required = 1;
             $conflict .= "Name changed ";
+        } elsif ($kind eq 'mp') {
+            my $curname_nohonourifics = CouncilMatch::remove_honourifics($cur_repinfo->{name});
+            my $finalname_nohonourifics = CouncilMatch::remove_honourifics($finalname);
+            if ($curname_nohonourifics ne $finalname_nohonourifics) {
+                $updates_required = 1;
+                $conflict .= "Name changed ";
+            }
         }
 
         # Use old fax/email if we don't have a new one
