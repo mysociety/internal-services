@@ -426,7 +426,7 @@ sub remove_honourifics ($) {
     ($_) = @_;
     while (s#(\b(?:$titles)\b)##) {};
     while (s#(\b(?:$honourifics)\b)##) {};
-    return $_;
+    return trim($_);
 }
 
 # Internal use
