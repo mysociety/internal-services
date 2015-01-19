@@ -4,14 +4,12 @@
 # http://www.europarl.org.uk/en/your_meps.html to standard output.
 
 from csv import DictWriter
-import hashlib
-import json
 from optparse import OptionParser
-import os
 import re
 import sys
-import urllib2
 import urlparse
+
+from cache import DiskCacheFetcher
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -30,6 +28,8 @@ options, args = parser.parse_args()
 if len(args):
     parser.print_help()
     sys.exit(1)
+
+fetcher = DiskCacheFetcher(options.cache_directory)
 
 host = 'www.europarl.org.uk'
 regions_path = '/en/your_meps.html'
@@ -56,29 +56,13 @@ honorifics_re = re.compile(
     '^\s*(' +'|'.join(re.escape(h) for h in honorifics) + ')\s*'
 )
 
-def get_url_cached(url):
-    """GET a URL, caching the result for future runs of the script"""
-    cached_filename = os.path.join(
-        options.cache_directory,
-        hashlib.md5(url).hexdigest()
-    )
-    if os.path.exists(cached_filename):
-        with open(cached_filename) as f:
-            return f.read()
-    else:
-        response = urllib2.urlopen(url)
-        data = response.read()
-        with open(cached_filename, 'w') as f:
-            f.write(data)
-        return data
-
 def make_url(path, params=''):
     return urlparse.urlunsplit(
     ('http', host, path, params, '')
 )
 
 all_regions_url = make_url(regions_path)
-all_region_soup = BeautifulSoup(get_url_cached(all_regions_url))
+all_region_soup = BeautifulSoup(fetcher.fetch(all_regions_url))
 content_div = all_region_soup.find(id='content')
 
 def tidy_region_name(region_name):
@@ -99,7 +83,7 @@ csv_writer.writeheader()
 for region_link in content_div.find_all('a', {'class': 'simple'}):
     region_name = tidy_region_name(region_link.text).strip()
     region_url = make_url(region_link['href'])
-    region_soup = BeautifulSoup(get_url_cached(region_url))
+    region_soup = BeautifulSoup(fetcher.fetch(region_url))
     meps_found = 0
     for mep_soup in region_soup('div', {'class': re.compile('standard')}):
         image_element = mep_soup.find('img')

@@ -12,8 +12,6 @@ class DiskCacheFetcher:
         if os.path.exists(filepath) and time.time() - os.path.getmtime(filepath) < 3600:
             return open(filepath).read()
         data = urlopen(url).read()
-        fp = open(filepath, 'w')
-        fp.write(data)
-        fp.close()
+        with open(filepath, 'w') as fp:
+            fp.write(data)
         return data
-
