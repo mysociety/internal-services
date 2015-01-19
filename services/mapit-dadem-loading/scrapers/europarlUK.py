@@ -120,7 +120,7 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
             {'href': re.compile(r'^mailto:')}
         )
         email_addresses = [
-            re.sub(r'^mailto:(\S+).*', r'\1', a['href']).strip()
+            re.sub(r'^mailto: *(\S+).*', r'\1', a['href']).strip()
             for a in mailto_links
         ]
         row = {
