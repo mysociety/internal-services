@@ -43,19 +43,12 @@ class NIADetailPageParser( HTMLParser ):
         self.image_url = None
     
     def handle_starttag( self, tag, attrs ):
-        if tag == 'img':
-            image_url = image_id = ''
-            for key, value in attrs:
-                if key == 'src': image_url = value
-                elif key == 'id': image_id = value
-            if 'MemberPhotoImage' in image_id:
-                self.image_url = image_url
-        if tag == 'a':
-            link_url = link_id = ''
-            for key, value in attrs:
-                if key == 'href': link_url = value
-                elif key == 'id': link_id = value
-            if 'EmailHyperLink' in link_id and link_url != 'mailto:' and not self.email:
+        attrs = dict(attrs)
+        if tag == 'img' and attrs.get('class') == 'mlaimg':
+            self.image_url = attrs.get('src')
+        if tag == 'a' and 'EmailHyperLink' in attrs.get('id', ''):
+            link_url = attrs.get('href')
+            if link_url != 'mailto:' and not self.email:
                 self.email = link_url[7:]
 
 def parseNIAssemblySite():
