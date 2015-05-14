@@ -24,24 +24,22 @@
 # ./dadem_csv_load test wam ../../../repdata/goveval/wam-20041001.csv
 # ./dadem_csv_load test lam ../../../repdata/goveval/gla-20041001.csv
 # ./dadem_csv_load test ds ../../../repdata/mysociety/democratic-services-rev7.csv
-#
-# Copyright (c) 2004 UK Citizens Online Democracy. All rights reserved.
-# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
-#
-
-my $rcsid = ''; $rcsid .= '$Id: dadem_csv_load,v 1.28 2013-07-08 11:43:44 dademcron Exp $';
 
 use strict;
 
 use Text::CSV_XS;
 
 use Common;
+use Getopt::Long;
 use mySociety::MaPit;
 use mySociety::Parties;
 use CouncilMatch;
 use DaDem;
 
 our $rep_edit_url = "https://secure.mysociety.org/admin/fyr/index.php?page=reps&rep_id=";
+
+my $ignore_conflicts;
+GetOptions('ignore-conflicts' => \$ignore_conflicts);
 
 my $action = shift(@ARGV);
 die "specify 'test' or 'commit' as first parameter" if ((!$action) || ($action ne "test" && $action ne "commit"));
@@ -349,7 +347,7 @@ while (my $line = <MAIN>) {
         }
 
         # Overwrite changes to things that were done by scripts like us, rather than humans
-        if ($conflict && $last_editor_robot) {
+        if ($conflict && ($ignore_conflicts || $last_editor_robot)) {
             # print "Conflict ignored, as last edit was by " . $cur_repinfo->{last_editor} . "\n";
             $conflict = 0;
         }
@@ -443,7 +441,7 @@ foreach my $area_id (keys %$canon_repnames){
             }
 
             # Overwrite changes to things that were done by scripts like us, rather than humans
-            if ($repinfo->{last_editor} ne "import" && $repinfo->{last_editor} ne "dadem_csv_load") {
+            if (!$ignore_conflicts && $repinfo->{last_editor} ne "import" && $repinfo->{last_editor} ne "dadem_csv_load") {
                 print STDERR "Conflict, not deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . " as last altered by " . $repinfo->{last_editor} . "\n";
                 print STDERR "\t$rep_edit_url".$repinfo->{id}."\n";
                 next;
