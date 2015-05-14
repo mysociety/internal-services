@@ -28,6 +28,5 @@ while 1:
     if not id:
         print >>sys.stderr, "failed to match %s (%s) %s" % (name, cons, date_today)
 
-    person_id = memberList.membertoperson(id)
-    print person_id
+    print id
     sys.stdout.flush()

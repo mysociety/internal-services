@@ -13,9 +13,8 @@ import traceback
 # git clone https://github.com/mysociety/parlparse
 os.chdir("../../../../parlparse/pyscraper")
 sys.path.append(".")
-sys.path.append("lords")
 import re
-from resolvelordsnames import lordsList
+from lords.resolvenames import lordsList
 from resolvemembernames import memberList
 from contextexception import ContextException
 
@@ -37,7 +36,6 @@ while 1:
         print >>sys.stderr, "failed to match lord %s %s" % (name, date_today)
         print ""
     else:
-        person_id = memberList.membertoperson(id)
-        print person_id
+        print id
     sys.stdout.flush()
 
