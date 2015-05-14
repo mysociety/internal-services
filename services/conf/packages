@@ -12,7 +12,19 @@ libwww-mechanize-perl
 libxml-twig-perl
 libtext-csv-perl
 libtext-csv-xs-perl
+libhtml-parser-perl
+libhtml-tree-perl
+liburi-perl
+libfile-slurp-perl
 python-bs4
+
+# Shared packages
+libdbi-perl
+libdbd-pg-perl
+libdigest-sha-perl
+liberror-perl
+libfcgi-perl
+libmail-rfc822-address-perl
 
 # WTT user corrections uses this
 libstring-ediff-perl
@@ -22,4 +34,4 @@ libnet-netmask-perl
 
 # EvEl
 libmime-tools-perl
-libmail-rfc822-address-perl
+libmailtools-perl
