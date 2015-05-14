@@ -1,41 +1,30 @@
 #!/usr/bin/perl -w -I../../perllib -I../../../perllib -I../
 #
 # scrapers/mp
-# Load in MPs from UKParse format XML file, and write out CSV file.
+# Load in MPs from JSON and write out CSV.
 #
 # Parameters: 
-# $1 - all-member.xml file from UKParse
-# $2 - people.xml file from UKParse
-# $3 - output CSV file of all current members
-# $4 - output CSV file of deleted members
-# $5 - optional CSV file of extra fax numbers for new members
-# make sure ../conf/general is configured for mapit db
+# $1 - people.json file
+# $2 - output CSV file of all current members
+# $3 - output CSV file of deleted members
+# $4 - optional CSV file of extra details for new members
 #
 # Example use:
-#./mp ~/devel/publicwhip/members/all-members.xml ~/devel/publicwhip/members/people.xml ~/devel/repdata/mysociety/mps-post-election2005.csv ~/devel/repdata/mysociety/mps-deleted-election2005.csv ~/devel/repdata/mysociety/newmps-emails-election2005.csv
-#
-# Copyright (c) 2005 UK Citizens Online Democracy. All rights reserved.
-# Email: francis@mysociety.org; WWW: http://www.mysociety.org/
-#
-
-my $rcsid = ''; $rcsid .= '$Id: mp,v 1.7 2013-07-08 11:43:45 dademcron Exp $';
+# ./mp ~/parlparse/members/people.json ~/repdata/mysociety/mps.csv ~/repdata/mysociety/mps-deleted.csv ~/repdata/mysociety/newmps-emails.csv
 
 use strict;
 
-use Data::Dumper;
-use XML::Twig;
+use File::Slurp;
+use JSON;
+use POSIX;
 use Text::CSV_XS;
 
 use Common;
-use mySociety::VotingArea;
 
-use POSIX;
 my $today = strftime("%Y-%m-%d",localtime(time()));
 
-my $all_members_xml = shift(@ARGV);
-die "specify all-members.xml from parlparse" if (!defined($all_members_xml));
-my $people_xml = shift(@ARGV);
-die "specify people.xml from parlparse" if (!defined($people_xml));
+my $people_json = shift(@ARGV);
+die "specify people.json file" unless defined($people_json);
 my $file_output_all = shift(@ARGV);
 die "specify output CSV" if (!defined($file_output_all));
 my $file_output_deleted = shift(@ARGV);
@@ -45,49 +34,34 @@ if (defined($extra_emails_file)) {
     open(EXTRA, "<$extra_emails_file") or die "failed to open $extra_emails_file";
 }
 
-# Load person ids in
-my $membertoperson = {};
-my $twig = new XML::Twig(
-    output_filter => 'safe',
-    twig_handlers => { person => \&person }
-);
-$twig->parsefile($people_xml);
-
-sub person {
-    my ($twig, $person) = @_;
-    my $personid = $person->att('id');
-    for (my $office = $person->first_child('office'); $office; $office = $office->next_sibling('office')) {
-        $membertoperson->{$office->att('id')} = $personid;
-    }
-    $twig->purge;
-}
+my $j = decode_json(read_file($people_json));
+my %orgs;
+my %posts;
+$orgs{$_->{id}} = $_ for @{$j->{organizations}};
+$posts{$_->{id}} = $_ for @{$j->{posts}};
 
 # Count how many members for each person, and store current members attributes
 my $nowc = 0;
-my $personcount;
 my $peoplenow;
 my @members;
 my @membersnow;
-$twig = new XML::Twig(
-    output_filter => 'safe',
-    twig_handlers => { member => \&member }
-);
-$twig->parsefile($all_members_xml);
 
-sub member {
-    my ($twig, $member) = @_;
-    my $member_id = $member->att('id');
+foreach my $member (@{$j->{memberships}}) {
+    next unless $member->{post_id} && $posts{$member->{post_id}}{organization_id} eq 'house-of-commons';
+
     push @members, $member;
-    my $person_id = $membertoperson->{$member_id};
-    $personcount->{$person_id}++;
-    # Current parliament after 5th May 2005
-    if ($member->att('fromdate') le $today 
-        && $member->att('todate') ge $today) {
+    $member->{fullname} = $member->{name}{given_name} . " " . $member->{name}{family_name};
+    $member->{fullname} = $member->{name}{honorific_prefix} . " $member->{fullname}"
+            if $member->{name}{honorific_prefix};
+    $member->{constituency} = $posts{$member->{post_id}}{area}{name};
+    $member->{party} = $member->{on_behalf_of_id} ? $orgs{$member->{on_behalf_of_id}}{name} : '';
+    $member->{end_date} ||= '9999-12-31';
+
+    if ($member->{start_date} le $today && $member->{end_date} ge $today) {
         $nowc++;
         push @membersnow, $member;
-        $peoplenow->{$person_id} = 1;
+        $peoplenow->{$member->{person_id}} = 1;
     }
-    $twig->purge;
 }
 
 die "very few MPs!" if $nowc < 640;
@@ -111,26 +85,18 @@ my $csv = new Text::CSV_XS({ binary => 1 });
 open(CSV, ">$file_output_all");
 binmode(CSV, ":utf8");
 print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
-foreach my $member (@membersnow) {
-    my $fullname = $member->att('firstname') . " " . $member->att('lastname');
-    $fullname = $member->att('title') . " $fullname"
-        if $member->att('title');
-    my $party = $member->att('party');
-    my $constituency = $member->att('constituency');
-    my $member_id = $member->att('id');
-    my $person_id = $membertoperson->{$member_id};
-    my $count = $personcount->{$person_id};
+foreach my $member (sort { $a->{constituency} cmp $b->{constituency} } @membersnow) {
     my $email = undef;
     my $fax = undef;
     if ($extra) {
-        my $extra_data = $extra->{"$fullname $constituency"}; 
+        my $extra_data = $extra->{"$member->{fullname} $member->{constituency}"}; 
         if (defined($extra_data)) {
             $email = $extra_data->[0];
             $fax = $extra_data->[1];
-            delete $extra->{"$fullname $constituency"}; 
+            delete $extra->{"$member->{fullname} $member->{constituency}"}; 
         }
     }
-    $csv->print(\*CSV, [$fullname, $constituency, $email, $fax, undef, undef, $party]);
+    $csv->print(\*CSV, [$member->{fullname}, $member->{constituency}, $email, $fax, undef, undef, $member->{party}]);
     print CSV "\n";
 }
 close CSV;
@@ -146,23 +112,15 @@ die if $failed;
 # Print out deleted MPs
 open(DELETED, ">$file_output_deleted");
 print DELETED "name, constituency, party\n";
-my $beforec = 0;
 foreach my $member (@members) {
-    my $member_id = $member->att('id');
-    my $person_id = $membertoperson->{$member_id};
+    my $person_id = $member->{person_id};
 
-    # Parliament before dissolution before 2005 General Election
-    if ($member->att('todate') eq "2005-04-11") {
-        $beforec++;
+    # Parliament before dissolution before 2015 General Election
+    if ($member->{end_date} eq "2015-03-30") {
         if (!defined($peoplenow->{$person_id})) {
-            my $fullname = $member->att('firstname') . " " . $member->att('lastname');
-            my $party = $member->att('party');
-            my $constituency = $member->att('constituency');
-            $csv->print(\*DELETED, [$fullname, $constituency, $party]);
+            $csv->print(\*DELETED, [$member->{fullname}, $member->{constituency}, $member->{party}]);
             print DELETED "\n";
         }
     }
-    undef $member->{att};
 }
 close DELETED;
-
