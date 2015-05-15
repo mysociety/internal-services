@@ -35,7 +35,7 @@ use BBCParl::Process;
 
 my $object = BBCParl::Process->new();
 
-$object->{'debug'} = 1;
+$object->{'debug'} = 0;
 
 exit(get_video($object));
 
