@@ -45,7 +45,7 @@ sub new {
     $self->{'path'}{'output-dir'} .= '/'
         unless $self->{'path'}{'output-dir'} =~ m{/$};
 
-    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www.bbc.co.uk/parliament/programmes/schedules/';
+    $self->{'constants'}{'tv-schedule-api-url'} = 'http://www.bbc.co.uk/bbcparliament/programmes/schedules/';
     
     $self->load_flv_api_config();
 

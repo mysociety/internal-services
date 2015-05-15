@@ -12,7 +12,7 @@ for i in range(10, 14+1):
     m = i-12 if i>12 else i
     y = 2011 if i>12 else 2010
     for d in range(start[i-10], end[i-10]+1):
-        url = 'http://www.bbc.co.uk/parliament/programmes/schedules/%d/%02d/%02d.json' % (y, m, d)
+        url = 'http://www.bbc.co.uk/bbcparliament/programmes/schedules/%d/%02d/%02d.json' % (y, m, d)
         data = simplejson.loads(urllib.urlopen(url).read())
         for entry in data['schedule']['day']['broadcasts']:
             broadcast_start = mx.DateTime.DateTimeFrom(entry['start'])
