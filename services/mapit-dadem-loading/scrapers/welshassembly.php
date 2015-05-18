@@ -19,11 +19,12 @@ preg_match_all('#
 $out = array();
 foreach ($m as $row) {
     $name = preg_replace('#\s+#', ' ', $row[1]);
+    $out[$name]['name'] = $name;
     $out[$name]['email'] = $row[4];
 }
 
-# 59 as might be someone resigned
-if (count($out) != 60 && count($out) != 59) {
+# 58 as a couple might have resigned
+if (count($out) < 58) {
     print "Expected to get 60 Welsh Assembly members, but got " . count($out) . "\n";
     exit(1);
 }
@@ -51,7 +52,11 @@ function by_const($a, $b) {
     $aa = strpos($a['const'], 'Wales');
     $bb = strpos($b['const'], 'Wales');
     if ($aa && $bb) {
-        return strcmp($a['const'], $b['const']);
+        if (strcmp($a['const'], $b['const'])) {
+            return strcmp($a['const'], $b['const']);
+        } else {
+            return strcmp($a['name'], $b['name']);
+        }
     } elseif ($aa) {
         return 1;
     } elseif ($bb) {
