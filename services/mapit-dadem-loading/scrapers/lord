@@ -27,19 +27,29 @@ my $file_output_all = shift(@ARGV);
 die "specify output CSV" if (!defined($file_output_all));
 
 my $j = decode_json(read_file($people_json));
-my %orgs;
+my (%orgs, %persons);
 $orgs{$_->{id}} = $_ for @{$j->{organizations}};
+$persons{$_->{id}} = $_->{other_names} for @{$j->{persons}};
 
 my $nowc = 0;
 my @membersnow;
 foreach my $member (@{$j->{memberships}}) {
-    $member->{end_date} ||= '9999-12-31';
     next unless $member->{organization_id} && $member->{organization_id} eq 'house-of-lords';
-    next unless $member->{start_date} le $today && $member->{end_date} ge $today;
+    next unless $member->{start_date} le $today && end_date($member) ge $today;
     $nowc++;
     push @membersnow, $member;
+    $member->{party} = $member->{on_behalf_of_id} ? $orgs{$member->{on_behalf_of_id}}{name} : '';
 }
 die "very few Lords! only $nowc" if $nowc < 700;
+
+# Attach names to memberships
+foreach my $member (@membersnow) {
+    my @names = @{$persons{$member->{person_id}}};
+    @names = grep { $_->{note} eq 'Main' } @names;
+    @names = reverse sort { end_date($a) cmp end_date($b) } @names;
+    $member->{name} = $names[0];
+    die unless $member->{name} && $member->{party};
+}
 
 my $csv = new Text::CSV_XS({ binary => 1 });
 open(CSV, ">$file_output_all");
@@ -60,7 +70,10 @@ foreach my $member (sort {
             $fullname = "The " . $fullname;
         }
     }
-    my $party = $member->{on_behalf_of_id} ? $orgs{$member->{on_behalf_of_id}}{name} : '';
-    $csv->print(\*CSV, [$fullname, "House of Lords", undef, undef, undef, undef, $party]);
+    $csv->print(\*CSV, [$fullname, "House of Lords", undef, undef, undef, undef, $member->{party}]);
     print CSV "\n";
+}
+
+sub end_date {
+    $_[0]->{end_date} // '9999-12-31';
 }

@@ -21,6 +21,8 @@ use Text::CSV_XS;
 
 use Common;
 
+my $last_dissolution_date = "2015-03-30";
+
 my $today = strftime("%Y-%m-%d",localtime(time()));
 
 my $people_json = shift(@ARGV);
@@ -35,10 +37,10 @@ if (defined($extra_emails_file)) {
 }
 
 my $j = decode_json(read_file($people_json));
-my %orgs;
-my %posts;
+my (%orgs, %posts, %persons);
 $orgs{$_->{id}} = $_ for @{$j->{organizations}};
 $posts{$_->{id}} = $_ for @{$j->{posts}};
+$persons{$_->{id}} = $_->{other_names} for @{$j->{persons}};
 
 # Count how many members for each person, and store current members attributes
 my $nowc = 0;
@@ -48,16 +50,13 @@ my @membersnow;
 
 foreach my $member (@{$j->{memberships}}) {
     next unless $member->{post_id} && $posts{$member->{post_id}}{organization_id} eq 'house-of-commons';
+    next unless end_date($member) ge $today || end_date($member) eq $last_dissolution_date;
 
     push @members, $member;
-    $member->{fullname} = $member->{name}{given_name} . " " . $member->{name}{family_name};
-    $member->{fullname} = $member->{name}{honorific_prefix} . " $member->{fullname}"
-            if $member->{name}{honorific_prefix};
     $member->{constituency} = $posts{$member->{post_id}}{area}{name};
     $member->{party} = $member->{on_behalf_of_id} ? $orgs{$member->{on_behalf_of_id}}{name} : '';
-    $member->{end_date} ||= '9999-12-31';
 
-    if ($member->{start_date} le $today && $member->{end_date} ge $today) {
+    if ($member->{start_date} le $today && end_date($member) ge $today) {
         $nowc++;
         push @membersnow, $member;
         $peoplenow->{$member->{person_id}} = 1;
@@ -78,6 +77,18 @@ if (defined($extra_emails_file)) {
         my ($first, $last, $cons, $email, $fax) = map { trim_spaces($_) } $C->fields();
         $extra->{"$first $last $cons"} = [$email, $fax];
     }
+}
+
+# Attach names to memberships
+foreach my $member (@members) {
+    my @names = @{$persons{$member->{person_id}}};
+    @names = grep { $_->{note} eq 'Main' } @names;
+    @names = reverse sort { end_date($a) cmp end_date($b) } @names;
+    my $name = $names[0];
+    $member->{fullname} = $name->{given_name} . " " . $name->{family_name};
+    $member->{fullname} = $name->{honorific_prefix} . " $member->{fullname}"
+        if $name->{honorific_prefix};
+    die unless $member->{fullname} && $member->{constituency} && $member->{party};
 }
 
 # Print out all MPs to CSV
@@ -116,7 +127,7 @@ foreach my $member (@members) {
     my $person_id = $member->{person_id};
 
     # Parliament before dissolution before 2015 General Election
-    if ($member->{end_date} eq "2015-03-30") {
+    if (end_date($member) eq $last_dissolution_date) {
         if (!defined($peoplenow->{$person_id})) {
             $csv->print(\*DELETED, [$member->{fullname}, $member->{constituency}, $member->{party}]);
             print DELETED "\n";
@@ -124,3 +135,7 @@ foreach my $member (@members) {
     }
 }
 close DELETED;
+
+sub end_date {
+    $_[0]->{end_date} // '9999-12-31';
+}
