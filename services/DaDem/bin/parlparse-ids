@@ -72,6 +72,8 @@ sub process_one_type {
                 next if $repid == 59294 || $repid == 59287;
                 # And one Mark Reckless, one Jim Dobbin
                 next if $repid == 61070 || $repid == 60986;
+                # Ignore renames post 2015 election
+                next if $repid == 61901;
 
                 if ($repid !~ /^[1-9]\d*$/) {
                     print STDERR "area #$_ ($areainfo{$_}->{name}) has bad representative ID $repid\n";
