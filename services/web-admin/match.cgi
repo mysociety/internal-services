@@ -436,7 +436,10 @@ sub do_council_edit ($) {
 
     print '&nbsp;&nbsp;&nbsp;';
     print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var email = rows[i].getElementsByTagName('td')[5].getElementsByTagName('input')[0].value; if (email.match(/DELETED COUNCILLOR ENTIRELY/)) { for (var j=1; j<=5; j++) { rows[i].getElementsByTagName('td')[j].getElementsByTagName('input')[0].value = ''; } } } return false;">Blank out rows deleted by GE</button>#;
-    print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var first = rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value; if (first.match(/CONFLICT MS: no change/)) { rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value = first.replace(/^.* ->/, ''); } } return false;">Resolve all first name changes</button>#;
+    print ' Resolve: ';
+    print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var first = rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value; if (first.match(/CONFLICT MS: no change/)) { rows[i].getElementsByTagName('td')[2].getElementsByTagName('input')[0].value = first.replace(/^.* ->/, ''); } } return false;">first name</button>#;
+    print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var last = rows[i].getElementsByTagName('td')[3].getElementsByTagName('input')[0].value; if (last.match(/CONFLICT MS: no change/)) { rows[i].getElementsByTagName('td')[3].getElementsByTagName('input')[0].value = last.replace(/^.* ->/, ''); } } return false;">last name</button>#;
+    print q#<button onclick="rows = document.getElementsByTagName('tr'); for (var i=2; i<rows.length; i++) { var party = rows[i].getElementsByTagName('td')[4].getElementsByTagName('input')[0].value; if (party.match(/CONFLICT MS: no change/)) { rows[i].getElementsByTagName('td')[4].getElementsByTagName('input')[0].value = party.replace(/^.* ->/, ''); } } return false;">party</button>#;
 
     print $q->start_table();
     my $r = $q->param('r') || '';
@@ -458,8 +461,9 @@ sub do_council_edit ($) {
     my $printrow = sub {
         my $c = shift;
         print $q->hidden(-name => "key$c", -size => 30);
+        my $key = $q->param("key$c");
         print $q->Tr({}, $q->td([ 
-            $q->param("key$c"),
+            $key =~ /newrow/ ? "<b>$key</b>" : $key,
             $q->textfield(-name => "ward_name$c", -size => 30),
             $q->textfield(-name => "rep_first$c", -size => 15),
             $q->textfield(-name => "rep_last$c", -size => 15),
