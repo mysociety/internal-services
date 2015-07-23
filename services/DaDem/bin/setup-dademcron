@@ -10,7 +10,7 @@
 set -e
 
 DADEMHOME=/home/dademcron
-WRITETOTHEM_HOST=stork
+WRITETOTHEM_HOST=pluto
 DADEM_HOST=leopard
 
 if [ $( hostname ) != $DADEM_HOST ] ; then
