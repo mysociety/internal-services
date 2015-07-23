@@ -87,7 +87,7 @@ create table raw_input_data (
     council_id integer not null,
     council_name text not null, -- in canonical 'C' form
     council_type char(3) not null, 
-    council_ons_code varchar(7) not null,    -- 6+-digit ward code
+    council_ons_code varchar(10) not null,    -- 6+-digit ward code
 
     ward_name text,
 
@@ -119,7 +119,7 @@ create table raw_input_data_edited (
     council_id integer not null,
     council_name text not null, -- in canonical 'C' form
     council_type char(3) not null, 
-    council_ons_code varchar(7) not null,    -- 6+-digit ward code
+    council_ons_code varchar(10) not null,    -- 6+-digit ward code
 
     -- modified values, all must be there
     ward_name text not null,
