@@ -150,7 +150,10 @@ while (my $line = <STDIN>) {
     my $canon = CouncilMatch::canonicalise_council_name($council);
     #print "gename $council canon $canon\n";
 
-    die "no council in database matches canonical name '$canon'\nline $line_number: $line" unless (exists($parent_to_id{$canon}));
+    unless (exists($parent_to_id{$canon})) {
+        $problems .= "no council in database matches canonical name '$canon', line $line_number: $line\n";
+        next;
+    }
 
     my $id = $parent_to_id{$canon};
     
