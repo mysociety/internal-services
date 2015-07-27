@@ -366,6 +366,11 @@ sub canonicalise_council_name ($) {
         s/^Kingston upon Hull$/Hull/;
         s/^Rhondda, Cynon, Taff$/Rhondda, Cynon, Taf/;
 
+        # 2015 NI council name changes
+        s/Armagh, Banbridge and Craigavon/Armagh City, Banbridge and Craigavon/;
+        s/Derry and Strabane/Derry City and Strabane/;
+        s/North Down and Ards/Ards and North Down/;
+
         s#\bN\.\s#North #g;    # N. Warwickshire => North Warwickshire
         s#\bS\.\s#South #g;    # S. Oxfordshire => South Oxfordshire
         s#\bE\.\s#East #g;     # North E. Derbyshire => North East Derbyshire
