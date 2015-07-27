@@ -460,16 +460,17 @@ foreach my $council_id (keys %$councils) {
         }       
         
         # Edit the data
+        my $ons_code = $area_id_data->{$council_id}->{codes}->{gss} || $area_id_data->{$council_id}->{codes}->{ons};
+        my $area_type = $area_id_data->{$council_id}->{type};
+        my $ge_name = $councils->{$council_id}->{govevalname};
 
         # First a user "import" load the full new data for later reference (we
         # go back to this position when we next do a load)
-        CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
-            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{codes}->{ons},
+        CouncilMatch::edit_raw_data($council_id, $ge_name, $area_type, $ons_code,
             [values %$reps_new_import], "import");
 
         # Then on top of that apply the merges
-        CouncilMatch::edit_raw_data($council_id, $councils->{$council_id}->{govevalname},
-            $area_id_data->{$council_id}->{type}, $area_id_data->{$council_id}->{codes}->{ons},
+        CouncilMatch::edit_raw_data($council_id, $ge_name, $area_type, $ons_code,
             [values %$reps_merged], "merge");
 
     } else {
