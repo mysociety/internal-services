@@ -32,7 +32,7 @@ if len(args):
 fetcher = DiskCacheFetcher(options.cache_directory)
 
 host = 'www.europarl.org.uk'
-regions_path = '/en/your_meps.html'
+regions_path = '/en/your-meps.html'
 
 expected_region_counts = {
     'East Midlands': 5,
@@ -105,10 +105,8 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
         if party_match:
             party = tidy_party(party_match.group(1))
         else:
-            if first_name == 'Amjad' and last_names == 'Bashir':
-                party = 'United Kingdom Independence Party'
-            elif first_name == 'Richard' and last_names == 'Corbett':
-                party = 'Labour Party'
+            if first_name == 'Janice' and last_names == 'Atkinson':
+                party = 'Independent'
             else:
                 message = "Warning: couldn't find the party for {0} {1}"
                 print >> sys.stderr, message.format(first_name, last_names)
