@@ -56,7 +56,7 @@ foreach my $member (@{$j->{memberships}}) {
     $member->{constituency} = $posts{$member->{post_id}}{area}{name};
     $member->{party} = $member->{on_behalf_of_id} ? $orgs{$member->{on_behalf_of_id}}{name} : '';
 
-    if ($member->{start_date} le $today && end_date($member) ge $today) {
+    if (start_date($member) le $today && end_date($member) ge $today) {
         $nowc++;
         push @membersnow, $member;
         $peoplenow->{$member->{person_id}} = 1;
@@ -83,7 +83,11 @@ if (defined($extra_emails_file)) {
 foreach my $member (@members) {
     my @names = @{$persons{$member->{person_id}}};
     @names = grep { $_->{note} eq 'Main' } @names;
-    @names = reverse sort { end_date($a) cmp end_date($b) } @names;
+    if (end_date($member) eq $last_dissolution_date) {
+        @names = grep { start_date($_) le $last_dissolution_date && $last_dissolution_date le end_date($_) } @names;
+    } else {
+        @names = reverse sort { end_date($a) cmp end_date($b) } @names;
+    }
     my $name = $names[0];
     $member->{fullname} = $name->{given_name} . " " . $name->{family_name};
     $member->{fullname} = $name->{honorific_prefix} . " $member->{fullname}"
@@ -135,6 +139,10 @@ foreach my $member (@members) {
     }
 }
 close DELETED;
+
+sub start_date {
+    $_[0]->{start_date} // '0000-00-00';
+}
 
 sub end_date {
     $_[0]->{end_date} // '9999-12-31';
