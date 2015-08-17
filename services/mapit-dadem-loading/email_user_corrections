@@ -27,6 +27,7 @@ use mySociety::StringUtils qw(trim merge_spaces string_diff);
 use DaDem;
 
 my $d_dbh = connect_to_dadem_database();
+my $from = shift(@ARGV);
 my $to = shift(@ARGV);
 if (!$to) {
     print "Running in test mode, not sending email or committing.\n";
@@ -92,7 +93,7 @@ if ($to) {
     open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
 print <<END;
 Subject: WriteToThem User-Submitted Corrections
-From: WriteToThem Team <team\@writetothem.com>
+From: $from
 To: $to
 
 END

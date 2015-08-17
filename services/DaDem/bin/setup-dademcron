@@ -57,7 +57,7 @@ cat /data/vhost/services.mysociety.org/internal-services/services/conf/general |
 ssh $WRITETOTHEM_HOST cat /data/vhost/www.writetothem.com/writetothem/conf/general | su dademcron -c "cat >writetothem/conf/general"
 
 # Install .forward
-su - dademcron -c "echo \"team@mysociety.org\" >~dademcron/.forward"
+su - dademcron -c "echo \"cron-writetothem@mysociety.org\" >~dademcron/.forward"
 
 # Install crontab
 su dademcron -c "crontab repdata/bin/crontab"
