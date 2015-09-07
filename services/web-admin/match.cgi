@@ -380,8 +380,9 @@ sub do_council_edit ($) {
         }
     
         # Make alteration
+        my $ons_code = $area_data->{codes}->{gss} || $area_data->{codes}->{ons};
         CouncilMatch::edit_raw_data($area_id, 
-                $name_data->{'name'}, $area_data->{'type'}, $area_data->{'codes'}->{'ons'},
+                $name_data->{name}, $area_data->{type}, $ons_code,
                 \@newdata, $q->remote_user() || "*unknown*");
         $d_dbh->commit();
 
