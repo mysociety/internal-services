@@ -70,6 +70,7 @@ uasort($out, 'by_const');
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 foreach ($out as $name => $arr) {
     $name = str_replace(' &#40;Oscar&#41;', '', $name);
+    $name = preg_replace('# AM$#', '', $name);
     preg_match('#^(.*) (.*?)$#', $name, $m);
     list($first, $last) = array($m[1], $m[2]);
     print "$first,$last,$arr[const],$arr[party],$arr[email],,http://www.senedd.assemblywales.org/$arr[img]\n";
