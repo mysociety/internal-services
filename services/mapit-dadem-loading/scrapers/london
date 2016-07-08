@@ -88,15 +88,25 @@ class DetailPageParser( HTMLParser ):
     def __init__( self ):
         HTMLParser.__init__( self )
         self.email = ""
+        self.cf_email = ""
         self._state = 'NONE'
 
     def handle_starttag( self, tag, attrs ):
         if tag == 'li' and attrs == [('class', 'social-email')]:
             self._state = 'EMAIL'
+        if self._state == 'EMAIL' and tag == 'a':
+            cfemail = [ value for key, value in attrs if key == 'data-cfemail' ]
+            if len(cfemail):
+                self.cf_email = cfemail[0]
 
     def handle_endtag(self, tag):
         if self._state == 'EMAIL' and tag == 'li':
             self._state = 'NONE'
+            if 'protected' in self.email and self.cf_email:
+                s = self.cf_email
+                e = [ chr(int(s[i:i+2], 16) ^ int(s[0:2], 16)) for i in range(2, len(s), 2) ]
+                self.email = ''.join(e)
+
 
     def handle_charref( self, ref ):
         if self._state != 'EMAIL': return
@@ -142,7 +152,7 @@ for data in parser.list:
     print '"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, data['party'], email or '')
     
 if checks['constituency'] != 14:
-    raise StandardError, "Expected 14 constituency MEPs, got %d" % len(checks['constituency'])
+    raise StandardError, "Expected 14 constituency MEPs, got %d" % checks['constituency']
 if checks['list'] != 11:
-    raise StandardError, "Expected 11 list MEPs, got %d" % len(checks['list'])
+    raise StandardError, "Expected 11 list MEPs, got %d" % checks['list']
 
