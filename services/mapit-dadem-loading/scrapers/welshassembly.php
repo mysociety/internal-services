@@ -69,7 +69,8 @@ function by_const($a, $b) {
 uasort($out, 'by_const');
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 foreach ($out as $name => $arr) {
-    $name = str_replace(' &#40;Oscar&#41;', '', $name);
+    $name = html_entity_decode($name, ENT_COMPAT | ENT_HTML401, "utf-8");
+    $name = str_replace(' (Oscar)', '', $name);
     $name = preg_replace('# AM$#', '', $name);
     preg_match('#^(.*) (.*?)$#', $name, $m);
     list($first, $last) = array($m[1], $m[2]);
