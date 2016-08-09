@@ -67,7 +67,8 @@ content_div = all_region_soup.find(id='content')
 
 def tidy_region_name(region_name):
     result = region_name.replace(' Region', '')
-    return result.replace('Noth', 'North')
+    result = re.sub(' - \d+ MEPs', '', result)
+    return result
 
 def tidy_party(party):
     # Strip any abbreviation in parentheses:
