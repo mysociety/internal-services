@@ -106,7 +106,7 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
         if party_match:
             party = tidy_party(party_match.group(1))
         else:
-            if first_name == 'Janice' and last_names == 'Atkinson':
+            if (first_name, last_names) in (('Janice', 'Atkinson'), ('Diane', 'James'), ('Steven', 'Woolfe')):
                 party = 'Independent'
             else:
                 message = "Warning: couldn't find the party for {0} {1}"
