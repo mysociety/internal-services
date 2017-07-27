@@ -31,8 +31,8 @@ if len(args):
 
 fetcher = DiskCacheFetcher(options.cache_directory)
 
-host = 'www.europarl.org.uk'
-regions_path = '/en/your-meps.html'
+host = 'www.europarl.europa.eu'
+regions_path = '/unitedkingdom/en/your-meps.html'
 
 expected_region_counts = {
     'East Midlands': 5,
