@@ -415,15 +415,16 @@ foreach my $council_id (keys %$councils) {
                                 " GE: " . $new_import->{$field};
                     } elsif ($mysociety_mod->{$field} ne $prev_import->{$field}) {
                         # mySociety has changed, GovEval hasn't - take the mySociety change
-                        #$reps_merged->{$key}->{$field} = "CONFLICT" . 
-                        #        " MS: " .  $prev_import->{$field} . " ->" . $mysociety_mod->{$field} . 
-                        #        " GE: no change";
                         $reps_merged->{$key}->{$field} = $mysociety_mod->{$field};
                     } elsif ($new_import->{$field} ne $prev_import->{$field}) {
-                        # NO: Conversely, take a GovEval change as read if mySociety hasn't changed
-                        # YES: Alert if GovEval changes any field, due to ID reuse.
-                        $reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
-                            " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
+                        # mySociety hasn't changed, GovEval has. If this is party, accept
+                        # the change, but otherwise alert due to occasional ID reuse.
+                        if ($field eq 'rep_party') {
+                            $reps_merged->{$key}->{$field} = $new_import->{$field};
+                        } else {
+                            $reps_merged->{$key}->{$field} = "CONFLICT MS: no change" .
+                                " GE: " . $prev_import->{$field} . " ->" . $new_import->{$field};
+                        }
                     }
                 }
                 $out .= "PROPER CLASH both changed\n";
