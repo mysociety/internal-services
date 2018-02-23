@@ -31,7 +31,3 @@ libstring-ediff-perl
 
 # Ratty
 libnet-netmask-perl 
-
-# EvEl
-libmime-tools-perl
-libmailtools-perl
