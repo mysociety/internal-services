@@ -30,6 +30,7 @@ if (count($out) < 58) {
 }
 
 $f = file_get_contents('http://www.senedd.assemblywales.org/mgMemberIndex.aspx');
+$f = str_replace('<!--<p></p>-->', '', $f);
 preg_match_all('#
     <li>
     \s*<a[ ]*href="mgUserInfo\.aspx\?UID=(.*?)"[ ]*>
@@ -45,7 +46,9 @@ foreach ($m as $r) {
     list( $dummy, $id, $img, $name, $const, $party, $min) = $r;
     $out[$name]['img'] = $img;
     $out[$name]['party'] = party_lookup($party);
-    $out[$name]['const'] = str_replace(array('Anglesey', 'Ynys Mon', 'Ynys M&#244;n'), "Ynys M\xc3\xb4n", $const);
+    $const = str_replace(array('Anglesey', 'Ynys Mon', 'Ynys M&#244;n'), "Ynys M\xc3\xb4n", $const);
+    $const = str_replace(array('&#40;', '&#41;'), '', $const);
+    $out[$name]['const'] = $const;
 }
 
 function by_const($a, $b) {
@@ -84,5 +87,6 @@ function party_lookup($p) {
     elseif ($p == 'Welsh Liberal Democrats') return 'Liberal Democrat';
     elseif ($p == 'Independant') return 'Independent';
     elseif ($p == 'Independent Plaid Cymru Member') return 'Plaid Cymru'; # Bethan Jenkins
+    elseif ($p == 'United Kingdom Independence Party &#40;UKIP&#41;') return 'UKIP';
     else return $p;
 }

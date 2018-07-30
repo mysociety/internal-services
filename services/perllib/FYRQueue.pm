@@ -15,6 +15,7 @@ sub configure (;$) {
     $url = mySociety::Config::get('FYR_QUEUE_URL') if !defined($url);
     my $userpwd = mySociety::Config::get('FYR_QUEUE_USERPWD');
     $rabx_client = new RABX::Client($url, $userpwd) or die qq(Bad RABX proxy URL "$url");
+    $rabx_client->usepost(1);
 }
 
 sub admin_update_recipient ($$$) {

@@ -342,7 +342,7 @@ sub canonicalise_council_name ($) {
         s# County Council$##;  # OS say "District", GovEval say "City Council", we drop both to match
         s# Borough Council$##; # Stafford Borough Council => Stafford
         s#^Borough Council of ##;
-        s# and District Council$##; # Armagh City and District Council
+        s# (and|&) District Council$##; # Armagh City and District Council
         s# Council$##;         # Medway Council => Medway
         s# City$##;            # Liverpool City => Liverpool
         s#^City of ##;         # City of Glasgow => Glasgow
