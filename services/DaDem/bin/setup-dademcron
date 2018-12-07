@@ -11,7 +11,7 @@ set -e
 
 DADEMHOME=/home/dademcron
 WRITETOTHEM_HOST=pluto
-DADEM_HOST=leopard
+DADEM_HOST=mastodon
 
 if [ $( hostname ) != $DADEM_HOST ] ; then
     echo "Please run dademcron on one machine ($DADEM_HOST) only"
