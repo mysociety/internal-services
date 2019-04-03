@@ -77,7 +77,8 @@ if ($help) {
 my %parent_to_id;
 
 # Cache of areas
-my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
+my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types,
+    generation => mySociety::Config::get('MAPIT_GENERATION'));
 foreach my $area (values %$area_id_data) {
     # Create canonical version of name and also hash it as lookup
     my $canon = CouncilMatch::canonicalise_council_name($area->{name});

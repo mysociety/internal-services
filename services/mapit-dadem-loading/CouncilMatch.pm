@@ -464,7 +464,8 @@ sub match_council_wards ($$) {
     do { push @{$wards_goveval}, { name => $_} } for @wards_array;
 
     # Set of wards already in database
-    my $rows = mySociety::MaPit::call('area/children', $area_id, type => $mySociety::VotingArea::council_child_types);
+    my $rows = mySociety::MaPit::call('area/children', $area_id, type => $mySociety::VotingArea::council_child_types,
+        generation => mySociety::Config::get('MAPIT_GENERATION'));
     my $wards_database = [];
     foreach my $row (values %$rows) { 
         push @{$wards_database}, $row;

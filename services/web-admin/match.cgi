@@ -114,7 +114,8 @@ sub do_summary ($) {
     print $q->h1("Status Summary");
 
     # Cache of area_id->type etc.
-    my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
+    my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types,
+        generation => mySociety::Config::get('MAPIT_GENERATION'));
 
     # Get status of every council
     my $status_data = $d_dbh->selectall_arrayref(

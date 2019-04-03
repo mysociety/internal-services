@@ -52,7 +52,8 @@ my $d_dbh = connect_to_dadem_database();
 CouncilMatch::set_db_handle($d_dbh);
 
 # Cache of area_id->type etc.
-my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types);
+my $area_id_data = mySociety::MaPit::call('areas', $mySociety::VotingArea::council_parent_types,
+    generation => mySociety::Config::get('MAPIT_GENERATION'));
 
 # Find areas in raw_process_status which are no longer in mapit
 my $areas_with_status = $d_dbh->selectall_hashref(

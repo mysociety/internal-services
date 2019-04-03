@@ -20,6 +20,7 @@
 // RABX URLs for when one service calls another
 define('OPTION_DADEM_URL', 'http://services.mysociety.org/dadem');
 define('OPTION_MAPIT_URL', 'http://mapit.mysociety.org/');
+define('OPTION_MAPIT_GENERATION', 0);
 
 // PostgreSQL database for DaDem
 define('OPTION_DADEM_DB_NAME', 'dadem');
