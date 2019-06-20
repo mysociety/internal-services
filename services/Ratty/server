@@ -23,6 +23,8 @@ require 5.8.0;
 
 use FCGI;
 use RABX;
+use FindBin;
+use lib "$FindBin::Bin";
 
 use mySociety::Config;
 use mySociety::WatchUpdate;
