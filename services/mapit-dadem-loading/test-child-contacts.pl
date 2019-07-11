@@ -11,6 +11,8 @@ my $rcsid = ''; $rcsid .= '$Id: test-child-contacts.pl,v 1.1 2008-09-10 08:27:10
 use strict;
 $| = 1; # flush STDOUT afer each write
 
+use FindBin;
+use lib "$FindBin::Bin";
 use Data::Dumper;
 use mySociety::MaPit;
 use mySociety::DaDem;
