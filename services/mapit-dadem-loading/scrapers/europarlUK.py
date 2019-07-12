@@ -86,7 +86,7 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
     region_url = make_url(region_link['href'])
     region_soup = BeautifulSoup(fetcher.fetch(region_url))
     meps_found = 0
-    for mep_soup in region_soup('div', {'class': re.compile('standard')}):
+    for mep_soup in region_soup.select('div.standard.mep'):
         image_element = mep_soup.find('img')
         # The name is in the span immediately after the image:
         sibling_tags = [
@@ -98,6 +98,8 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
         # Assume there's only one first name and possibly multiple
         # last names, as the previous script did:
         first_name, last_names = name_match.groups()
+        last_names = last_names.title().replace('Cbe', 'CBE').replace('Mcintyre','McIntyre').replace('Mcleod','McLeod')
+
         # Look for the party affiliation:
         party_match = re.search(
             r'(?ims)National\s+party\s*:\s*(.*?)\n',
@@ -106,8 +108,8 @@ for region_link in content_div.find_all('a', {'class': 'simple'}):
         if party_match:
             party = tidy_party(party_match.group(1))
         else:
-            if (first_name, last_names) in (('Janice', 'Atkinson'), ('Diane', 'James'), ('Steven', 'Woolfe'), ('James', 'Carver')):
-                party = 'Independent'
+            if (first_name, last_names) in (('Annunziata','Rees-Mogg'), ('Jonathan','Bullock'), ('Matthew','Patten'), ('Richard','Tice'), ('Michael','Heaver'), ('June','Mummery'), ('Ben','Habib'), ('Lance','Forman')):
+                party = 'The Brexit Party'
             else:
                 message = "Warning: couldn't find the party for {0} {1}"
                 print >> sys.stderr, message.format(first_name, last_names)
