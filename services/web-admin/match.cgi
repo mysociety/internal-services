@@ -364,7 +364,7 @@ sub do_council_edit ($) {
         while ($q->param("key$c")) {
             if ($q->param("ward_name$c")) {
                 my $rep;
-                foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
+                foreach my $fieldname (qw(key ward_name rep_first rep_last rep_party rep_email rep_fax)) {
                     $rep->{$fieldname}= $q->param($fieldname . $c);
                 }
                 push @newdata, $rep;
@@ -374,7 +374,7 @@ sub do_council_edit ($) {
         # ... add new ward
         if ($q->param("ward_namenew") ne $newreptext) {
             my $rep;
-            foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
+            foreach my $fieldname (qw(key ward_name rep_first rep_last rep_party rep_email rep_fax)) {
                 $rep->{$fieldname}= $q->param($fieldname . "new");
             }
             push @newdata, $rep;
@@ -403,7 +403,7 @@ sub do_council_edit ($) {
     @reps = sort { $a->{$sort_by} cmp $b->{$sort_by}  } @reps;
     my $c = 1;
     foreach my $rep (@reps) {
-        foreach my $fieldname qw(key ward_name rep_first rep_last rep_party rep_email rep_fax) {
+        foreach my $fieldname (qw(key ward_name rep_first rep_last rep_party rep_email rep_fax)) {
             $q->param($fieldname . $c, $rep->{$fieldname});
         }
         $c++;

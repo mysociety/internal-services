@@ -20,6 +20,8 @@ use Data::Dumper;
 use Text::Wrap;
 use POSIX qw(strftime);
 use Error qw(:try);
+use FindBin;
+use lib "$FindBin::Bin";
 
 use Common;
 use mySociety::MaPit;

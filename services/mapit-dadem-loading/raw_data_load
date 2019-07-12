@@ -32,6 +32,8 @@ use Data::Dumper;
 use Encode;
 use Storable;
 use Getopt::Long;
+use FindBin;
+use lib "$FindBin::Bin";
 
 use mySociety::MaPit;
 use mySociety::VotingArea;
