@@ -39,7 +39,7 @@ use mySociety::Parties;
 use CouncilMatch;
 use DaDem;
 
-our $rep_edit_url = "https://secure.mysociety.org/admin/fyr/index.php?page=reps&rep_id=";
+our $rep_edit_url = "https://www.writetothem.com/admin/index.php?page=reps&rep_id=";
 
 my $ignore_conflicts;
 GetOptions('ignore-conflicts' => \$ignore_conflicts);
