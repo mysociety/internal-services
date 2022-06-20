@@ -10,8 +10,8 @@
 set -e
 
 DADEMHOME=/home/dademcron
-WRITETOTHEM_HOST=heron
-DADEM_HOST=owl
+WRITETOTHEM_HOST=mswtthexa.srv.mysociety.org
+DADEM_HOST=mswtthexa.srv.mysociety.org
 
 if [ $( hostname ) != $DADEM_HOST ] ; then
     echo "Please run dademcron on one machine ($DADEM_HOST) only"
@@ -54,7 +54,11 @@ fi
 
 # Copy configuration files
 cat /data/vhost/services.mysociety.org/internal-services/services/conf/general | su dademcron -c "cat >internal-services/services/conf/general"
-ssh $WRITETOTHEM_HOST cat /data/vhost/www.writetothem.com/writetothem/conf/general | su dademcron -c "cat >writetothem/conf/general"
+if [ "$DADEM_HOST" = "$WRITETOTHEM_HOST" ]; then
+    cat /data/vhost/www.writetothem.com/writetothem/conf/general | su dademcron -c "cat >writetothem/conf/general"
+else
+    ssh $WRITETOTHEM_HOST cat /data/vhost/www.writetothem.com/writetothem/conf/general | su dademcron -c "cat >writetothem/conf/general"
+fi
 
 # Install .forward
 su - dademcron -c "echo \"cron-writetothem@mysociety.org\" >~dademcron/.forward"
