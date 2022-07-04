@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 #
 # northern_ireland.py:
 # Screen scrape representatives from Northern Ireland assembly website,.
@@ -9,11 +9,11 @@
 
 import json
 import re
-from urlparse import urljoin
-from HTMLParser import HTMLParser
+from urllib.parse import urljoin
+from html.parser import HTMLParser
 from cache import DiskCacheFetcher
 
-NIA_MEMBERS = 'http://data.niassembly.gov.uk/members.asmx/GetAllCurrentMembers_JSON'
+NIA_MEMBERS = 'http://data.niassembly.gov.uk/members_json.ashx?m=GetAllCurrentMembers'
 NIA_DETAIL_PAGE = 'http://aims.niassembly.gov.uk/mlas/details.aspx?&aff=%d&per=%d&sel=1&ind=11&prv=0'
 
 fetcher = DiskCacheFetcher('cache')
@@ -52,7 +52,7 @@ class NIADetailPageParser( HTMLParser ):
                 self.email = link_url[7:]
 
 def parseNIAssemblySite():
-    print "First,Last,Constituency,Party,Email,Fax,Image"
+    print("First,Last,Constituency,Party,Email,Fax,Image")
     
     data = fetcher.fetch( NIA_MEMBERS )
     assembly_members = json.loads( data )['AllMembersList']['Member']
@@ -75,7 +75,7 @@ def parseNIAssemblySite():
                                                     mla['ConstituencyName'],
                                                     mla['PartyName'],
                                                     email or '', 
-                                                    image_url)).encode('utf-8')
+                                                    image_url))
 
 if __name__ == '__main__':
     

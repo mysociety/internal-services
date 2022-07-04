@@ -92,6 +92,7 @@ my $areas = mySociety::MaPit::call('areas', $types);
 foreach my $area (values %$areas) {
     my ($area_id, $name, $type) = ($area->{id}, $area->{name}, $area->{type});
     die "duplicate name $name of differing id or type" if (exists($name_to_id{$name}) and (($name_to_id{$name} != $area_id) or ($name_to_type{$name} ne $type)));
+    utf8::encode($name); # To match from CSV file
     $name_to_id{$name} = $area_id;
     $name_to_type{$name} = $type;
 }
@@ -135,13 +136,14 @@ $count = 0;
 for my $rep_info (values %$reps_info) {
     $count++;
 
+    utf8::encode($rep_info->{name});
     my $canon_repname = CouncilMatch::canonicalise_person_name($rep_info->{'name'});
     $canon_repnames->{$rep_info->{'voting_area'}}->{$canon_repname} = $rep_info;
 }
 
 # Read CSV file, load into dadem
 binmode(MAIN, ":utf8");
-my $C = new Text::CSV_XS({ binary => 1 });
+my $C = new Text::CSV_XS({ binary => 1, decode_utf8 => 0 });
 my $already_done;
 <MAIN>;    # header line
 while (my $line = <MAIN>) {
@@ -451,7 +453,7 @@ foreach my $area_id (keys %$canon_repnames){
 
 
             # Then delete them
-            print "Deleting old " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . "\n";
+            print "Deleting old " . $repinfo->{id} . " " . $repinfo->{name} . ", " . $id_to_name{$repinfo->{voting_area}} . " " . $repinfo->{voting_area} . "\n";
             
             my $dadem_rep_id = $repinfo->{id};
             my $new_data = undef;

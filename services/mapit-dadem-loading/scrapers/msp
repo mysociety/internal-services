@@ -5,29 +5,61 @@
 # Copyright (c) 2012 UK Citizens Online Democracy. All rights reserved.
 
 use strict;
-use LWP::Simple;
+use HTML::Entities;
+use LWP::UserAgent;
 use Text::CSV_XS;
 
-my $url = 'http://www.scottish.parliament.uk/msps/current-msps.aspx';
-my $msps = LWP::Simple::get($url);
+binmode(STDOUT, ":encoding(utf8)");
+
+my $ua = LWP::UserAgent->new;
+$ua->agent('WriteToThem/1.0');
+my $url = 'https://www.parliament.scot/msps/current-and-previous-msps';
+my $resp = $ua->get($url);
+my $msps = $resp->decoded_content;
 
 my $csv_out = new Text::CSV_XS();
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 
+sub decode_cfemail {
+    my $enc = shift;
+    my $res = '';
+    my @array = $enc =~ /../g;
+    my $key = hex(shift @array);
+    foreach (@array) {
+        $res .= chr(hex($_) ^ $key);
+    }
+    return $res;
+}
+
 my $count = 0;
 
-while ($msps =~ /<li>\s*
-    <p>\s*<a[ ]href="[^"]*"><strong>\s*([^,]*),[ ]([^<]*)<\/strong><\/a><\/p>\s*
-    <img[ ]alt=""[ ]src="([^"]*)"[ ]\/>\s*
-    <div[ ]class="alphabetListItem">\s*
-        <p>\s*([^<]*)<\/p>\s*
-        <p>\s*Member\s*for\s*<strong>\s*([^<]*)<\/strong><\/p>\s*
-        <ul>\s*<li><a[ ]href="mailto:([^"]*)">Email[ ]me<\/a><\/li>\s*<\/ul>\s*
-    <\/div>\s*<\/li>/xg) {
+while ($msps =~ m{
+    <div[ ]class="content-block[ ]content-block--msp"[ ]data-is-current="true"[^>]*>\s*
+    <div[ ]class="content-block__inner">\s*
+    (?:
+        <a[^>]*background-image:[ ]url\('([^']*)'\)">\s*.*?\s*</a>\s*
+    )?
+    <div[ ]class="content-block__content">\s*
+    <div[ ]class="content-block__header">\s*
+    <h3[ ]class="h5"><a[^>]*>(.*?)</a></h3>\s*
+    </div>\s*
+    <div[ ]class="content-block__body">\s*
+    <p>(.*?)</p>\s*
+    <p>\s*MSP[ ]for[ ](.*?)\s*\((?:Constituency|Region)\)\s*</p>\s*
+    </div>\s*
+    </div>\s*
+    <div[ ]class="content-block__contact">\s*
+    (?:<a[^>]*href="http.*?</a>\s*)?
+    <a[^>]*href="[^#]*\#([^"]*)"
+    }xgs) {
 
-    my ($last, $first, $image, $party, $area, $email) = ($1, $2, $3, $4, $5, $6);
+    my ($image, $name, $party, $area, $email) = ($1, $2, $3, $4, $5, $6);
+    $name = decode_entities($name);
+    $image = decode_entities($image || '');
+    my ($first, $last) = split / /, $name, 2;
+    $email = decode_cfemail($email);
 
-    $image = URI->new_abs($image, $url)->as_string();
+    $image = URI->new_abs($image, $url)->as_string() if $image;
     $party = 'Presiding Officer' if $party eq 'No Party Affiliation';
 
     # Output to CSV

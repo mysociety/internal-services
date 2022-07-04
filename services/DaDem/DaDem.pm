@@ -287,7 +287,7 @@ The default is to return only current representatives.  If ALL has value 1, then
 even deleted representatives are returned. 
 
 =cut
-sub get_representatives ($;$) {
+sub get_representatives {
     my ($id, $all) = @_;
     
     if (ref($id)) {

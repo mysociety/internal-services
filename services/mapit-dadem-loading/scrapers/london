@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 #
 # london:
 # Screen scrape representatives from London assembly website
@@ -9,9 +9,8 @@
 # $Id: london,v 1.11 2013-05-07 13:09:02 dademcron Exp $
 
 import re
-from urllib import unquote
-from urlparse import urljoin
-from HTMLParser import HTMLParser
+from urllib.parse import unquote, urljoin
+from html.parser import HTMLParser
 from cache import DiskCacheFetcher
 
 LIST_PAGE = 'https://www.london.gov.uk/people/assembly'
@@ -132,7 +131,7 @@ page = fetcher.fetch( LIST_PAGE )
 parser = HeadedTableParser()
 parser.feed( page )
 
-print "First,Last,Constituency,Party,Email,Fax";
+print("First,Last,Constituency,Party,Email,Fax")
 
 checks = { 'list': 0, 'constituency': 0 }
 
@@ -149,10 +148,10 @@ for data in parser.list:
     parser = DetailPageParser()
     parser.feed( page )
     email = parser.email
-    print '"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, data['party'], email or '')
+    print('"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, data['party'], email or ''))
     
 if checks['constituency'] != 14:
-    raise StandardError, "Expected 14 constituency MEPs, got %d" % checks['constituency']
+    raise Exception("Expected 14 constituency MEPs, got %d" % checks['constituency'])
 if checks['list'] != 11:
-    raise StandardError, "Expected 11 list MEPs, got %d" % checks['list']
+    raise Exception("Expected 11 list MEPs, got %d" % checks['list'])
 

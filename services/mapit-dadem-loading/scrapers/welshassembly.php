@@ -8,7 +8,7 @@
  *
  */
 
-$f = file_get_contents('http://www.senedd.assemblywales.org/mgCommitteeMailingList.aspx?ID=0');
+$f = file_get_contents('http://business.senedd.wales/mgCommitteeMailingList.aspx?ID=0');
 preg_match_all('#
     <h3[ ]class="mgSubSubTitleTxt">(.*?)</h3>
     \s*<p>(.*?)</p>
@@ -29,15 +29,15 @@ if (count($out) < 58) {
     exit(1);
 }
 
-$f = file_get_contents('http://www.senedd.assemblywales.org/mgMemberIndex.aspx');
+$f = file_get_contents('http://business.senedd.wales/mgMemberIndex.aspx');
 $f = str_replace('<!--<p></p>-->', '', $f);
+$f = preg_replace('#<!--\s*Tel:\s*-->#', '', $f);
 preg_match_all('#
     <li>
     \s*<a[ ]*href="mgUserInfo\.aspx\?UID=(.*?)"[ ]*>
     \s*<img[ ]*class="mgCouncillorImages"[ ]*src="(.*?)"
     [^>]*><br[ ]/>(.*?)</a>
     \s*<p>(.*?)</p>
-    (?: \s*<!--\s*Tel:\s*--> )?
     \s*<p>(.*?)</p>
     (?: \s*<p>(.*?)</p> )?
     \s*</li>
@@ -47,7 +47,7 @@ foreach ($m as $r) {
     $out[$name]['img'] = $img;
     $out[$name]['party'] = party_lookup($party);
     $const = str_replace(array('Anglesey', 'Ynys Mon', 'Ynys M&#244;n'), "Ynys M\xc3\xb4n", $const);
-    $const = str_replace(array('&#40;', '&#41;'), '', $const);
+    $const = preg_replace('#^\((.*)\)$#', '$1', $const);
     $out[$name]['const'] = $const;
 }
 
@@ -73,20 +73,20 @@ uasort($out, 'by_const');
 print "First,Last,Constituency,Party,Email,Fax,Image\n";
 foreach ($out as $name => $arr) {
     $name = html_entity_decode($name, ENT_COMPAT | ENT_HTML401, "utf-8");
-    $name = str_replace(' (Oscar)', '', $name);
-    $name = preg_replace('# AM$#', '', $name);
+    $name = preg_replace('# MS$#', '', $name);
     preg_match('#^(.*) (.*?)$#', $name, $m);
     list($first, $last) = array($m[1], $m[2]);
-    print "$first,$last,$arr[const],$arr[party],$arr[email],,http://www.senedd.assemblywales.org/$arr[img]\n";
+    $img = $arr['img'] ? "http://www.senedd.assemblywales.org/$arr[img]" : "";
+    print "$first,$last,$arr[const],$arr[party],$arr[email],,$img\n";
 }
 
 function party_lookup($p) {
     if ($p == 'Labour Party') return 'Labour';
     if ($p == 'Welsh Labour') return 'Labour';
+    if ($p == 'Welsh Labour and Co-operative Party') return 'Labour';
     elseif ($p == 'Welsh Conservative Party') return 'Conservative';
     elseif ($p == 'Welsh Liberal Democrats') return 'Liberal Democrat';
     elseif ($p == 'Independant') return 'Independent';
     elseif ($p == 'Independent Plaid Cymru Member') return 'Plaid Cymru'; # Bethan Jenkins
-    elseif ($p == 'United Kingdom Independence Party &#40;UKIP&#41;') return 'UKIP';
     else return $p;
 }
