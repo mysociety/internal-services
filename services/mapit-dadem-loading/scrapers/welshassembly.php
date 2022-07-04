@@ -43,7 +43,7 @@ preg_match_all('#
     \s*</li>
 #x', $f, $m, PREG_SET_ORDER);
 foreach ($m as $r) {
-    list( $dummy, $id, $img, $name, $const, $party, $min) = $r;
+    list( $dummy, $id, $img, $name, $const, $party) = $r;
     $out[$name]['img'] = $img;
     $out[$name]['party'] = party_lookup($party);
     $const = str_replace(array('Anglesey', 'Ynys Mon', 'Ynys M&#244;n'), "Ynys M\xc3\xb4n", $const);
