@@ -46,7 +46,7 @@ class NIADetailPageParser( HTMLParser ):
         attrs = dict(attrs)
         if tag == 'img' and attrs.get('class') == 'mlaimg':
             self.image_url = attrs.get('src')
-        if tag == 'a' and 'EmailHyperLink' in attrs.get('id', ''):
+        if tag == 'a' and '@' in attrs.get('href', ''):
             link_url = attrs.get('href')
             if link_url != 'mailto:' and not self.email:
                 self.email = link_url[7:]
