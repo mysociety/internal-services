@@ -95,7 +95,7 @@ foreach my $area (values %$area_id_data) {
 }
  
 # Load the GovEval data.
-my $C = new Text::CSV({ binary => 1, decode_utf8 => 0 });
+my $C = new Text::CSV({ binary => 1 });
 my $line_number = 0;
 <STDIN>;    # header line
 $line_number++;
