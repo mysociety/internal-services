@@ -92,7 +92,7 @@ if (!$corrections_count) {
 
 # Connect to SENDMAIL
 if ($to) {
-    open(STDOUT, "|/usr/sbin/sendmail -oi -t") or die "Can't fork for sendmail: $!\n";
+    open(STDOUT, "|/usr/sbin/sendmail -oi -t -f '$from'") or die "Can't fork for sendmail: $!\n";
 print <<END;
 Subject: WriteToThem User-Submitted Corrections
 From: $from
