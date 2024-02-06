@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: latin-1 -*-
 
 # Converts triple of (name, "House of Lords", date) into parlparse person id.
@@ -30,12 +30,12 @@ while 1:
     id = None
     try:
         id = lordsList.GetLordIDfname(name, None, date_today) 
-    except ContextException, ce:
+    except ContextException as ce:
         traceback.print_exc()
     if not id:
-        print >>sys.stderr, "failed to match lord %s %s" % (name, date_today)
-        print ""
+        print("failed to match lord %s %s" % (name, date_today), file=sys.stderr)
+        print()
     else:
-        print id
+        print(id)
     sys.stdout.flush()
 

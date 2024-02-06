@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: latin-1 -*-
 
 # Converts triple of (name, constituency, date) into parlparse person id.
@@ -26,7 +26,7 @@ while 1:
 
     id, canonname, canoncons = memberList.matchfullnamecons(name, cons, date_today)
     if not id:
-        print >>sys.stderr, "failed to match %s (%s) %s" % (name, cons, date_today)
+        print("failed to match %s (%s) %s" % (name, cons, date_today), file=sys.stderr)
 
-    print id
+    print(id)
     sys.stdout.flush()
