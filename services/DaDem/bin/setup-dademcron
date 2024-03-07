@@ -10,8 +10,8 @@
 set -e
 
 DADEMHOME=/home/dademcron
-WRITETOTHEM_HOST=mswtthexa.srv.mysociety.org
-DADEM_HOST=mswtthexa.srv.mysociety.org
+WRITETOTHEM_HOST=mswttclla.srv.mysociety.org
+DADEM_HOST=mswttclla.srv.mysociety.org
 
 if [ $( hostname ) != $DADEM_HOST ] ; then
     echo "Please run dademcron on one machine ($DADEM_HOST) only"
