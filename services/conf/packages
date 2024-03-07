@@ -16,7 +16,7 @@ libhtml-parser-perl
 libhtml-tree-perl
 liburi-perl
 libfile-slurp-perl
-python-bs4
+python3-bs4
 
 # Shared packages
 libdbi-perl
