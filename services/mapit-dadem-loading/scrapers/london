@@ -36,27 +36,30 @@ class HeadedTableParser( HTMLParser ):
         self._data = ''
 
     def handle_starttag( self, tag, attrs ):
-        if self._state == 'CONTENT' and tag == 'article':
-            self.state('ITEM')
-            self._item = {}
+        if self._state == 'CONTENT' and tag == 'div':
+            attrs = dict(attrs)
+            if 'role' in attrs and attrs['role'] == 'article':
+                self.state('ITEM')
+                self._item = {
+                    'name': attrs['aria-label']
+                }
         elif self._state == 'ITEM' and tag == 'a':
             self._item['url'] = [ value for key, value in attrs if key == 'href' ][0]
-        elif self._state == 'ITEM' and tag == 'h1':
-            self.state('NAME')
-        elif self._state == 'POSTH1' and tag == 'div':
+        elif self._state == 'ITEM' and tag == 'div':
             attrs = dict(attrs)
-            if 'class' in attrs and 'field--name-field-constituency-select' in attrs['class']:
-                self._item['party'] = self.tidy_data()
+            if 'class' in attrs and 'p-constituency' in attrs['class']:
                 self.state('CONS')
+            if 'class' in attrs and 'p-political-group' in attrs['class']:
+                self.state('PARTY')
 
     def handle_endtag( self, tag ):
-        if self._state == 'NAME' and tag == 'h1':
-            self._item['name'] = self.tidy_data()
-            self.state('POSTH1')
+        if self._state == 'PARTY' and tag == 'div':
+            self._item['party'] = self.tidy_data()
+            self.state('ITEM')
         elif self._state == 'CONS' and tag == 'div':
             self._item['constituency'] = self.tidy_data()
             self.state('ITEM')
-        elif self._state == 'ITEM' and tag == 'article':
+        elif self._state == 'ITEM' and tag == 'li':
             self.list.append(self._item)
             self.state('CONTENT')
 
@@ -91,21 +94,19 @@ class DetailPageParser( HTMLParser ):
         self._state = 'NONE'
 
     def handle_starttag( self, tag, attrs ):
-        if tag == 'li' and attrs == [('class', 'social-email')]:
-            self._state = 'EMAIL'
-        if self._state == 'EMAIL' and tag == 'a':
-            cfemail = [ value for key, value in attrs if key == 'data-cfemail' ]
-            if len(cfemail):
-                self.cf_email = cfemail[0]
+        if tag == 'span':
+            attrs = dict(attrs)
+            if attrs.get('data-cfemail'):
+                self._state = 'EMAIL'
+                self.cf_email = attrs['data-cfemail']
 
     def handle_endtag(self, tag):
-        if self._state == 'EMAIL' and tag == 'li':
+        if self._state == 'EMAIL' and tag == 'span':
             self._state = 'NONE'
             if 'protected' in self.email and self.cf_email:
                 s = self.cf_email
                 e = [ chr(int(s[i:i+2], 16) ^ int(s[0:2], 16)) for i in range(2, len(s), 2) ]
                 self.email = ''.join(e)
-
 
     def handle_charref( self, ref ):
         if self._state != 'EMAIL': return
@@ -123,6 +124,8 @@ class DetailPageParser( HTMLParser ):
 
 
 def splitName( name ):
+    if name == 'The Lord Bailey of Paddington':
+        name = 'Shaun Bailey'
     name = re.sub('^Dr ', '', name.replace('\u2019', "'"))
     names = name.split()
     return " ".join(names[1:]), names[0]
@@ -151,7 +154,7 @@ for data in parser.list:
     print('"%s","%s","%s","%s","%s",""' % (forename, surname, constituency, data['party'], email or ''))
     
 if checks['constituency'] != 14:
-    raise Exception("Expected 14 constituency MEPs, got %d" % checks['constituency'])
+    raise Exception("Expected 14 constituency AMs, got %d" % checks['constituency'])
 if checks['list'] != 11:
-    raise Exception("Expected 11 list MEPs, got %d" % checks['list'])
+    raise Exception("Expected 11 list AMs, got %d" % checks['list'])
 

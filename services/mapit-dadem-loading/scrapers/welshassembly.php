@@ -29,21 +29,37 @@ if (count($out) < 58) {
     exit(1);
 }
 
-$f = file_get_contents('http://business.senedd.wales/mgMemberIndex.aspx');
-$f = str_replace('<!--<p></p>-->', '', $f);
-$f = preg_replace('#<!--\s*Tel:\s*-->#', '', $f);
+$url = 'https://senedd.wales/Umbraco/Surface/Search/SubmitSearchForm';
+$data = [
+    "PageSize" => 1000,
+    "Page" => 1,
+    "Culture" => 'en-GB',
+    'ViewModelType' => 'MemberOfSenedd',
+    'ShowAll' => 'true',
+];
+$options = [
+    'http' => [
+        'header' => "Content-type: application/x-www-form-urlencoded\r\n",
+        'method' => 'POST',
+        'content' => http_build_query($data),
+    ],
+];
+$context = stream_context_create($options);
+$f = file_get_contents($url, false, $context);
+
 preg_match_all('#
-    <li>
-    \s*<a[ ]*href="mgUserInfo\.aspx\?UID=(.*?)"[ ]*>
-    \s*<img[ ]*class="mgCouncillorImages"[ ]*src="(.*?)"
-    [^>]*><br[ ]/>(.*?)</a>
-    \s*<p>(.*?)</p>
-    \s*<p>(.*?)</p>
-    (?: \s*<p>(.*?)</p> )?
-    \s*</li>
+    <div[^>]*>
+    \s*<a[ ]class="link"[ ]href="(.*?)"[^>]*>
+    \s*<img[^>]*src="(.*?)"[^>]*>
+    \s*<p[ ]class="person-search-result-item__text"[^>]*>(.*?)</p>
+    \s*<p[ ]class="person-search-result-item__text">(.*?)</p>
+    \s*<p[ ]class="person-search-result-item__text">(.*?)</p>
+    \s*<p[ ]class="person-search-result-item__text">.*?</p>
+    \s*</a>
+    \s*</div>
 #x', $f, $m, PREG_SET_ORDER);
 foreach ($m as $r) {
-    list( $dummy, $id, $img, $name, $const, $party) = $r;
+    list( $dummy, $url, $img, $name, $const, $party) = $r;
     $out[$name]['img'] = $img;
     $out[$name]['party'] = party_lookup($party);
     $const = str_replace(array('Anglesey', 'Ynys Mon', 'Ynys M&#244;n'), "Ynys M\xc3\xb4n", $const);

@@ -21,7 +21,7 @@ use Text::CSV_XS;
 
 use Common;
 
-my $last_dissolution_date = "2015-03-30";
+my $last_dissolution_date = "2024-05-30";
 
 my $today = strftime("%Y-%m-%d",localtime(time()));
 
@@ -56,11 +56,9 @@ foreach my $member (@{$j->{memberships}}) {
     $member->{constituency} = $posts{$member->{post_id}}{area}{name};
     $member->{party} = $member->{on_behalf_of_id} ? $orgs{$member->{on_behalf_of_id}}{name} : '';
 
-    if (start_date($member) le $today && end_date($member) ge $today) {
-        $nowc++;
-        push @membersnow, $member;
-        $peoplenow->{$member->{person_id}} = 1;
-    }
+    $nowc++;
+    push @membersnow, $member;
+    $peoplenow->{$member->{person_id}} = 1;
 }
 
 die "very few MPs!" if $nowc < 640;
