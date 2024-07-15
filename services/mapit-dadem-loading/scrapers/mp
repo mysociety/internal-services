@@ -21,7 +21,7 @@ use Text::CSV_XS;
 
 use Common;
 
-my $last_dissolution_date = "2024-05-30";
+my $last_dissolution_date = "";
 
 my $today = strftime("%Y-%m-%d",localtime(time()));
 
@@ -40,7 +40,7 @@ my $j = decode_json(read_file($people_json));
 my (%orgs, %posts, %persons);
 $orgs{$_->{id}} = $_ for @{$j->{organizations}};
 $posts{$_->{id}} = $_ for @{$j->{posts}};
-$persons{$_->{id}} = $_->{other_names} for @{$j->{persons}};
+$persons{$_->{id}} = $_ for @{$j->{persons}};
 
 # Count how many members for each person, and store current members attributes
 my $nowc = 0;
@@ -63,7 +63,7 @@ foreach my $member (@{$j->{memberships}}) {
 
 die "very few MPs!" if $nowc < 640;
 
-# Load in extra emails / fax
+# Load in extra emails
 my $extra;
 if (defined($extra_emails_file)) {
     my $C = new Text::CSV_XS({ binary => 1 });
@@ -72,14 +72,15 @@ if (defined($extra_emails_file)) {
         chomp($line);
         $C->parse($line);
         map { die "Not valid field in $line" if (!defined $_) } $C->fields();
-        my ($first, $last, $cons, $email, $fax) = map { trim_spaces($_) } $C->fields();
-        $extra->{"$first $last $cons"} = [$email, $fax];
+        my ($parl_id, $email) = map { trim_spaces($_) } $C->fields();
+        $extra->{$parl_id} = $email;
     }
 }
 
-# Attach names to memberships
+# Attach names/ID to memberships
 foreach my $member (@members) {
-    my @names = @{$persons{$member->{person_id}}};
+    my $person = $persons{$member->{person_id}};
+    my @names = @{$person->{other_names}};
     @names = grep { $_->{note} eq 'Main' } @names;
     if (end_date($member) eq $last_dissolution_date) {
         @names = grep { start_date($_) le $last_dissolution_date && $last_dissolution_date le end_date($_) } @names;
@@ -90,7 +91,12 @@ foreach my $member (@members) {
     $member->{fullname} = $name->{given_name} . " " . $name->{family_name};
     $member->{fullname} = $name->{honorific_prefix} . " $member->{fullname}"
         if $name->{honorific_prefix};
-    die unless $member->{fullname} && $member->{constituency} && $member->{party};
+
+    my @ids = @{$person->{identifiers}};
+    @ids = grep { $_->{scheme} eq 'datadotparl_id' } @ids;
+    $member->{parl_id} = $ids[0]->{identifier};
+
+    die unless $member->{fullname} && $member->{constituency} && $member->{party} && $member->{parl_id};
 }
 
 # Print out all MPs to CSV
@@ -99,17 +105,9 @@ open(CSV, ">$file_output_all");
 binmode(CSV, ":utf8");
 print CSV "name, constituency, email, fax, phone, constituencyfax, party\n";
 foreach my $member (sort { $a->{constituency} cmp $b->{constituency} } @membersnow) {
-    my $email = undef;
-    my $fax = undef;
-    if ($extra) {
-        my $extra_data = $extra->{"$member->{fullname} $member->{constituency}"}; 
-        if (defined($extra_data)) {
-            $email = $extra_data->[0];
-            $fax = $extra_data->[1];
-            delete $extra->{"$member->{fullname} $member->{constituency}"}; 
-        }
-    }
-    $csv->print(\*CSV, [$member->{fullname}, $member->{constituency}, $email, $fax, undef, undef, $member->{party}]);
+    my $email = $extra->{$member->{parl_id}};
+    delete $extra->{$member->{parl_id}} if $email;
+    $csv->print(\*CSV, [$member->{fullname}, $member->{constituency}, $email, undef, undef, undef, $member->{party}]);
     print CSV "\n";
 }
 close CSV;
