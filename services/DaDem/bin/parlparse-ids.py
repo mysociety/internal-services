@@ -21,7 +21,6 @@ while 1:
     if not line:
         break
 
-    line = line.decode("utf-8")
     name, cons, date_today = line.split("#")
 
     id, canonname, canoncons = memberList.matchfullnamecons(name, cons, date_today)
